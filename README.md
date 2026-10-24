@@ -151,8 +151,9 @@ the project folder:
 
 A job goes spec, build, then four reviews in parallel. If any reviewer asks for changes,
 the builder fixes them and all four review again, up to 3 rounds. Then the approver
-merges it into `main` or hands it to you. The factory never pushes, so run `git push`
-yourself after a merge.
+merges it into `main` or hands it to you. The factory pushes `main` after a merge. Agents
+handle all commits, pushes, pull requests and merges themselves; see "Git and pull requests"
+in AGENTS.md.
 
 **Things we learned running it:**
 

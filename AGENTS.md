@@ -33,6 +33,27 @@ npm run build     # vite production build
 
 There is no linter yet. Match the formatting of the file you are editing.
 
+## Git and pull requests
+
+Agents own the whole git workflow. Do every step yourself; do not leave
+commits, pushes, pull requests or merges for a human.
+
+1. Branch from an up to date `main`: `git checkout main`, `git pull`, then
+   `git checkout -b feature/<short-name>`. Never commit straight to `main`.
+2. Commit as you go: short one line messages in the style of `git log --oneline`,
+   one commit per distinct piece of work, explicit paths (never `git add -A`).
+   Run the validation commands first; they must pass.
+3. Push the branch (`git push -u origin <branch>`) and open a pull request into
+   `main` with `gh pr create`. The description says what changed, what to check
+   and how it was tested, including anything not verified.
+4. Merge it yourself once validation passes and the work meets its spec:
+   `gh pr merge <number> --merge --delete-branch`. Then `git checkout main`,
+   `git pull`, and delete the local branch.
+5. Leave the tree clean and `main` in sync with `origin/main` when you finish.
+
+Never force push, rewrite pushed history or skip hooks. If a merge conflicts or
+`main` moved, merge `main` into the branch, validate again, then push.
+
 ## Stack
 
 - Vite, vanilla JavaScript ES modules. No UI framework.
