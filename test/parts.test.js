@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
+import { createButton } from '../src/parts/button.js'
 import { createLed } from '../src/parts/led.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
@@ -96,6 +97,22 @@ describe('createLed', () => {
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
   })
 
+  it('starts unlit, setLit(true) glows the lens and setLit(false) turns it off', () => {
+    const { group, setLit } = createLed({ color: 'red', anode, cathode })
+    expect(typeof setLit).toBe('function')
+    const lensMeshes = meshesOf(group).filter((mesh) => mesh.material.transparent)
+    expect(lensMeshes).toHaveLength(3)
+    const black = new THREE.Color(0x000000)
+    for (const mesh of lensMeshes) expect(mesh.material.emissive.equals(black)).toBe(true)
+    setLit(true)
+    for (const mesh of lensMeshes) {
+      expect(mesh.material.emissive.equals(black)).toBe(false)
+      expect(mesh.material.emissiveIntensity).toBeGreaterThan(0)
+    }
+    setLit(false)
+    for (const mesh of lensMeshes) expect(mesh.material.emissive.equals(black)).toBe(true)
+  })
+
   it('supports four colours and throws for others', () => {
     for (const color of ['red', 'green', 'yellow', 'blue']) {
       expect(() => createLed({ color, anode, cathode })).not.toThrow()
@@ -134,5 +151,48 @@ describe('createResistor', () => {
     for (const mesh of meshesOf(group)) {
       if (!mesh.name.startsWith('band-')) expect(mesh.castShadow).toBe(true)
     }
+  })
+})
+
+describe('createButton', () => {
+  const legs = [
+    new THREE.Vector3(1, 0.852, -0.381),
+    new THREE.Vector3(1.508, 0.852, -0.381),
+    new THREE.Vector3(1, 0.852, 0.381),
+    new THREE.Vector3(1.508, 0.852, 0.381)
+  ]
+
+  // Highest point of the cap, the top of the whole part.
+  function topY(group) {
+    group.updateMatrixWorld(true)
+    return new THREE.Box3().setFromObject(group).max.y
+  }
+
+  it('reaches down to its four leg points and stands above them', () => {
+    const { group } = createButton({ legs })
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.03)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 0.4)
+    expect(box.min.x).toBeLessThan(legs[0].x + 0.03)
+    expect(box.max.x).toBeGreaterThan(legs[1].x - 0.03)
+    expect(box.min.z).toBeLessThan(legs[0].z + 0.03)
+    expect(box.max.z).toBeGreaterThan(legs[2].z - 0.03)
+  })
+
+  it('setPressed(true) lowers the cap and setPressed(false) restores it', () => {
+    const { group, setPressed } = createButton({ legs })
+    const released = topY(group)
+    setPressed(true)
+    const pressed = topY(group)
+    expect(released - pressed).toBeGreaterThan(0.03)
+    expect(released - pressed).toBeLessThan(0.08)
+    setPressed(false)
+    expect(topY(group)).toBeCloseTo(released, 6)
+  })
+
+  it('casts shadows from every mesh and is tagged pressable', () => {
+    const { group } = createButton({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(group.userData.pressable).toBe(true)
   })
 })

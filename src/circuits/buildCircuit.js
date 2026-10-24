@@ -3,12 +3,22 @@
 // returned group belongs directly in the scene.
 import * as THREE from 'three'
 import { unoPinPosition } from '../parts/unoBoard.js'
-import { holePosition } from '../parts/breadboard.js'
+import { holePosition, parseHole, BREADBOARD_COLUMNS } from '../parts/breadboard.js'
+import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
+// A button at '12e' straddles the centre channel: legs at 12e, 14e, 12f, 14f.
+export function buttonHoles(at) {
+  const { column, row } = parseHole(at)
+  if (row !== 'e') throw new Error(`Button hole '${at}' must be in row e`)
+  if (column > BREADBOARD_COLUMNS - 2) throw new Error(`Button hole '${at}' needs a column of at most ${BREADBOARD_COLUMNS - 2}`)
+  return [`${column}e`, `${column + 2}e`, `${column}f`, `${column + 2}f`]
+}
+
 const PART_FACTORIES = {
+  button: (part, hole) => createButton({ legs: buttonHoles(part.at).map(hole) }),
   led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
   resistor: (part, hole) => createResistor({ ohms: part.ohms, from: hole(part.from), to: hole(part.to) })
 }

@@ -6,6 +6,16 @@ export function defaultValues(params) {
   return values
 }
 
+// Text each slot shows: the value, or the chosen option's code text when it has one.
+export function slotValues(params, values) {
+  const slots = { ...values }
+  for (const param of params) {
+    const option = (param.options || []).find((item) => item.value === values[param.name])
+    if (option && option.code !== undefined) slots[param.name] = option.code
+  }
+  return slots
+}
+
 export function fillSketch(code, values) {
   return code.replace(/\{\{(\w+)\}\}/g, (slot, name) =>
     name in values ? String(values[name]) : slot

@@ -180,7 +180,8 @@ git branch -d factory/<job-id>
 Set `stage: "merged"`. If the merge fails, run `git merge --abort` (when a merge
 is in progress), set `stage: "needs-human"` and tell the user why. If removing the
 worktree fails, the job is still merged: tell the user what `git worktree remove`
-printed. Never push.
+printed. Then push `main` (`git push origin main`), as AGENTS.md "Git and pull
+requests" says agents do. Never force push.
 
 ### Needs human
 

@@ -16,6 +16,7 @@ const DOME_RADIUS = 0.25
 const DOME_HEIGHT = 0.55
 const FLANGE_RADIUS = 0.29
 const FLANGE_HEIGHT = 0.1
+const LIT_INTENSITY = 1.6
 
 // Metal rod between two points.
 function rod(a, b, mat) {
@@ -67,5 +68,12 @@ export function createLed({ color, anode, cathode }) {
     new THREE.Vector3(anode.x, anode.y + span * 0.65, anode.z),
     new THREE.Vector3(anode.x, baseY, anode.z)
   ], metal)
-  return { group }
+
+  // Lit glows in the LED's own colour on the shared lens material; unlit has no glow.
+  function setLit(on) {
+    lens.emissive.setHex(on ? COLORS[color] : 0x000000)
+    lens.emissiveIntensity = on ? LIT_INTENSITY : 1
+  }
+
+  return { group, setLit }
 }

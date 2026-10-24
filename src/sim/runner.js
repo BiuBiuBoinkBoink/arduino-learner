@@ -1,9 +1,10 @@
 // Sim runner: idle -> uploading (fake upload) -> running -> idle on stop.
 // Time only comes in through now; the runner never marks progress itself,
 // it calls onGoal(lessonId) once per run when the sim goal first passes.
+// Sims also get the shared inputs (held buttons); stop leaves them as they are.
 export const UPLOAD_MS = 1500
 
-export function createSimRunner({ sims, pins, onGoal, uploadMs = UPLOAD_MS }) {
+export function createSimRunner({ sims, pins, inputs, onGoal, uploadMs = UPLOAD_MS }) {
   let phase = 'idle'
   let lessonId = null
   let getValues = null
@@ -28,7 +29,7 @@ export function createSimRunner({ sims, pins, onGoal, uploadMs = UPLOAD_MS }) {
   function tick(now) {
     if (phase === 'uploading') {
       if (now - runStart < uploadMs) return
-      sim = sims[lessonId]({ pins, getValues, startedAt: now })
+      sim = sims[lessonId]({ pins, inputs, getValues, startedAt: now })
       phase = 'running'
     }
     if (phase !== 'running') return
