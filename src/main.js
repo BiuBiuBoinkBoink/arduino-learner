@@ -1,11 +1,15 @@
 import './style.css'
-import * as THREE from 'three'
-import { createStage } from './scene/stage.js'
-import { createPanels } from './ui/panels.js'
-import { lessons } from './course/lessons.js'
+import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
 import { idFromHash, hashForId } from './course/hash.js'
-import { createLessonStrip } from './ui/lessonStrip.js'
+import { createScene } from './app/scene.js'
+import { createCircuitView } from './app/circuitView.js'
+import { getStorage } from './app/storage.js'
+import { createLayout } from './ui/layout.js'
+import { createTopBar } from './ui/topBar.js'
+import { createCourseMap } from './ui/courseMap.js'
+import { createGuidePanel } from './ui/guidePanel.js'
+import { createViewControls } from './ui/viewControls.js'
 import { createInfoPanel } from './ui/infoPanel.js'
 import { createCodePanel } from './ui/codePanel.js'
 import { createBoardTour } from './ui/boardTour.js'
@@ -13,57 +17,20 @@ import { createRunControls } from './ui/runControls.js'
 import { createPartPress, createHoldButton } from './ui/partPress.js'
 import { createPartTurn, createKnobSlider } from './ui/partTurn.js'
 import { createMultimeter } from './ui/multimeter.js'
-import { ledBrightness } from './sim/ohm.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
 import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createCodeRunner } from './runner/codeRunner.js'
-import { createUnoBoard } from './parts/unoBoard.js'
-import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
-import { buildCircuit } from './circuits/buildCircuit.js'
 import { createPins } from './sim/pins.js'
 import { createInputs } from './sim/inputs.js'
 import { sims } from './sim/sims.js'
 import { createSimRunner } from './sim/runner.js'
 
-const app = document.querySelector('#app')
-
-const stageEl = document.createElement('div')
-stageEl.id = 'stage'
-app.append(stageEl)
-
-const stage = createStage(stageEl)
-const board = createUnoBoard()
-const breadboard = createBreadboard()
-
-// Uno on the left, breadboard on the right with a 1 cm gap, the pair centred on x = 0.
-const BOARD_GAP = 1
-const boardBox = new THREE.Box3().setFromObject(board.group)
-const breadboardBox = new THREE.Box3().setFromObject(breadboard.group)
-const boardWidth = boardBox.max.x - boardBox.min.x
-const totalWidth = boardWidth + BOARD_GAP + breadboardBox.max.x - breadboardBox.min.x
-board.group.position.x = -totalWidth / 2 - boardBox.min.x
-breadboard.group.position.x = -totalWidth / 2 + boardWidth + BOARD_GAP - breadboardBox.min.x
-stage.scene.add(board.group, breadboard.group)
-stage.invalidate()
-const panels = createPanels(app)
-
-function getStorage() {
-  try {
-    const storage = window.localStorage
-    if (storage) return storage
-  } catch {
-    // Storage blocked, fall through to memory.
-  }
-  const memory = new Map()
-  return {
-    getItem: (key) => (memory.has(key) ? memory.get(key) : null),
-    setItem: (key, value) => { memory.set(key, String(value)) }
-  }
-}
+const layout = createLayout(document.querySelector('#app'))
+const { stage, board, breadboard, frameBox } = createScene(layout.stageEl)
 
 const course = createCourse({ lessons, storage: getStorage() })
 
@@ -111,9 +78,28 @@ room.subscribe((name, value) => {
   if (name === 'light') stage.setDaylight(value)
 })
 
+const topBar = createTopBar(layout.topBar, course, { levels, onOpenMap: () => toggleMap() })
+const courseMap = createCourseMap({ container: layout.topBar, course, levels, button: topBar.mapButton })
+function toggleMap() {
+  if (courseMap.isOpen()) courseMap.close()
+  else courseMap.open()
+}
+const guide = createGuidePanel(layout.guide, course)
+createInfoPanel(guide.referenceBody, course, { heading: false })
+
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
-const codePanel = createCodePanel(panels.code, course)
-const { toolbar, getValues, subscribe: subscribeValues } = codePanel
+const codePanel = createCodePanel(layout.codePanel, course, { setOpen: layout.setCodeOpen })
+const { getValues, subscribe: subscribeValues } = codePanel
+// The code panel opens by default on lessons with a sketch.
+let codeLessonId = null
+function defaultCodeOpen({ lesson }) {
+  if (lesson.id === codeLessonId) return
+  codeLessonId = lesson.id
+  layout.setCodeOpen(Boolean(lesson.sketch))
+}
+defaultCodeOpen(course.getState())
+course.subscribe(defaultCodeOpen)
+
 // The Serial Monitor sits under the sketch editor, and moves with it to full screen.
 const serialMonitor = createSerialMonitor({
   container: codePanel.serialSlot,
@@ -128,135 +114,63 @@ course.subscribe(({ lesson }) => {
   serial.clear()
   serialMonitor.setVisible(usesSerial(lesson))
 })
-const runControls = document.createElement('div')
-toolbar.append(runControls)
-const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
-const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
-const partTurn = createPartTurn({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
-const knobSlider = createKnobSlider({ container: toolbar, partTurn, inputs })
-const roomControls = createRoomControls({ container: toolbar, room })
-const sound = createSound({ container: toolbar, tones, storage: getStorage() })
-const multimeter = createMultimeter({ container: toolbar, stage, getItems: () => (circuit ? circuit.items : null), inputs })
 
-// Parts with showWhen are drawn only while that code panel param has that value.
-function showParts(values) {
-  if (!circuit) return
-  for (const part of circuits[circuitLessonId].parts) {
-    if (!part.showWhen) continue
-    circuit.items[part.id].group.visible = values[part.showWhen.param] === part.showWhen.value
-  }
-  stage.invalidate()
-}
+const view = createCircuitView({ stage, board, breadboard, pins, servos, tones, getValues })
+const dock = layout.dock
+const partPress = createPartPress({ stage, getItems: view.items, inputs })
+const holdButton = createHoldButton({ container: dock, partPress, inputs })
+const partTurn = createPartTurn({ stage, getItems: view.items, inputs })
+const knobSlider = createKnobSlider({ container: dock, partTurn, inputs })
+const roomControls = createRoomControls({ container: dock, room })
+const sound = createSound({ container: dock, tones, storage: getStorage() })
+const multimeter = createMultimeter({ container: dock, stage, getItems: view.items, inputs })
+createViewControls({ container: layout.viewControls, stage, getFrameBox: frameBox })
 
-// Swap the lesson circuit on every lesson change; lessons without one show the empty breadboard.
-let circuit = null
-let circuitLeds = []
-let circuitRgbLeds = []
-let circuitBuzzer = null
-let circuitServo = null
+// Swap the lesson circuit on every lesson change, then point the per lesson
+// controls at its parts; lessons without one show the empty breadboard.
 let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
   circuitLessonId = lesson.id
   partPress.release()
   partTurn.release()
-  if (circuit) {
-    stage.scene.remove(circuit.group)
-    circuit.group.traverse((object) => {
-      if (!object.isMesh) return
-      object.geometry.dispose()
-      object.material.dispose()
-    })
-    circuit = null
-    circuitLeds = []
-    circuitRgbLeds = []
-  }
-  if (circuits[lesson.id]) {
-    circuit = buildCircuit(circuits[lesson.id], { board, breadboard })
-    circuitLeds = circuits[lesson.id].parts
-      .filter((part) => part.type === 'led')
-      .map((part) => ({ part, led: circuit.items[part.id] }))
-    circuitRgbLeds = circuits[lesson.id].parts
-      .filter((part) => part.type === 'rgbLed')
-      .map((part) => ({ part, led: circuit.items[part.id] }))
-    lightLeds()
-    stage.scene.add(circuit.group)
-    showParts(getValues())
-  }
-  const button = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'button') : null
+  const table = circuits[lesson.id] || null
+  const items = view.show(table)
+  const find = (type) => (table ? table.parts.find((part) => part.type === type) : null)
+  const button = find('button')
   holdButton.setTarget(button ? button.id : null)
   // Every new circuit starts with its knob in the middle.
-  const pot = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'potentiometer') : null
+  const pot = find('potentiometer')
   if (pot) partTurn.setValue(pot.id, 0.5)
   knobSlider.setTarget(pot ? pot.id : null)
-  multimeter.setTargets(circuit ? circuits[lesson.id].meter : null)
+  multimeter.setTargets(table ? table.meter : null)
   // Every new circuit starts in the default room; sensor parts show their sliders.
   room.reset()
-  const types = circuit ? circuits[lesson.id].parts.map((part) => part.type) : []
-  const ownRoom = circuit && !circuits[lesson.id].roomDriven
+  const types = table ? table.parts.map((part) => part.type) : []
+  const ownRoom = table && !table.roomDriven
   roomControls.setSensors({ light: ownRoom && types.includes('ldr'), temp: ownRoom && types.includes('tmp36') })
-  const buzzer = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'buzzer') : null
-  circuitBuzzer = buzzer ? { pin: buzzer.pin, item: circuit.items[buzzer.id] } : null
+  const buzzer = find('buzzer')
   sound.setPin(buzzer ? buzzer.pin : null)
   // A new servo starts centred at 90 deg.
-  const servo = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'servo') : null
-  circuitServo = servo ? { pin: servo.pin, item: circuit.items[servo.id] } : null
+  const servo = find('servo')
   if (servo) {
     servos.set(servo.pin, 90)
-    circuitServo.item.setAngle(90)
+    items[servo.id].setAngle(90)
   }
   stage.invalidate()
-}
-// Light circuit LEDs from the level of the Uno pin that drives each (0 to 1, PWM
-// duty), scaled by the series resistor when the part names an ohmsParam.
-// With a pin name, only the LEDs on that pin.
-function lightLeds(name) {
-  const values = getValues()
-  let changed = false
-  for (const { part, led } of circuitLeds) {
-    if (name !== undefined && part.pin !== name) continue
-    const scale = part.ohmsParam ? ledBrightness(values[part.ohmsParam]) : 1
-    led.setBrightness(pins.get(part.pin) * scale)
-    changed = true
-  }
-  // RGB LEDs mix their three channel pins.
-  for (const { part, led } of circuitRgbLeds) {
-    const { red, green, blue } = part.pins
-    if (name !== undefined && ![red, green, blue].includes(name)) continue
-    led.setColor(pins.get(red), pins.get(green), pins.get(blue))
-    changed = true
-  }
-  if (changed) stage.invalidate()
 }
 
 showCircuit(course.getState())
 course.subscribe(showCircuit)
 subscribeValues((values) => {
-  showParts(values)
-  lightLeds()
+  view.showParts(values)
+  view.relight()
 })
 
-pins.subscribe((name) => lightLeds(name))
-
-// Turn the servo horn to the arm angle on its pin.
-servos.subscribe((name, degrees) => {
-  if (!circuitServo || circuitServo.pin !== name) return
-  circuitServo.item.setAngle(degrees)
-  stage.invalidate()
-})
-
-// Show the buzzer sound ring while its pin has a tone.
-tones.subscribe((name, hz) => {
-  if (!circuitBuzzer || circuitBuzzer.pin !== name) return
-  circuitBuzzer.item.setPlaying(hz > 0)
-  stage.invalidate()
-})
-
-createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
 const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal: (id) => course.markComplete(id) })
 const run = createRunControls({
-  container: runControls,
+  container: layout.runBar,
   course,
   runner,
   getValues,
@@ -268,5 +182,4 @@ const run = createRunControls({
 subscribeValues(() => {
   if (runner.getPhase() === 'running' && !codePanel.isEdited()) runner.reload(codePanel.getSource(), performance.now())
 })
-createLessonStrip(panels.strip, course)
-createBoardTour({ stage, board, course, container: app })
+createBoardTour({ stage, board, course, container: layout.workbench })

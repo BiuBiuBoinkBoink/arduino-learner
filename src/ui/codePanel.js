@@ -1,4 +1,4 @@
-// Code panel: heading, lesson line, param controls and the sketch editor.
+// Code panel: header with a hide button, param controls and the sketch editor.
 // Lessons with a sketch get controls that fill its {{name}} slots and an
 // editor: a transparent textarea over the coloured code, so the learner can
 // type while the colours, the trace highlight and an error line stay visible.
@@ -9,21 +9,50 @@
 // The Full screen button (top right of the editor, also Escape to close)
 // expands the editor, its error line and the serial slot to fill the window;
 // the same textarea moves along, so the text, caret and highlights stay.
-// Returns { toolbar, serialSlot, getValues, subscribe, getSource, isEdited,
-// setError }: an empty slot after the lesson line for the run controls, an
-// empty slot under the editor for the Serial Monitor, a copy of the param
+// The panel does not own its open state: the chevron in the header calls
+// setOpen(false) and the Code rail (shown only while closed) calls setOpen(true).
+// Returns { serialSlot, getValues, subscribe, getSource, isEdited, setError }:
+// an empty slot under the editor for the Serial Monitor, a copy of the param
 // values, subscribe(fn) calling fn(values) on every control change and lesson
 // change, the code to run, and setError({ line, message } | null).
 import { tokenize } from './highlight.js'
 import { defaultValues, fillSketch, slotValues, stepDuration } from './sketch.js'
 
-export function createCodePanel(panel, course) {
+export function createCodePanel(panel, course, { setOpen }) {
+  const rail = document.createElement('button')
+  rail.type = 'button'
+  rail.className = 'code-rail'
+  rail.setAttribute('aria-label', 'Show code')
+  rail.setAttribute('aria-expanded', 'false')
+  const railText = document.createElement('span')
+  railText.className = 'code-rail-text'
+  railText.textContent = 'Code'
+  rail.append(railText)
+  // Focus follows to the control that is visible after the change.
+  rail.addEventListener('click', () => {
+    setOpen(true)
+    collapseButton.focus()
+  })
+
+  const header = document.createElement('div')
+  header.className = 'code-header'
   const heading = document.createElement('h2')
   heading.className = 'panel-heading'
   heading.textContent = 'Code'
-  const lessonLine = document.createElement('p')
-  lessonLine.className = 'panel-text'
-  const toolbar = document.createElement('div')
+  const collapseButton = document.createElement('button')
+  collapseButton.type = 'button'
+  collapseButton.className = 'run-button code-collapse'
+  collapseButton.setAttribute('aria-label', 'Hide code')
+  collapseButton.title = 'Hide code'
+  collapseButton.append(icon('M6 3l5 5-5 5'))
+  collapseButton.addEventListener('click', () => {
+    setOpen(false)
+    rail.focus()
+  })
+  header.append(heading, collapseButton)
+
+  const body = document.createElement('div')
+  body.className = 'code-body'
   const controls = document.createElement('div')
   controls.className = 'code-params'
   const editedNote = document.createElement('p')
@@ -89,7 +118,8 @@ export function createCodePanel(panel, course) {
   const backdrop = document.createElement('div')
   backdrop.className = 'code-backdrop'
   backdrop.hidden = true
-  panel.append(heading, lessonLine, toolbar, controls, editedNote, workspace)
+  body.append(header, controls, editedNote, workspace)
+  panel.append(rail, body)
   document.body.append(backdrop)
 
   let lessonId = null
@@ -223,7 +253,6 @@ export function createCodePanel(panel, course) {
     stopTrace()
     errorAt = -1
     setError(null)
-    lessonLine.textContent = lesson.id + ' ' + lesson.title
     fullTitle.textContent = 'Code: ' + lesson.id + ' ' + lesson.title
 
     const sketch = lesson.sketch
@@ -332,7 +361,6 @@ export function createCodePanel(panel, course) {
   }
 
   return {
-    toolbar,
     serialSlot,
     getValues: () => ({ ...values }),
     subscribe,
