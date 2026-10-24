@@ -74,7 +74,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
-`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`. The other
+`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -149,7 +149,8 @@ src/
     light.js       pure createLightSim (1.9): ldrOhms(light) 1 Mohm dark to 1 kohm bright (log), dividerLevel(light)
                    with 10 kohm to GND on A0; D13 on while raw < darkLevel (live); goal is the LED turning on
                    and off again since Run
-    temp.js        pure createTempSim (1.10): tmp36Level(tempC) = (0.5 + T / 100) / 5 on A0, rawToC(raw); goal is
+    temp.js        pure createTempSim (1.10): tmp36Level(tempC) = (0.5 + T / 100) / 5 on A0, rawToC(raw), prints
+                   '<deg C> deg C' every second; goal is
                    the reading (nearest degree) at or below 15 and at or above 30 deg C since Run
     rgb.js         pure createRgbSim (1.8): red, green, blue params (live) on D9, D10, D11 as value / 255; readout
                    'Now r, g, b. Target orange 255, 128, 0'; goal is every channel within 25 of TARGET since Run
@@ -164,12 +165,15 @@ src/
     pullDown.js    pure createPullDownSim (1.5): btn1 to 5V, released reads 0 with pull 'down', floats (random
                    level every 40 to 160 ms, injectable random) with 'none'; D13 copies D2; goal is 3 full
                    presses while fitted, removing the pull down resets the count
-    pot.js         pure createPotSim (1.6): A0 follows the pot1 knob; readout 'A0 reads <raw>, <volts> V'; goal is
+    pot.js         pure createPotSim (1.6): A0 follows the pot1 knob, prints volts every 200 ms; readout 'A0 reads <raw>, <volts> V'; goal is
                    A0 read at or below 100 and at or above 920 since Run, any order
     fade.js        pure createFadeSim (1.7): analogWrite value 0 to 255 then 255 to 0, one step every stepMs (live),
                    D9 level value / 255; readout 'analogWrite(9, <value>), duty <percent>%'; goal is one full
                    fade (512 steps) seen taking 1000 to 3000 ms with the current stepMs also in range
-    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, onGoal, uploadMs }): hasSim, run, tick(now), stop,
+    serial.js      pure createSerial({ maxLines }): print, println (floats to 2 decimals), getLines, clear; send(text)
+                   queues a line for the sketch, available, read, readLine, clearInput; subscribe(fn) with
+                   'output' or 'input'; createTicker(periodMs, startedAt).due(now) for timed loops
+    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, serial, onGoal, uploadMs }): hasSim, run, tick(now), stop,
                    getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
                    else ''); UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
@@ -200,6 +204,9 @@ src/
     sound.js       createSound({ container, tones, storage }) -> { setPin(name) }: Web Audio square wave following
                    the tone on the buzzer pin; "Sound on" / "Sound off" toggle below the Run row on buzzer
                    lessons, saved under robo-learn:sound (default on)
+    serialMonitor.js usesSerial(lesson) (sketch or example contains Serial.begin);
+                   createSerialMonitor({ container, serial }) -> { setVisible(on) }: #serial-panel above the
+                   lesson strip with Clear, a scrolling non live role="log" output and a Send form
     multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
                    select below the Run row and click to probe a visible part of a target (a pointer up within
                    5 px of its down); both write inputs.setProbe(id); hidden with no targets
@@ -288,7 +295,7 @@ the current lesson, and every panel updates from it.
 
 ## Sims and goal checks
 
-- A lesson sim is made by a factory `create({ pins, inputs, room, tones, servos, getValues, startedAt })` and
+- A lesson sim is made by a factory `create({ pins, inputs, room, tones, servos, serial, getValues, startedAt })` and
   returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
   the same clock. `getValues()` gives the live code panel param values.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
@@ -301,6 +308,9 @@ the current lesson, and every panel updates from it.
   for silent. Sims call `tones.set(pin, hz)`; Stop resets it like the pins.
 - `servos` is a third `createPins()` holding a servo arm angle in deg per pin.
   Stop leaves it as it is, because a real servo holds its angle.
+- `serial` is the port shared with the Serial Monitor. Sims print what their
+  sketch prints, timed with `createTicker`, and read sent lines with
+  `serial.readLine()`. A run drops unread input; a lesson change clears output.
 - A sim may return `readout()`, a short string. The runner `getReadout()` gives it
   while running, else `''`, and `runControls` shows it under the status. It stands
   in for the Serial Monitor until Phase 3.

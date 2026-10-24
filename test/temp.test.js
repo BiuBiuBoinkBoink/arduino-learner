@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createPins } from '../src/sim/pins.js'
 import { createRoom } from '../src/sim/room.js'
 import { createTempSim, tmp36Level, rawToC } from '../src/sim/temp.js'
+import { createSerial } from '../src/sim/serial.js'
 
 function setup() {
   const pins = createPins()
@@ -46,5 +47,14 @@ describe('createTempSim', () => {
     room.setTempC(15)
     tick()
     expect(sim.checkGoal()).toBe(true)
+  })
+
+  it('prints deg C to Serial once a second, like the sketch', () => {
+    const serial = createSerial()
+    const sim = createTempSim({ pins: createPins(), room: createRoom(), serial, getValues: () => ({}), startedAt: 0 })
+    sim.update(0)
+    sim.update(500)
+    sim.update(1000)
+    expect(serial.getLines()).toEqual(['21.85 deg C', '21.85 deg C'])
   })
 })

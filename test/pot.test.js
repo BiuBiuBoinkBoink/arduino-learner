@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createPins } from '../src/sim/pins.js'
 import { createInputs } from '../src/sim/inputs.js'
 import { createPotSim } from '../src/sim/pot.js'
+import { createSerial } from '../src/sim/serial.js'
 
 function setup(inputs = createInputs()) {
   const pins = createPins()
@@ -70,5 +71,19 @@ describe('createPotSim', () => {
     expect(sim.checkGoal()).toBe(false)
     turn(1)
     expect(sim.checkGoal()).toBe(false)
+  })
+
+  it('prints the volts to Serial every 200 ms, like the sketch', () => {
+    const pins = createPins()
+    const inputs = createInputs()
+    const serial = createSerial()
+    const sim = createPotSim({ pins, inputs, serial, getValues: () => ({}), startedAt: 100 })
+    sim.update(100)
+    sim.update(250)
+    expect(serial.getLines()).toEqual(['2.50'])
+    inputs.setValue('pot1', 1)
+    sim.update(300)
+    sim.update(500)
+    expect(serial.getLines()).toEqual(['2.50', '5.00', '5.00'])
   })
 })
