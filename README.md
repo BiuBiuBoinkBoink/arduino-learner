@@ -73,6 +73,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 013 | Room light and temperature sliders, photoresistor and TMP36 parts, lessons 1.9 Light sensor and 1.10 Temperature |
 | 014 | Piezo buzzer with Web Audio and a Sound on/off toggle, lesson 1.11 Sound with an E D C tune goal |
 | 015 | SG90 style servo with a turning horn, lesson 1.12 Servo basics with a 45, 90 and 135 deg goal |
+| 016 | Level 1 project P1 Room monitor: photoresistor, TMP36, night light and alarm buzzer over a 24 s sim day |
 
 ### Where we stopped
 
@@ -133,6 +134,16 @@ lesson 1.11, which passes when one loop plays E, D, C. The target tune is an ass
 [factory/handoff/015-servo-spec.md](factory/handoff/015-servo-spec.md): a servo part whose horn
 follows a servos store (deg per pin, held on Stop), and lesson 1.12, where the arm moves at SG90
 speed and the goal is resting at 45, 90 and 135 deg. The targets are an assumption.
+
+**Job 016 is built** on `feature/room-monitor`, from
+[factory/handoff/016-room-monitor-spec.md](factory/handoff/016-room-monitor-spec.md): the Level 1
+project, lesson P1 Room monitor. A 24 s sim day drives the room. The learner sets the dark level
+and alarm temperature so that one whole day has the night light on at night only and the alarm
+on in the hottest hours only. Circuit wires can now be hole to hole jumpers.
+
+**Phase 2 is done.** Every lesson in the app (1.1 to 1.12 and P1) has a sim and a goal check.
+Next is Phase 3, starting with the Serial Monitor panel in
+[factory/backlog.md](factory/backlog.md); no spec yet.
 
 ## How to continue
 

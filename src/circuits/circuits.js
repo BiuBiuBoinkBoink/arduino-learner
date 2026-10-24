@@ -113,6 +113,34 @@ export const circuits = {
       { id: 'w3', color: 'yellow', from: 'D9', to: '14f' }
     ]
   },
+  // Level 1 project Room monitor: photoresistor divider on A0 (columns 2 to 9),
+  // TMP36 on A1 powered from 3.3V (12 to 14), D13 night light (18 to 23) and
+  // the D8 alarm buzzer across the channel (20h to 23h). The Uno has only three
+  // GND pins, so a jumper joins the buzzer strip 23 bottom to the LED GND strip.
+  // The sim drives the room, so there are no room sliders.
+  P1: {
+    roomDriven: true,
+    parts: [
+      { id: 'ldr1', type: 'ldr', from: '2c', to: '5c' },
+      { id: 'r2', type: 'resistor', ohms: 10000, from: '5d', to: '9d' },
+      { id: 'tmp1', type: 'tmp36', at: '12e' },
+      { id: 'r1', type: 'resistor', ohms: 220, from: '18c', to: '22c' },
+      { id: 'led1', type: 'led', color: 'yellow', pin: 'D13', anode: '22e', cathode: '23e' },
+      { id: 'bz1', type: 'buzzer', at: '20h', pin: 'D8' }
+    ],
+    wires: [
+      { id: 'w1', color: 'red', from: '5V', to: '2a' },
+      { id: 'w2', color: 'green', from: 'A0', to: '5a' },
+      { id: 'w3', color: 'black', from: 'GND.2', to: '9a' },
+      { id: 'w4', color: 'red', from: '3.3V', to: '12a' },
+      { id: 'w5', color: 'green', from: 'A1', to: '13a' },
+      { id: 'w6', color: 'black', from: 'GND.3', to: '14a' },
+      { id: 'w7', color: 'yellow', from: 'D13', to: '18a' },
+      { id: 'w8', color: 'black', from: 'GND', to: '23a' },
+      { id: 'w9', color: 'blue', from: 'D8', to: '20j' },
+      { id: 'w10', color: 'black', from: '23d', to: '23g' }
+    ]
+  },
   // TMP36 flat side towards the viewer: +Vs to 5V, Vout to A0, GND to GND.2.
   '1.10': {
     parts: [{ id: 'tmp1', type: 'tmp36', at: '12e' }],

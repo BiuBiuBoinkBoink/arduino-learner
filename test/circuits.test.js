@@ -26,7 +26,7 @@ function partHoles(part) {
 }
 
 // The pin that drives each lesson's LED.
-const SIGNAL_PINS = { '1.2': 'D13', '1.3': 'D9', '1.4': 'D13', '1.5': 'D13', '1.7': 'D9', '1.9': 'D13' }
+const SIGNAL_PINS = { '1.2': 'D13', '1.3': 'D9', '1.4': 'D13', '1.5': 'D13', '1.7': 'D9', '1.9': 'D13', P1: 'D13' }
 // Lessons built from the plain pin, resistor, LED, GND circuit.
 const LED_ONLY = ['1.2', '1.7']
 
@@ -44,10 +44,10 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2 to 1.12', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.12 and P1', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.11', '1.12', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.11', '1.12', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', 'P1'])
   })
 
   it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
@@ -68,7 +68,8 @@ describe('circuit tables', () => {
         }
         for (const wire of circuit.wires) {
           expect(() => parseHole(wire.to)).not.toThrow()
-          expect(UNO_PIN_NAMES).toContain(wire.from)
+          // From an Uno pin, or a hole for a jumper.
+          if (!/^\d+[a-z]$/.test(wire.from)) expect(UNO_PIN_NAMES).toContain(wire.from)
         }
         const itemIds = [...circuit.parts, ...circuit.wires].map((item) => item.id)
         expect(new Set(itemIds).size).toBe(itemIds.length)
@@ -126,7 +127,9 @@ describe('circuit tables', () => {
           expect(items[itemId].group.parent).toBe(group)
         }
         for (const wire of circuit.wires) {
-          const start = boards.board.group.localToWorld(unoPinPosition(wire.from))
+          const start = /^\d+[a-z]$/.test(wire.from)
+            ? boards.breadboard.group.localToWorld(holePosition(wire.from))
+            : boards.board.group.localToWorld(unoPinPosition(wire.from))
           const end = boards.breadboard.group.localToWorld(holePosition(wire.to))
           expect(items[wire.id].curve.getPoint(0).distanceTo(start)).toBeLessThan(0.001)
           expect(items[wire.id].curve.getPoint(1).distanceTo(end)).toBeLessThan(0.001)
@@ -283,6 +286,54 @@ describe('circuit tables', () => {
     it('keeps the D13 LED circuit on its own strips', () => {
       const sensorStrips = new Set([wireTo('5V'), wireTo('A0'), wireTo('GND.2')])
       for (const pin of ['D13', 'GND']) expect(sensorStrips.has(wireTo(pin))).toBe(false)
+    })
+  })
+
+  describe('project P1 room monitor circuit', () => {
+    const circuit = circuits.P1
+    const part = (id) => circuit.parts.find((item) => item.id === id)
+    // Strips joined by jumper wires count as one node.
+    const jumpers = circuit.wires.filter((wire) => /^\d+[a-z]$/.test(wire.from))
+    const node = (hole) => {
+      const strip = holeStrip(hole)
+      const jumper = jumpers.find((wire) => holeStrip(wire.from) === strip || holeStrip(wire.to) === strip)
+      return jumper ? [holeStrip(jumper.from), holeStrip(jumper.to)].sort().join('+') : strip
+    }
+    const wireTo = (pin) => node(circuit.wires.find((wire) => wire.from === pin).to)
+    const ends = (item) => [node(item.from), node(item.to)].sort()
+
+    it('is driven by the sim, with no room sliders', () => {
+      expect(circuit.roomDriven).toBe(true)
+    })
+
+    it('makes the photoresistor divider on A0', () => {
+      expect(ends(part('ldr1'))).toEqual([wireTo('5V'), wireTo('A0')].sort())
+      expect(ends(part('r2'))).toEqual([wireTo('A0'), wireTo('GND.2')].sort())
+      expect(part('r2').ohms).toBe(10000)
+    })
+
+    it('powers the TMP36 from 3.3V with its output on A1', () => {
+      const [vs, out, gnd] = potHoles(part('tmp1').at).map(node)
+      expect([wireTo('3.3V'), wireTo('A1'), wireTo('GND.3')]).toEqual([vs, out, gnd])
+    })
+
+    it('lights the D13 LED through 220 ohm and grounds the D8 buzzer through the jumper', () => {
+      const led = part('led1')
+      expect(ends(part('r1'))).toEqual([wireTo('D13'), node(led.anode)].sort())
+      expect(node(led.cathode)).toBe(wireTo('GND'))
+      const [positive, negative] = buzzerHoles(part('bz1').at).map(node)
+      expect(positive).toBe(wireTo('D8'))
+      expect(negative).toBe(wireTo('GND'))
+    })
+
+    it('keeps every net on its own node', () => {
+      const pinsOn = new Map()
+      for (const wire of circuit.wires.filter((item) => !jumpers.includes(item))) {
+        const key = node(wire.to)
+        if (!pinsOn.has(key)) pinsOn.set(key, new Set())
+        pinsOn.get(key).add(wire.from)
+      }
+      for (const pins of pinsOn.values()) expect(pins.size).toBe(1)
     })
   })
 

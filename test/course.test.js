@@ -22,9 +22,12 @@ function setup(storage = fakeStorage()) {
 }
 
 describe('lessons', () => {
-  it('has 12 entries with unique ids', () => {
-    expect(lessons.length).toBe(12)
-    expect(new Set(lessons.map((l) => l.id)).size).toBe(12)
+  it('has the 12 Level 1 lessons then the P1 project, with unique ids', () => {
+    expect(lessons.length).toBe(13)
+    expect(new Set(lessons.map((l) => l.id)).size).toBe(13)
+    expect(lessons.slice(0, 12).map((l) => l.id)).toEqual(Array.from({ length: 12 }, (_, i) => `1.${i + 1}`))
+    expect(lessons[12].id).toBe('P1')
+    expect(lessons[12].level).toBe(1)
   })
 })
 
@@ -35,7 +38,7 @@ describe('createCourse', () => {
     expect(state.lesson.id).toBe('1.1')
     expect(state.index).toBe(0)
     expect(state.completed).toEqual([])
-    expect(state.total).toBe(12)
+    expect(state.total).toBe(13)
   })
 
   it('goTo a known id changes lesson and notifies', () => {
@@ -65,13 +68,13 @@ describe('createCourse', () => {
     expect(course.getState().lesson.id).toBe('1.2')
     course.prev()
     expect(course.getState().lesson.id).toBe('1.1')
-    course.goTo('1.12')
+    course.goTo('P1')
     const before = calls.length
     course.next()
-    expect(course.getState().lesson.id).toBe('1.12')
+    expect(course.getState().lesson.id).toBe('P1')
     expect(calls.length).toBe(before)
     course.prev()
-    expect(course.getState().lesson.id).toBe('1.11')
+    expect(course.getState().lesson.id).toBe('1.12')
   })
 
   it('markComplete saves a JSON array without duplicates and notifies', () => {

@@ -164,7 +164,8 @@ function showCircuit({ lesson }) {
   // Every new circuit starts in the default room; sensor parts show their sliders.
   room.reset()
   const types = circuit ? circuits[lesson.id].parts.map((part) => part.type) : []
-  roomControls.setSensors({ light: types.includes('ldr'), temp: types.includes('tmp36') })
+  const ownRoom = circuit && !circuits[lesson.id].roomDriven
+  roomControls.setSensors({ light: ownRoom && types.includes('ldr'), temp: ownRoom && types.includes('tmp36') })
   const buzzer = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'buzzer') : null
   circuitBuzzer = buzzer ? { pin: buzzer.pin, item: circuit.items[buzzer.id] } : null
   sound.setPin(buzzer ? buzzer.pin : null)
