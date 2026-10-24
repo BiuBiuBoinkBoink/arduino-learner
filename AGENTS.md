@@ -196,13 +196,15 @@ src/
                    circuit changes an input level), serial, millis, error };
                    tone(pin, hz, ms) ends by itself at its own time; null or unset input pins read HIGH with
                    INPUT_PULLUP, else LOW
-    worker.js      Web Worker: start, stop, inputs, serial messages in; batch and error messages out; follows
-                   real time every 16 ms
+    worker.js      Web Worker: start, stop, inputs, serial messages in; started, batch and error messages out;
+                   follows real time every 16 ms
     codeChecks.js  pure analyzeCode(source) -> { error, calls [{ name, line, inFunction }], functions, includes },
                    names as written ('delay', 'Serial.println', 'arm.write'); findCalls, countCalls, callLines
                    (each with { inFunction }), definesFunction; a parse error gives error, not a throw
-    codeRunner.js  createCodeRunner({ onBatch, onError }) -> { start(source), stop(), setInputs(levels),
-                   sendSerial(text) }; main thread client for the worker
+    codeRunner.js  createCodeRunner({ onBatch, onError, createWorker, startTimeoutMs }) -> { start(source), stop(),
+                   setInputs(levels), sendSerial(text) }; main thread client for the worker; a worker that
+                   cannot load or does not send started within START_TIMEOUT_MS (4 s) reports START_FAILED
+                   with line null, so Run never fails silently
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;

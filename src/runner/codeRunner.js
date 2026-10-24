@@ -1,24 +1,69 @@
-// Main thread client for the sketch worker. createCodeRunner({ onBatch, onError })
-// -> { start(source), stop(), setInputs(levels), sendSerial(text) }. One
-// worker is made on first start and reused; stop leaves it idle.
-export function createCodeRunner({ onBatch, onError }) {
+// Main thread client for the sketch worker. createCodeRunner({ onBatch, onError,
+// createWorker, startTimeoutMs }) -> { start(source), stop(), setInputs(levels),
+// sendSerial(text) }. One worker is made on first start and reused; stop
+// leaves it idle. A worker that fails to load, or does not confirm a start
+// within startTimeoutMs, reports an error with line null instead of leaving
+// Run silently doing nothing. createWorker is injectable for tests.
+export const START_TIMEOUT_MS = 4000
+export const START_FAILED = 'The code runner could not start in this browser. Reload the page and press Run again.'
+
+function moduleWorker() {
+  return new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+}
+
+export function createCodeRunner({ onBatch, onError, createWorker = moduleWorker, startTimeoutMs = START_TIMEOUT_MS }) {
   let worker = null
+  let startTimer = null
+
+  function clearStartTimer() {
+    clearTimeout(startTimer)
+    startTimer = null
+  }
+
+  function failStart() {
+    clearStartTimer()
+    onError({ message: START_FAILED, line: null })
+  }
 
   function ensureWorker() {
     if (worker) return worker
-    worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
-    worker.onmessage = ({ data }) => {
-      if (data.type === 'batch') onBatch(data)
-      else if (data.type === 'error') onError({ message: data.message, line: data.line })
+    try {
+      worker = createWorker()
+    } catch {
+      worker = null
+      return null
     }
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'started') clearStartTimer()
+      else if (data.type === 'batch') onBatch(data)
+      else if (data.type === 'error') {
+        clearStartTimer()
+        onError({ message: data.message, line: data.line })
+      }
+    }
+    // A worker script that cannot load, or a message that cannot be read.
+    worker.onerror = (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault()
+      worker = null
+      failStart()
+    }
+    worker.onmessageerror = failStart
     return worker
   }
 
   return {
     start(source) {
-      ensureWorker().postMessage({ type: 'start', source })
+      clearStartTimer()
+      const target = ensureWorker()
+      if (!target) {
+        failStart()
+        return
+      }
+      target.postMessage({ type: 'start', source })
+      startTimer = setTimeout(failStart, startTimeoutMs)
     },
     stop() {
+      clearStartTimer()
       if (worker) worker.postMessage({ type: 'stop' })
     },
     setInputs(levels) {
