@@ -177,6 +177,10 @@ inspect the learner's code (`analyzeCode`, `countCalls`) and time how fast the s
 input (`createResponseTimer`). No goals changed; lesson 1.4 shows the LED reaction time in its
 readout. The remaining Phase 3 items are the Level 2 lessons, which are on hold.
 
+**Editor layout** (owner request, `feature/editor-layout`): the Serial Monitor now sits under the
+code editor in the right hand panel, and a Full screen button at the top right of the editor opens
+it to fill the window with bigger code (Escape closes it).
+
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
 

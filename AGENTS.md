@@ -212,8 +212,10 @@ src/
                    coloured code, a Reset code button and an error line; controls refill the slots until the
                    learner edits the text, then switch off (except params with circuit: true) until Reset;
                    the trace loops an is-active line highlight while unedited; has-error marks a code error;
-                   lessons without a sketch show coloured example.code read only; returns { toolbar,
-                   getValues, subscribe, getSource, isEdited, setError({ line, message } | null) }
+                   lessons without a sketch show coloured example.code read only; a Full screen button at
+                   the top right of the editor (Escape or the button closes) moves the workspace (editor,
+                   error line, serial slot) to the body to fill the window over a backdrop; returns
+                   { toolbar, serialSlot, getValues, subscribe, getSource, isEdited, setError }
     runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
                    { noticeError }: Run sends getSource() and shows a compile or runtime error as
                    'Stopped. Line N: ...' plus onError(error) for the code panel; Stop button and status
@@ -234,8 +236,9 @@ src/
                    the tone on the buzzer pin; "Sound on" / "Sound off" toggle below the Run row on buzzer
                    lessons, saved under robo-learn:sound (default on)
     serialMonitor.js usesSerial(lesson) (sketch or example contains Serial.begin);
-                   createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; main.js sends
-                   lines to the running sketch through the code runner: #serial-panel above the
+                   createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; #serial-panel sits
+                   in the code panel serialSlot under the editor; main.js sends lines to the running sketch
+                   through the code runner: #serial-panel above the
                    lesson strip with Clear, a scrolling non live role="log" output and a Send form
     multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
                    select below the Run row and click to probe a visible part of a target (a pointer up within

@@ -6,10 +6,14 @@
 // the trace stops and the controls switch off, except circuit params (a part
 // on the breadboard, not a number in the code), until Reset code. Lessons
 // without a sketch show their example code read only.
-// Returns { toolbar, getValues, subscribe, getSource, isEdited, setError }:
-// an empty slot after the lesson line for the run controls, a copy of the
-// param values, subscribe(fn) calling fn(values) on every control change and
-// lesson change, the code to run, and setError({ line, message } | null).
+// The Full screen button (top right of the editor, also Escape to close)
+// expands the editor, its error line and the serial slot to fill the window;
+// the same textarea moves along, so the text, caret and highlights stay.
+// Returns { toolbar, serialSlot, getValues, subscribe, getSource, isEdited,
+// setError }: an empty slot after the lesson line for the run controls, an
+// empty slot under the editor for the Serial Monitor, a copy of the param
+// values, subscribe(fn) calling fn(values) on every control change and lesson
+// change, the code to run, and setError({ line, message } | null).
 import { tokenize } from './highlight.js'
 import { defaultValues, fillSketch, slotValues, stepDuration } from './sketch.js'
 
@@ -37,7 +41,17 @@ export function createCodePanel(panel, course) {
   resetButton.type = 'button'
   resetButton.className = 'run-button code-reset'
   resetButton.textContent = 'Reset code'
-  editorBar.append(editorLabel, resetButton)
+  const fullButton = document.createElement('button')
+  fullButton.type = 'button'
+  fullButton.className = 'run-button code-full'
+  fullButton.setAttribute('aria-pressed', 'false')
+  fullButton.setAttribute('aria-label', 'Full screen editor')
+  fullButton.title = 'Full screen editor'
+  fullButton.append(expandIcon())
+  const barActions = document.createElement('div')
+  barActions.className = 'code-editor-actions'
+  barActions.append(resetButton, fullButton)
+  editorBar.append(editorLabel, barActions)
 
   const editor = document.createElement('div')
   editor.className = 'code-editor'
@@ -61,7 +75,22 @@ export function createCodePanel(panel, course) {
   errorLine.className = 'code-error'
   errorLine.setAttribute('role', 'alert')
   errorLine.hidden = true
-  panel.append(heading, lessonLine, toolbar, controls, editedNote, editorBar, editor, errorLine)
+  const serialSlot = document.createElement('div')
+  serialSlot.className = 'code-serial-slot'
+
+  // Everything that goes full screen together; the backdrop dims the page behind.
+  const workspace = document.createElement('div')
+  workspace.className = 'code-workspace'
+  workspace.setAttribute('aria-label', 'Sketch editor')
+  const fullTitle = document.createElement('p')
+  fullTitle.className = 'code-full-title'
+  fullTitle.hidden = true
+  workspace.append(fullTitle, editorBar, editor, errorLine, serialSlot)
+  const backdrop = document.createElement('div')
+  backdrop.className = 'code-backdrop'
+  backdrop.hidden = true
+  panel.append(heading, lessonLine, toolbar, controls, editedNote, workspace)
+  document.body.append(backdrop)
 
   let lessonId = null
   let template = ''
@@ -74,6 +103,7 @@ export function createCodePanel(panel, course) {
   let timer = null
   let edited = false
   let editable = false
+  let full = false
   const listeners = new Set()
   const paramInputs = []
 
@@ -145,6 +175,40 @@ export function createCodePanel(panel, course) {
     setEdited(input.value !== filled())
   })
 
+  // Full screen moves the workspace to the body, above every panel, and back to
+  // its place in the code panel on close; the placeholder keeps that place.
+  const placeholder = document.createComment('code workspace')
+  function setFull(on) {
+    if (on === full) return
+    full = on
+    if (on) {
+      workspace.before(placeholder)
+      document.body.append(workspace)
+    } else {
+      placeholder.replaceWith(workspace)
+    }
+    workspace.classList.toggle('is-full', on)
+    workspace.setAttribute('role', on ? 'dialog' : 'group')
+    workspace.setAttribute('aria-modal', String(on))
+    backdrop.hidden = !on
+    fullTitle.hidden = !on
+    fullButton.setAttribute('aria-pressed', String(on))
+    const label = on ? 'Exit full screen' : 'Full screen editor'
+    fullButton.setAttribute('aria-label', label)
+    fullButton.title = label
+    fullButton.replaceChildren(on ? collapseIcon() : expandIcon())
+    input.focus()
+  }
+
+  fullButton.addEventListener('click', () => setFull(!full))
+  backdrop.addEventListener('click', () => setFull(false))
+  workspace.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && full) {
+      event.preventDefault()
+      setFull(false)
+    }
+  })
+
   resetButton.addEventListener('click', () => {
     input.value = filled()
     setError(null)
@@ -160,6 +224,7 @@ export function createCodePanel(panel, course) {
     errorAt = -1
     setError(null)
     lessonLine.textContent = lesson.id + ' ' + lesson.title
+    fullTitle.textContent = 'Code: ' + lesson.id + ' ' + lesson.title
 
     const sketch = lesson.sketch
     editable = Boolean(sketch)
@@ -176,6 +241,8 @@ export function createCodePanel(panel, course) {
     input.hidden = !editable
     editorBar.hidden = !editable
     editor.classList.toggle('is-editable', editable)
+    fullButton.hidden = !editable
+    if (!editable) setFull(false)
     pre.setAttribute('aria-hidden', String(editable))
     renderCode(input.value)
     startTrace()
@@ -266,6 +333,7 @@ export function createCodePanel(panel, course) {
 
   return {
     toolbar,
+    serialSlot,
     getValues: () => ({ ...values }),
     subscribe,
     getSource: () => input.value,
@@ -294,6 +362,37 @@ function toLines(tokens) {
     })
   }
   return lines
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+// A 16 px stroke icon from one path, hidden from screen readers (the button has a label).
+function icon(d) {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('width', '16')
+  svg.setAttribute('height', '16')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('focusable', 'false')
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', d)
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', 'currentColor')
+  path.setAttribute('stroke-width', '1.6')
+  path.setAttribute('stroke-linecap', 'round')
+  path.setAttribute('stroke-linejoin', 'round')
+  svg.append(path)
+  return svg
+}
+
+// Four corners pointing out.
+function expandIcon() {
+  return icon('M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4')
+}
+
+// Four corners pointing in.
+function collapseIcon() {
+  return icon('M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4')
 }
 
 function newLine() {

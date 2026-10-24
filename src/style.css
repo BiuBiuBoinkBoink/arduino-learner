@@ -325,22 +325,22 @@ body {
   outline-offset: 2px;
 }
 
-/* Serial Monitor: docked above the lesson strip between the side panels. */
+/* Serial Monitor: a section under the sketch editor in the code panel. */
 #serial-panel {
-  position: fixed;
-  left: calc(var(--side-width) + var(--gap) * 2);
-  right: calc(var(--side-width) + var(--gap) * 2);
-  bottom: calc(var(--strip-height) + var(--gap) * 2);
-  height: clamp(140px, 26vh, 240px);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(29, 35, 48, 0.18);
-  border-radius: 8px;
+  margin: 12px 0 0;
   font-size: 0.85rem;
+}
+
+.serial-output {
+  height: clamp(110px, 18vh, 200px);
+}
+
+.code-workspace.is-full .serial-output {
+  height: clamp(120px, 22vh, 260px);
 }
 
 #serial-panel[hidden] {
@@ -364,7 +364,6 @@ body {
 }
 
 .serial-output {
-  flex: 1;
   min-height: 0;
   margin: 0;
   padding: 6px 8px;
@@ -550,7 +549,93 @@ body {
 }
 
 .code-reset {
-  padding: 2px 12px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.serial-heading,
+.serial-clear {
+  white-space: nowrap;
+}
+
+.code-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-full {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+}
+
+.code-full[hidden] {
+  display: none;
+}
+
+/* Full screen editor: the workspace fills the window over a dim backdrop. */
+.code-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(29, 35, 48, 0.35);
+}
+
+.code-backdrop[hidden] {
+  display: none;
+}
+
+.code-workspace.is-full {
+  position: fixed;
+  inset: var(--gap);
+  z-index: 41;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+  background: #f7f6f2;
+  border: 1px solid rgba(29, 35, 48, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(29, 35, 48, 0.25);
+}
+
+.code-full-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.code-full-title[hidden] {
+  display: none;
+}
+
+.code-workspace.is-full .code-editor-bar {
+  margin-top: 0;
+}
+
+.code-workspace.is-full .code-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: auto;
+}
+
+.code-workspace.is-full .code-editor-inner {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-workspace.is-full .code-sketch {
+  flex: 1 0 auto;
+  box-sizing: border-box;
+}
+
+.code-workspace.is-full .code-sketch,
+.code-workspace.is-full .code-input {
+  font-size: 0.95rem;
 }
 
 .code-editor {

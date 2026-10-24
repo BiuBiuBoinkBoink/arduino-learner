@@ -1,5 +1,5 @@
-// Serial Monitor panel: docked above the lesson strip between the side panels,
-// shown only on lessons whose sketch uses Serial. A scrolling output that
+// Serial Monitor: a section under the sketch editor in the code panel, shown
+// only on lessons whose sketch uses Serial. A scrolling output that
 // sticks to the bottom unless the learner has scrolled up, a Clear button,
 // and a text input that sends a line to the running sketch.
 const STICK_PX = 24
@@ -76,7 +76,6 @@ export function createSerialMonitor({ container, serial, onSend = (text) => seri
 
   function setVisible(on) {
     panel.hidden = !on
-    document.body.classList.toggle('has-serial', on)
     if (on) render()
   }
 
