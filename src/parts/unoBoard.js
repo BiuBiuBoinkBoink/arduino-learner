@@ -88,6 +88,24 @@ export function unoPinPosition(name) {
   throw new Error(`Unknown Uno pin: ${name}`)
 }
 
+// Height of the header hole tops in board local coordinates, for picking.
+export const PIN_TOP_Y = PCB_THICKNESS + HEADER_HEIGHT + 0.002
+
+// The pin nearest a board local point, when it is within maxDistance on both
+// axes; else null.
+export function nearestPin(localX, localZ, maxDistance = 0.6 * PITCH) {
+  let best = null
+  for (const name of UNO_PIN_NAMES) {
+    const position = unoPinPosition(name)
+    const dx = Math.abs(localX - position.x)
+    const dz = Math.abs(localZ - position.z)
+    if (dx > maxDistance || dz > maxDistance) continue
+    const d = dx * dx + dz * dz
+    if (!best || d < best.d) best = { name, d }
+  }
+  return best ? best.name : null
+}
+
 // Female header strip with one hole per position, along x.
 function addHeader(zone, header) {
   const body = material({ color: 0x2b2b2b, roughness: 0.8 })

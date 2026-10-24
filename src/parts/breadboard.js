@@ -7,7 +7,7 @@
 // The hole grid itself lives in src/circuits/holes.js and is re-exported here.
 import * as THREE from 'three'
 import { PITCH } from './unoBoard.js'
-import { BREADBOARD_COLUMNS, ALL_HOLES, parseHole, rowPitchZ } from '../circuits/holes.js'
+import { BREADBOARD_COLUMNS, ALL_ROWS, ALL_HOLES, parseHole, rowPitchZ, holeName } from '../circuits/holes.js'
 
 export {
   BREADBOARD_COLUMNS,
@@ -40,6 +40,23 @@ function columnX(column) {
 export function holePosition(hole) {
   const { column, row } = parseHole(hole)
   return new THREE.Vector3(columnX(column), HEIGHT + 0.002, rowZ(row))
+}
+
+// Height of the hole tops in breadboard local coordinates, for picking.
+export const HOLE_TOP_Y = HEIGHT + 0.002
+
+// The hole nearest a breadboard local point, when it is within maxDistance on
+// both axes; else null. Rails included.
+export function nearestHole(localX, localZ, maxDistance = 0.6 * PITCH) {
+  const column = Math.round(localX / PITCH + (BREADBOARD_COLUMNS + 1) / 2)
+  if (column < 1 || column > BREADBOARD_COLUMNS) return null
+  if (Math.abs(localX - columnX(column)) > maxDistance) return null
+  let best = null
+  for (const row of ALL_ROWS) {
+    const dz = Math.abs(localZ - rowZ(row))
+    if (dz <= maxDistance && (!best || dz < best.dz)) best = { row, dz }
+  }
+  return best ? holeName(column, best.row) : null
 }
 
 function slab(w, h, d, mat, x, y, z) {
