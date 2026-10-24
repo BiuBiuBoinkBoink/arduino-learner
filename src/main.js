@@ -9,10 +9,14 @@ import { createLessonStrip } from './ui/lessonStrip.js'
 import { createInfoPanel } from './ui/infoPanel.js'
 import { createCodePanel } from './ui/codePanel.js'
 import { createBoardTour } from './ui/boardTour.js'
+import { createRunControls } from './ui/runControls.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
 import { buildCircuit } from './circuits/buildCircuit.js'
+import { createPins } from './sim/pins.js'
+import { sims } from './sim/sims.js'
+import { createSimRunner } from './sim/runner.js'
 
 const app = document.querySelector('#app')
 
@@ -96,6 +100,10 @@ showCircuit(course.getState())
 course.subscribe(showCircuit)
 
 createInfoPanel(panels.info, course)
-createCodePanel(panels.code, course)
+// One shared set of pin levels and one runner; only a sim goal marks a lesson done.
+const pins = createPins()
+const runner = createSimRunner({ sims, pins, onGoal: (id) => course.markComplete(id) })
+const { toolbar, getValues } = createCodePanel(panels.code, course)
+createRunControls({ container: toolbar, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })
