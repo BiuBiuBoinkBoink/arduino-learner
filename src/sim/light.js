@@ -1,7 +1,7 @@
-// Lesson 1.9 light sensor sim. The photoresistor sits between 5 V and A0, with
-// a 10 kohm resistor from A0 to GND, so more light gives a higher reading.
-// D13 lights the LED while the reading is under the darkLevel param (live).
-// Pure module, no DOM. Goal: the LED has turned on and back off since Run.
+// Lesson 1.9 light sensor board. The photoresistor sits between 5 V and A0,
+// with a 10 kohm resistor from A0 to GND, so more room light gives a higher
+// reading. The sketch drives the D13 night light. Pure module, no DOM. Goal:
+// the LED has turned on and back off since Run.
 const FIXED_OHMS = 10000
 const BRIGHT_OHMS = 1000
 const DARK_OHMS = 1000000
@@ -18,24 +18,22 @@ export function dividerLevel(light) {
   return FIXED_OHMS / (FIXED_OHMS + ldrOhms(light))
 }
 
-export function createLightSim({ pins, room, getValues }) {
+export function createLightSim({ room }) {
   let raw = 0
-  let ledOn = null
+  let ledOn = false
   let changes = 0
 
-  function update() {
+  function levels() {
     const level = dividerLevel(room.getLight())
     raw = Math.round(level * 1023)
-    const on = raw < getValues().darkLevel
-    // The first update only records the state, so the LED must change twice.
-    if (ledOn !== null && on !== ledOn) changes += 1
-    ledOn = on
-    pins.set('A0', level)
-    pins.set('D13', on ? 1 : 0)
+    return { A0: level }
   }
 
-  function stop() {
-    pins.set('D13', 0)
+  function output({ kind, pin, value }) {
+    if (kind !== 'pin' || pin !== 'D13') return
+    const on = value >= 0.5
+    if (on !== ledOn) changes += 1
+    ledOn = on
   }
 
   function checkGoal() {
@@ -46,5 +44,5 @@ export function createLightSim({ pins, room, getValues }) {
     return `A0 reads ${raw}, LED ${ledOn ? 'on' : 'off'}`
   }
 
-  return { update, stop, checkGoal, readout }
+  return { levels, output, checkGoal, readout }
 }
