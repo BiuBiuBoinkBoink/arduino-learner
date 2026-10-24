@@ -194,3 +194,94 @@ body {
 .lesson-progress progress {
   width: 96px;
 }
+
+.info-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid rgba(29, 35, 48, 0.18);
+}
+
+.info-tab {
+  flex: 1 1 auto;
+  padding: 6px 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+
+.info-tab:hover {
+  background: rgba(29, 35, 48, 0.06);
+}
+
+.info-tab[aria-selected='true'] {
+  font-weight: 600;
+  border-bottom-color: #1d2330;
+}
+
+.info-tab:focus-visible,
+.info-tabpanel:focus-visible {
+  outline: 2px solid #2f6fd6;
+  outline-offset: 2px;
+}
+
+.info-tabpanel .panel-text + .panel-text,
+.info-tabpanel .info-code + .panel-text {
+  margin-top: 8px;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.info-table th,
+.info-table td {
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(29, 35, 48, 0.12);
+}
+
+.info-table th {
+  font-weight: 600;
+}
+
+.info-table td:first-child {
+  font-weight: 600;
+}
+
+.info-code {
+  max-width: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  background: rgba(29, 35, 48, 0.06);
+  border-radius: 6px;
+}
+
+.info-specs {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.info-specs dt {
+  font-weight: 600;
+}
+
+.info-specs dd {
+  margin: 0;
+}
