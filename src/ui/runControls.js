@@ -1,5 +1,6 @@
 // Run controls: Run and Stop buttons plus a status line for lessons with a sim.
-// Drives the sim runner with a requestAnimationFrame loop while it is not idle.
+// Drives the sim runner with a requestAnimationFrame loop while it is not idle,
+// and shows the sim readout line under the status while it runs.
 const STATUS_IDLE = 'Press Run to upload the sketch.'
 const STATUS_UPLOADING = 'Uploading sketch...'
 const STATUS_RUNNING = 'Running.'
@@ -23,13 +24,18 @@ export function createRunControls({ container, course, runner, getValues }) {
   const status = document.createElement('p')
   status.className = 'run-status'
   status.setAttribute('aria-live', 'polite')
-  row.append(buttons, status)
+  // Stand in for the Serial Monitor: the sim readout, updated each frame it changes.
+  const readout = document.createElement('p')
+  readout.className = 'run-readout'
+  readout.hidden = true
+  row.append(buttons, status, readout)
   container.append(row)
 
   let lessonId = null
   let frame = null
   let shownPhase = 'idle'
   let shownGoal = false
+  let shownReadout = ''
 
   function showIdle(text) {
     runButton.disabled = false
@@ -37,6 +43,14 @@ export function createRunControls({ container, course, runner, getValues }) {
     status.textContent = text
     shownPhase = 'idle'
     shownGoal = false
+    showReadout('')
+  }
+
+  function showReadout(text) {
+    if (text === shownReadout) return
+    shownReadout = text
+    readout.textContent = text
+    readout.hidden = text === ''
   }
 
   function loop() {
@@ -52,6 +66,7 @@ export function createRunControls({ container, course, runner, getValues }) {
       shownGoal = true
       status.textContent = STATUS_GOAL
     }
+    showReadout(runner.getReadout())
     if (phase !== 'idle') frame = requestAnimationFrame(loop)
   }
 

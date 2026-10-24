@@ -308,7 +308,8 @@ void loop() {
     summary: 'Turn a knob and read the changing voltage on an analog pin.',
     overview: [
       'A potentiometer is a resistor with a sliding middle contact, called the wiper. Its outer legs go to 5 V and GND.',
-      'Turning the knob moves the wiper voltage between 0 and 5 V. analogRead turns that voltage into a number from 0 to 1023.'
+      'Turning the knob moves the wiper voltage between 0 and 5 V. analogRead turns that voltage into a number from 0 to 1023.',
+      'Goal: press Run, then turn the knob all the way one way and all the way the other. Drag it up or down, or use the Knob slider.'
     ],
     pinout: [
       { pin: 'A0', use: 'Potentiometer wiper, the middle leg.' },
@@ -328,6 +329,25 @@ void loop() {
 }`,
       note: 'The sketch reads the wiper and prints the voltage five times a second.'
     },
+    sketch: {
+      code: `void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  int raw = analogRead(A0);
+  float volts = raw * 5.0 / 1023.0;
+  Serial.println(volts);
+  delay(200);
+}`,
+      params: [],
+      trace: [
+        { line: 6, ms: 100 },
+        { line: 7, ms: 100 },
+        { line: 8, ms: 100 },
+        { line: 9, ms: 200 }
+      ]
+    },
     specs: [
       { label: 'Potentiometer', value: '10 kohm linear' },
       { label: 'ADC resolution', value: '10 bit, 0 to 1023' },
@@ -342,7 +362,8 @@ void loop() {
     summary: 'Fade an LED up and down by changing the duty cycle.',
     overview: [
       'PWM switches a pin on and off very fast. The share of time it is on is the duty cycle.',
-      'Your eye sees the average, so a higher duty cycle looks brighter. analogWrite takes a value from 0, always off, to 255, always on.'
+      'Your eye sees the average, so a higher duty cycle looks brighter. analogWrite takes a value from 0, always off, to 255, always on.',
+      'Goal: set the step delay so one fade up and down takes between 1 and 3 seconds, then press Run and watch one full fade.'
     ],
     pinout: [
       { pin: 'D9', use: 'PWM output to the LED through a 220 ohm resistor.' },
@@ -366,6 +387,33 @@ void loop() {
   }
 }`,
       note: 'The first loop raises the duty cycle step by step and the second lowers it, so the LED fades up then down.'
+    },
+    sketch: {
+      code: `const int ledPin = 9;
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  for (int level = 0; level <= 255; level++) {
+    analogWrite(ledPin, level);
+    delay({{stepMs}});
+  }
+  for (int level = 255; level >= 0; level--) {
+    analogWrite(ledPin, level);
+    delay({{stepMs}});
+  }
+}`,
+      params: [
+        { name: 'stepMs', label: 'Step delay', type: 'range', min: 1, max: 20, step: 1, value: 10, unit: 'ms' }
+      ],
+      trace: [
+        { line: 9, ms: 300 },
+        { line: 10, ms: 'stepMs' },
+        { line: 13, ms: 300 },
+        { line: 14, ms: 'stepMs' }
+      ]
     },
     specs: [
       { label: 'PWM pins', value: '3, 5, 6, 9, 10, 11' },

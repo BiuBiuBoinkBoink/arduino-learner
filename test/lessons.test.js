@@ -162,9 +162,30 @@ describe('lesson 1.5 pull choice', () => {
   })
 })
 
-describe('button lesson overviews', () => {
-  it('give 1.4 and 1.5 three ASCII paragraphs with no exclamation marks', () => {
-    for (const id of ['1.4', '1.5']) {
+describe('lesson 1.7 step delay', () => {
+  const lesson = lessons.find((item) => item.id === '1.7')
+
+  it('has one stepMs range param, 1 to 20 ms, default 10, in both delay lines', () => {
+    expect(lesson.sketch.params).toEqual([
+      { name: 'stepMs', label: 'Step delay', type: 'range', min: 1, max: 20, step: 1, value: 10, unit: 'ms' }
+    ])
+    expect(lesson.sketch.code.split('delay({{stepMs}});')).toHaveLength(3)
+    expect(lesson.sketch.trace.filter((step) => step.ms === 'stepMs')).toHaveLength(2)
+  })
+})
+
+describe('lesson 1.6 sketch', () => {
+  it('is the example code with no params and a trace over the loop', () => {
+    const lesson = lessons.find((item) => item.id === '1.6')
+    expect(lesson.sketch.code).toBe(lesson.example.code)
+    expect(lesson.sketch.params).toEqual([])
+    expect(lesson.sketch.trace.map((step) => step.line)).toEqual([6, 7, 8, 9])
+  })
+})
+
+describe('lesson overviews with a goal paragraph', () => {
+  it('give 1.4 to 1.7 three ASCII paragraphs with no exclamation marks', () => {
+    for (const id of ['1.4', '1.5', '1.6', '1.7']) {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.overview).toHaveLength(3)
       for (const text of lesson.overview) {
