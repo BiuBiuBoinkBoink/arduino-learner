@@ -72,7 +72,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`,
 `src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
-`src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`. The other
+`src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -103,6 +103,8 @@ src/
                    blue; anode leg kinked; setBrightness(b) for b from 0 to 1 glows the lens in its own colour
                    (emissive only) at LIT_INTENSITY * b, none at 0; setLit(on) is setBrightness(on ? 1 : 0);
                    new LEDs start unlit
+    rgbLed.js      createRgbLed({ legs }) -> { group, setColor(r, g, b) }; common cathode, four legs in a row
+                   (red, cathode, green, blue); channels 0 to 1 mix as sRGB into the lens glow and tint
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
     button.js      createButton({ legs }) -> { group, setPressed(on) }; 4 leg tactile switch, legs are four
                    hole tops; setPressed lowers the cap 0.05 cm; group.userData.pressable = true
@@ -112,17 +114,20 @@ src/
                    group.userData.turnable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2 to 1.7 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2 to 1.8 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
                    to world positions, one factory result per id, item group name = id;
-                   buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes
+                   buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes;
+                   rgbHoles(at) -> the four RGB LED leg holes
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
-    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.7' now)
+    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.8' now)
+    rgb.js         pure createRgbSim (1.8): red, green, blue params (live) on D9, D10, D11 as value / 255; readout
+                   'Now r, g, b. Target orange 255, 128, 0'; goal is every channel within 25 of TARGET since Run
     ohm.js         pure LED_SUPPLY_V (5), LED_FORWARD_V (2), ledCurrentMa(ohms) = 3 / R in mA,
                    ledBrightness(ohms) relative to 220 ohm, clamped to 0 to 1
     ohms.js        pure createOhmsSim (1.3): D9 HIGH; readout 'Meter on <label>: <mA> mA' for the probe in
@@ -219,6 +224,10 @@ the current lesson, and every panel updates from it.
   `14e`); the middle leg is the wiper. `at` must have a column of at most 28.
   `main.js` sets its knob to 0.5 whenever it builds a circuit with one, and shows
   the Knob slider only on those lessons.
+- An RGB LED is `{ id: 'rgb1', type: 'rgbLed', at: '14e', pins: { red, green, blue } }`.
+  Its legs go in columns `c` to `c + 3` of the row of `at`: red, cathode, green,
+  blue. `at` must have a column of at most 27. `main.js` sets its colour from the
+  three pin levels.
 - An LED may carry `ohmsParam`, the code panel param holding its series
   resistor in ohms. `main.js` then lights it at the pin level times
   `ledBrightness(ohms)`, and re-lights LEDs on every param change.
