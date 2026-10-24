@@ -72,6 +72,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 012 | RGB LED part and lesson 1.8 Colour mixing, match orange with three sliders |
 | 013 | Room light and temperature sliders, photoresistor and TMP36 parts, lessons 1.9 Light sensor and 1.10 Temperature |
 | 014 | Piezo buzzer with Web Audio and a Sound on/off toggle, lesson 1.11 Sound with an E D C tune goal |
+| 015 | SG90 style servo with a turning horn, lesson 1.12 Servo basics with a 45, 90 and 135 deg goal |
 
 ### Where we stopped
 
@@ -127,6 +128,11 @@ less and 30 deg C or more). These goals are assumptions.
 [factory/handoff/014-buzzer-spec.md](factory/handoff/014-buzzer-spec.md): a piezo buzzer part,
 a tones store (Hz per pin), a Web Audio square wave with a saved Sound on/off toggle, and
 lesson 1.11, which passes when one loop plays E, D, C. The target tune is an assumption.
+
+**Job 015 is built** on `feature/servo`, from
+[factory/handoff/015-servo-spec.md](factory/handoff/015-servo-spec.md): a servo part whose horn
+follows a servos store (deg per pin, held on Stop), and lesson 1.12, where the arm moves at SG90
+speed and the goal is resting at 45, 90 and 135 deg. The targets are an assumption.
 
 ## How to continue
 

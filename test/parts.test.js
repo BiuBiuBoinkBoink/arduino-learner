@@ -7,6 +7,7 @@ import { createRgbLed } from '../src/parts/rgbLed.js'
 import { createLdr } from '../src/parts/ldr.js'
 import { createTmp36 } from '../src/parts/tmp36.js'
 import { createBuzzer } from '../src/parts/buzzer.js'
+import { createServo } from '../src/parts/servo.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
 
@@ -387,5 +388,45 @@ describe('createBuzzer', () => {
     const { group } = createBuzzer({ legs })
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
     expect(() => createBuzzer({ legs: legs.slice(0, 1) })).toThrow()
+  })
+})
+
+describe('createServo', () => {
+  const legs = [0, 1, 2].map((i) => new THREE.Vector3(1 + i * 0.254, 0.852, 0.8))
+
+  // Direction the horn points seen from above, in degrees anticlockwise from +x.
+  function hornAngle(group) {
+    group.updateMatrixWorld(true)
+    const centre = group.getObjectByName('shaft').getWorldPosition(new THREE.Vector3())
+    const tip = group.getObjectByName('horn').getWorldPosition(new THREE.Vector3()).sub(centre)
+    return THREE.MathUtils.radToDeg(Math.atan2(-tip.z, tip.x))
+  }
+
+  it('starts its cables in the three holes and sits on the board to the right', () => {
+    const { group } = createServo({ legs })
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.05)
+    expect(box.min.x).toBeLessThan(legs[0].x + 0.05)
+    expect(box.max.x).toBeGreaterThan(legs[2].x + 3)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 2.2)
+  })
+
+  it('points the horn ahead at 90, right at 0 and left at 180, clamped', () => {
+    const { group, setAngle } = createServo({ legs })
+    expect(hornAngle(group)).toBeCloseTo(90, 4)
+    setAngle(0)
+    expect(hornAngle(group)).toBeCloseTo(0, 4)
+    setAngle(180)
+    expect(Math.abs(hornAngle(group))).toBeCloseTo(180, 4)
+    setAngle(45)
+    expect(hornAngle(group)).toBeCloseTo(45, 4)
+    setAngle(-30)
+    expect(hornAngle(group)).toBeCloseTo(0, 4)
+  })
+
+  it('casts shadows from every mesh and needs three cable ends', () => {
+    const { group } = createServo({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(() => createServo({ legs: legs.slice(0, 2) })).toThrow()
   })
 })

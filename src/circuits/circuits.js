@@ -103,6 +103,16 @@ export const circuits = {
       { id: 'w2', color: 'black', from: 'GND', to: '15a' }
     ]
   },
+  // Servo cable in 12h to 14h (brown GND, red 5V, orange signal), the body on
+  // the breadboard to the right.
+  '1.12': {
+    parts: [{ id: 'sv1', type: 'servo', at: '12h', pin: 'D9' }],
+    wires: [
+      { id: 'w1', color: 'black', from: 'GND.2', to: '12f' },
+      { id: 'w2', color: 'red', from: '5V', to: '13f' },
+      { id: 'w3', color: 'yellow', from: 'D9', to: '14f' }
+    ]
+  },
   // TMP36 flat side towards the viewer: +Vs to 5V, Vout to A0, GND to GND.2.
   '1.10': {
     parts: [{ id: 'tmp1', type: 'tmp36', at: '12e' }],

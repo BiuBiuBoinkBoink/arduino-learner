@@ -3,10 +3,11 @@
 // it calls onGoal(lessonId) once per run when the sim goal first passes.
 // Sims also get the shared inputs (held buttons) and room (light, temperature);
 // stop leaves them as they are. tones holds a tone frequency in Hz per pin;
-// stop silences it like the pins.
+// stop silences it like the pins. servos holds a servo arm angle in deg per
+// pin; stop leaves it, as a real servo holds its angle.
 export const UPLOAD_MS = 1500
 
-export function createSimRunner({ sims, pins, inputs, room, tones, onGoal, uploadMs = UPLOAD_MS }) {
+export function createSimRunner({ sims, pins, inputs, room, tones, servos, onGoal, uploadMs = UPLOAD_MS }) {
   let phase = 'idle'
   let lessonId = null
   let getValues = null
@@ -31,7 +32,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, onGoal, uploa
   function tick(now) {
     if (phase === 'uploading') {
       if (now - runStart < uploadMs) return
-      sim = sims[lessonId]({ pins, inputs, room, tones, getValues, startedAt: now })
+      sim = sims[lessonId]({ pins, inputs, room, tones, servos, getValues, startedAt: now })
       phase = 'running'
     }
     if (phase !== 'running') return

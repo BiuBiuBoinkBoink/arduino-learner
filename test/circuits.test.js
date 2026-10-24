@@ -19,7 +19,7 @@ function placedBoards() {
 
 function partHoles(part) {
   if (part.type === 'button') return buttonHoles(part.at)
-  if (part.type === 'potentiometer' || part.type === 'tmp36') return potHoles(part.at)
+  if (['potentiometer', 'tmp36', 'servo'].includes(part.type)) return potHoles(part.at)
   if (part.type === 'rgbLed') return rgbHoles(part.at)
   if (part.type === 'buzzer') return buzzerHoles(part.at)
   return part.type === 'led' ? [part.anode, part.cathode] : [part.from, part.to]
@@ -44,10 +44,10 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2 to 1.11', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.12', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.11', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.11', '1.12', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
   })
 
   it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
@@ -283,6 +283,27 @@ describe('circuit tables', () => {
     it('keeps the D13 LED circuit on its own strips', () => {
       const sensorStrips = new Set([wireTo('5V'), wireTo('A0'), wireTo('GND.2')])
       for (const pin of ['D13', 'GND']) expect(sensorStrips.has(wireTo(pin))).toBe(false)
+    })
+  })
+
+  describe('lesson 1.12 servo circuit', () => {
+    const circuit = circuits['1.12']
+    const servo = circuit.parts.find((item) => item.id === 'sv1')
+
+    it('wires GND.2, 5V and D9 to the brown, red and orange cable ends', () => {
+      expect(servo.pin).toBe('D9')
+      const [gnd, power, signal] = potHoles(servo.at).map(holeStrip)
+      const wireTo = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+      expect([wireTo('GND.2'), wireTo('5V'), wireTo('D9')]).toEqual([gnd, power, signal])
+    })
+
+    it('builds a servo item with setAngle that stays on the breadboard', () => {
+      const boards = placedBoards()
+      const { items } = buildCircuit(circuit, boards)
+      expect(typeof items.sv1.setAngle).toBe('function')
+      const servoBox = new THREE.Box3().setFromObject(items.sv1.group)
+      const boardBox = new THREE.Box3().setFromObject(boards.breadboard.group)
+      expect(servoBox.max.x).toBeLessThan(boardBox.max.x)
     })
   })
 

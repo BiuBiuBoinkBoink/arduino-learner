@@ -732,7 +732,7 @@ void loop() {
     overview: [
       'A hobby servo turns its arm to an angle from 0 to 180 deg and holds it there.',
       'The angle is set by the width of a pulse sent about 50 times a second. The Servo library makes the pulses for you.',
-      'Using the Servo library turns off PWM on pins 9 and 10, so keep LEDs that fade on other pins.'
+      'Using the Servo library turns off PWM on pins 9 and 10, so keep LEDs that fade on other pins. Goal: press Run, then set the angle to 45, 90 and 135 deg in turn and let the arm reach each one.'
     ],
     pinout: [
       { pin: 'D9', use: 'Servo signal wire, orange or yellow.' },
@@ -759,6 +759,27 @@ void loop() {
   }
 }`,
       note: 'The arm sweeps from 0 to 180 deg and back in steps of 5 deg.'
+    },
+    sketch: {
+      code: `#include <Servo.h>
+
+Servo arm;
+
+void setup() {
+  arm.attach(9);
+}
+
+void loop() {
+  arm.write({{angle}});
+  delay(15);
+}`,
+      params: [
+        { name: 'angle', label: 'Angle', type: 'range', min: 0, max: 180, step: 5, value: 0, unit: 'deg' }
+      ],
+      trace: [
+        { line: 10, ms: 300 },
+        { line: 11, ms: 300 }
+      ]
     },
     specs: [
       { label: 'Servo', value: 'SG90 micro servo' },
