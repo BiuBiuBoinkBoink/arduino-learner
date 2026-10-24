@@ -8,6 +8,8 @@ import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
 import { createPotentiometer } from '../parts/potentiometer.js'
 import { createRgbLed } from '../parts/rgbLed.js'
+import { createLdr } from '../parts/ldr.js'
+import { createTmp36 } from '../parts/tmp36.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
@@ -38,6 +40,9 @@ const PART_FACTORIES = {
   led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
   potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
   rgbLed: (part, hole) => createRgbLed({ legs: rgbHoles(part.at).map(hole) }),
+  ldr: (part, hole) => createLdr({ from: hole(part.from), to: hole(part.to) }),
+  // A TMP36 uses the same three holes in a row as a potentiometer: +Vs, Vout, GND.
+  tmp36: (part, hole) => createTmp36({ legs: potHoles(part.at).map(hole) }),
   resistor: (part, hole) => createResistor({ ohms: part.ohms, from: hole(part.from), to: hole(part.to) })
 }
 

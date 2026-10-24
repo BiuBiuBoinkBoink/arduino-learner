@@ -70,6 +70,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 010 | Potentiometer you turn by dragging or with the Knob slider, analog pin levels, LED brightness, lessons 1.6 Potentiometer and 1.7 PWM fade |
 | 011 | Sim multimeter you point at a part in 3D or with Meter on, lesson 1.3 Resistors and Ohm's law with a 220 ohm, 1k and 10k choice |
 | 012 | RGB LED part and lesson 1.8 Colour mixing, match orange with three sliders |
+| 013 | Room light and temperature sliders, photoresistor and TMP36 parts, lessons 1.9 Light sensor and 1.10 Temperature |
 
 ### Where we stopped
 
@@ -114,6 +115,12 @@ three resistors. This goal is an assumption; check it against the curriculum doc
 [factory/handoff/012-rgb-led-spec.md](factory/handoff/012-rgb-led-spec.md): a common cathode
 RGB LED part and lesson 1.8, which passes when the Red, Green and Blue sliders bring the LED
 within 25 of orange (255, 128, 0) while running. The target is an assumption.
+
+**Job 013 is built** on `feature/room-sensors`, from
+[factory/handoff/013-room-sensors-spec.md](factory/handoff/013-room-sensors-spec.md): a shared
+room with Room light and Room temperature sliders (the light also dims the scene), photoresistor
+and TMP36 parts, and lessons 1.9 (the night light turns on and off again) and 1.10 (15 deg C or
+less and 30 deg C or more). These goals are assumptions.
 
 ## How to continue
 

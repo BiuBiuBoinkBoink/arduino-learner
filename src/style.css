@@ -420,6 +420,16 @@ body {
   outline-offset: 2px;
 }
 
+/* Room sliders: light and temperature the sensors read, below the Run row. */
+.room-slider {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+
+.room-slider[hidden] {
+  display: none;
+}
+
 /* Knob slider: a code panel range control below the Run row. */
 .knob-slider {
   margin: 10px 0 0;

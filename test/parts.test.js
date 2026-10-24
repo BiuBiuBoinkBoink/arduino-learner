@@ -4,6 +4,8 @@ import { createButton } from '../src/parts/button.js'
 import { createLed } from '../src/parts/led.js'
 import { createPotentiometer } from '../src/parts/potentiometer.js'
 import { createRgbLed } from '../src/parts/rgbLed.js'
+import { createLdr } from '../src/parts/ldr.js'
+import { createTmp36 } from '../src/parts/tmp36.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
 
@@ -314,5 +316,46 @@ describe('createRgbLed', () => {
     const { group } = createRgbLed({ legs })
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
     expect(() => createRgbLed({ legs: legs.slice(0, 3) })).toThrow()
+  })
+})
+
+describe('createLdr', () => {
+  const from = new THREE.Vector3(1, 0.852, 0.3)
+  const to = new THREE.Vector3(1.762, 0.852, 0.3)
+
+  it('reaches down to its two leg points and stands above them', () => {
+    const { group } = createLdr({ from, to })
+    group.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - from.y)).toBeLessThan(0.02)
+    expect(box.max.y).toBeGreaterThan(from.y + 0.8)
+    expect(box.min.x).toBeLessThan(from.x + 0.03)
+    expect(box.max.x).toBeGreaterThan(to.x - 0.03)
+  })
+
+  it('casts shadows from every mesh', () => {
+    const { group } = createLdr({ from, to })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+  })
+})
+
+describe('createTmp36', () => {
+  const legs = [0, 1, 2].map((i) => new THREE.Vector3(1 + i * 0.254, 0.852, 0.3))
+
+  it('reaches down to its three leg points and stands above them', () => {
+    const { group } = createTmp36({ legs })
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.02)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 0.8)
+    expect(box.min.x).toBeLessThan(legs[0].x + 0.03)
+    expect(box.max.x).toBeGreaterThan(legs[2].x - 0.03)
+    // Flat face towards the viewer: the body bulges to -z only.
+    expect(box.max.z).toBeLessThan(legs[1].z + 0.05)
+  })
+
+  it('casts shadows from every mesh and needs three legs', () => {
+    const { group } = createTmp36({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(() => createTmp36({ legs: legs.slice(0, 2) })).toThrow()
   })
 })
