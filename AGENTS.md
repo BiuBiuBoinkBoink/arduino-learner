@@ -74,7 +74,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
-`src/ui/sound.js`. The other
+`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -113,6 +113,8 @@ src/
                    (+Vs, Vout, GND from left to right)
     buzzer.js      createBuzzer({ legs }) -> { group, setPlaying(on) }; passive piezo, two legs (positive,
                    negative); setPlaying shows the sound-ring above the hole
+    servo.js       createServo({ legs }) -> { group, setAngle(deg) }; SG90 body on the breadboard right of its
+                   three cable ends (GND, 5V, signal); horn on shaft, 90 deg -z, 0 deg +x, 180 deg -x
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
     button.js      createButton({ legs }) -> { group, setPressed(on) }; 4 leg tactile switch, legs are four
                    hole tops; setPressed lowers the cap 0.05 cm; group.userData.pressable = true
@@ -122,7 +124,7 @@ src/
                    group.userData.turnable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2 to 1.11 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2 to 1.12 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
                    to world positions, one factory result per id, item group name = id;
                    buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes;
@@ -133,7 +135,9 @@ src/
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
-    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.11' now)
+    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.12' now)
+    sweep.js       pure createSweepSim (1.12): arm moves to the live angle param at 0.6 deg per ms on D9 in
+                   servos; stop holds it; goal is resting at each of TARGETS 45, 90, 135 while commanded
     tune.js        pure createTuneSim (1.11): NOTES C to B, note1 to note3 params (Hz, read as each note starts)
                    on D8 in tones for 300 ms every 350 ms, then 1000 ms silent; goal is one loop playing
                    TARGET E D C in order
@@ -162,7 +166,7 @@ src/
     fade.js        pure createFadeSim (1.7): analogWrite value 0 to 255 then 255 to 0, one step every stepMs (live),
                    D9 level value / 255; readout 'analogWrite(9, <value>), duty <percent>%'; goal is one full
                    fade (512 steps) seen taking 1000 to 3000 ms with the current stepMs also in range
-    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, onGoal, uploadMs }): hasSim, run, tick(now), stop,
+    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, onGoal, uploadMs }): hasSim, run, tick(now), stop,
                    getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
                    else ''); UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
@@ -259,6 +263,9 @@ the current lesson, and every panel updates from it.
 - A buzzer is `{ id, type: 'buzzer', at: '12e', pin: 'D8' }`, with its positive
   leg at `at` and its negative leg three columns on; the column must be at most
   27. `pin` names the Uno pin whose tone it plays.
+- A servo is `{ id, type: 'servo', at: '12h', pin: 'D9' }`. Its cable ends use
+  the same three holes as a potentiometer (GND, 5V, signal), and its body lies
+  on the breadboard to the right. `main.js` centres it at 90 deg on every build.
 - An LED may carry `ohmsParam`, the code panel param holding its series
   resistor in ohms. `main.js` then lights it at the pin level times
   `ledBrightness(ohms)`, and re-lights LEDs on every param change.
@@ -275,7 +282,7 @@ the current lesson, and every panel updates from it.
 
 ## Sims and goal checks
 
-- A lesson sim is made by a factory `create({ pins, inputs, room, tones, getValues, startedAt })` and
+- A lesson sim is made by a factory `create({ pins, inputs, room, tones, servos, getValues, startedAt })` and
   returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
   the same clock. `getValues()` gives the live code panel param values.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
@@ -286,6 +293,8 @@ the current lesson, and every panel updates from it.
   value / 255. Stop resets every pin to `0`.
 - `tones` is a second `createPins()` holding a tone frequency in Hz per pin, 0
   for silent. Sims call `tones.set(pin, hz)`; Stop resets it like the pins.
+- `servos` is a third `createPins()` holding a servo arm angle in deg per pin.
+  Stop leaves it as it is, because a real servo holds its angle.
 - A sim may return `readout()`, a short string. The runner `getReadout()` gives it
   while running, else `''`, and `runControls` shows it under the status. It stands
   in for the Serial Monitor until Phase 3.
