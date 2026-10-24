@@ -53,4 +53,16 @@ describe('createInputs', () => {
     inputs.setPressed('btn1', true)
     expect(seen).toEqual([['pot1', 0.7], ['pot1', 1], ['btn1', true]])
   })
+
+  it('stores the meter probe, null by default, without notifying', () => {
+    const inputs = createInputs()
+    const seen = []
+    inputs.subscribe((...args) => seen.push(args))
+    expect(inputs.getProbe()).toBe(null)
+    inputs.setProbe('led')
+    expect(inputs.getProbe()).toBe('led')
+    inputs.setProbe(null)
+    expect(inputs.getProbe()).toBe(null)
+    expect(seen).toEqual([])
+  })
 })

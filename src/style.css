@@ -393,6 +393,33 @@ body {
   display: none;
 }
 
+/* Meter select: which part the sim multimeter reads, below the Run row. */
+.meter-select {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+
+.meter-select[hidden] {
+  display: none;
+}
+
+.meter-select label {
+  font-weight: 600;
+}
+
+.meter-select select {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid rgba(29, 35, 48, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.meter-select select:focus-visible {
+  outline: 2px solid #2f6fd6;
+  outline-offset: 2px;
+}
+
 /* Knob slider: a code panel range control below the Run row. */
 .knob-slider {
   margin: 10px 0 0;

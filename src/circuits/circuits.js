@@ -31,7 +31,21 @@ const buttonLed = {
 
 export const circuits = {
   '1.2': ledCircuit('D13'),
-  '1.3': ledCircuit('D9'),
+  // The resistor choice swaps between three resistors in the same holes; the LED
+  // dims with the series resistor. The meter can probe the LED or the resistor.
+  '1.3': {
+    parts: [
+      { id: 'r220', type: 'resistor', ohms: 220, from: '5c', to: '9c', showWhen: { param: 'ohms', value: 220 } },
+      { id: 'r1k', type: 'resistor', ohms: 1000, from: '5c', to: '9c', showWhen: { param: 'ohms', value: 1000 } },
+      { id: 'r10k', type: 'resistor', ohms: 10000, from: '5c', to: '9c', showWhen: { param: 'ohms', value: 10000 } },
+      { id: 'led1', type: 'led', color: 'red', pin: 'D9', ohmsParam: 'ohms', anode: '9e', cathode: '10e' }
+    ],
+    wires: ledCircuit('D9').wires,
+    meter: [
+      { id: 'led', label: 'LED', parts: ['led1'] },
+      { id: 'resistor', label: 'Resistor', parts: ['r220', 'r1k', 'r10k'] }
+    ]
+  },
   // D2 -> button column 12; pressing joins it to column 14 and GND.
   '1.4': {
     parts: [{ id: 'btn1', type: 'button', at: '12e' }, ...buttonLed.parts],

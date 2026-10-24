@@ -12,6 +12,8 @@ import { createBoardTour } from './ui/boardTour.js'
 import { createRunControls } from './ui/runControls.js'
 import { createPartPress, createHoldButton } from './ui/partPress.js'
 import { createPartTurn, createKnobSlider } from './ui/partTurn.js'
+import { createMultimeter } from './ui/multimeter.js'
+import { ledBrightness } from './sim/ohm.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -91,6 +93,7 @@ const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.it
 const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
 const partTurn = createPartTurn({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
 const knobSlider = createKnobSlider({ container: toolbar, partTurn, inputs })
+const multimeter = createMultimeter({ container: toolbar, stage, getItems: () => (circuit ? circuit.items : null), inputs })
 
 // Parts with showWhen are drawn only while that code panel param has that value.
 function showParts(values) {
@@ -125,8 +128,8 @@ function showCircuit({ lesson }) {
     circuit = buildCircuit(circuits[lesson.id], { board, breadboard })
     circuitLeds = circuits[lesson.id].parts
       .filter((part) => part.type === 'led')
-      .map((part) => ({ pin: part.pin, led: circuit.items[part.id] }))
-    for (const { pin, led } of circuitLeds) led.setBrightness(pins.get(pin))
+      .map((part) => ({ part, led: circuit.items[part.id] }))
+    lightLeds()
     stage.scene.add(circuit.group)
     showParts(getValues())
   }
@@ -136,19 +139,32 @@ function showCircuit({ lesson }) {
   const pot = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'potentiometer') : null
   if (pot) partTurn.setValue(pot.id, 0.5)
   knobSlider.setTarget(pot ? pot.id : null)
+  multimeter.setTargets(circuit ? circuits[lesson.id].meter : null)
   stage.invalidate()
 }
+// Light circuit LEDs from the level of the Uno pin that drives each (0 to 1, PWM
+// duty), scaled by the series resistor when the part names an ohmsParam.
+// With a pin name, only the LEDs on that pin.
+function lightLeds(name) {
+  const values = getValues()
+  let changed = false
+  for (const { part, led } of circuitLeds) {
+    if (name !== undefined && part.pin !== name) continue
+    const scale = part.ohmsParam ? ledBrightness(values[part.ohmsParam]) : 1
+    led.setBrightness(pins.get(part.pin) * scale)
+    changed = true
+  }
+  if (changed) stage.invalidate()
+}
+
 showCircuit(course.getState())
 course.subscribe(showCircuit)
-subscribeValues(showParts)
-
-// Light each circuit LED from the level of the Uno pin that drives it (0 to 1, PWM duty).
-pins.subscribe((name, level) => {
-  const leds = circuitLeds.filter(({ pin }) => pin === name)
-  if (leds.length === 0) return
-  for (const { led } of leds) led.setBrightness(level)
-  stage.invalidate()
+subscribeValues((values) => {
+  showParts(values)
+  lightLeds()
 })
+
+pins.subscribe((name) => lightLeds(name))
 
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
