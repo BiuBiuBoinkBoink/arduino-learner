@@ -1,8 +1,7 @@
-// Lesson 1.11 sound sim: plays the three note params (Hz, read live at the
-// start of each note) on D8 like the sketch: tone for NOTE_MS, delay(GAP_MS
-// after it starts), then PAUSE_MS of silence after the third note. The tone
-// frequency goes into the tones store (Hz per pin, 0 is silent). Pure module,
-// no DOM. Goal: one loop played the TARGET tune, E D C, in order.
+// Lesson 1.11 sound board: the sketch plays tones on the D8 buzzer. Pure
+// module, no DOM. Goal: three notes in a row played the TARGET tune, E D C,
+// each starting within PHRASE_GAP_MS of the one before, so a pause between
+// loops breaks the phrase.
 export const NOTES = [
   { name: 'C', hz: 262 },
   { name: 'D', hz: 294 },
@@ -13,46 +12,28 @@ export const NOTES = [
   { name: 'B', hz: 494 }
 ]
 export const TARGET = [330, 294, 262]
-export const NOTE_MS = 300
-export const STEP_MS = 350
-export const PAUSE_MS = 1000
+const PHRASE_GAP_MS = 600
 const PIN = 'D8'
-const LOOP_MS = 3 * STEP_MS + PAUSE_MS
 
 export function noteName(hz) {
   const note = NOTES.find((item) => item.hz === hz)
   return note ? note.name : `${hz} Hz`
 }
 
-export function createTuneSim({ tones, getValues, startedAt }) {
-  let loopIndex = -1
-  let played = []
+export function createTuneSim() {
   let current = 0
+  let starts = []
   let matched = false
 
-  function update(now) {
-    const elapsed = Math.max(0, now - startedAt)
-    const loop = Math.floor(elapsed / LOOP_MS)
-    const inLoop = elapsed - loop * LOOP_MS
-    const step = Math.floor(inLoop / STEP_MS)
-    if (loop !== loopIndex) {
-      loopIndex = loop
-      played = []
-    }
-    // Each note reads its param once, when it starts; a slow frame that skips a
-    // note still records it, so the order is kept.
-    const reached = Math.min(step, 2)
-    while (played.length <= reached) {
-      played.push(getValues()[`note${played.length + 1}`])
-      if (played.length === 3 && played.every((value, i) => value === TARGET[i])) matched = true
-    }
-    const hz = step < 3 && inLoop - step * STEP_MS < NOTE_MS ? played[step] : 0
-    current = hz
-    tones.set(PIN, hz)
-  }
-
-  function stop() {
-    tones.set(PIN, 0)
+  function output({ kind, pin, value, at }) {
+    if (kind !== 'tone' || pin !== PIN) return
+    current = value
+    if (value === 0) return
+    const last = starts[starts.length - 1]
+    if (last && at - last.at > PHRASE_GAP_MS) starts = []
+    starts.push({ hz: value, at })
+    if (starts.length > 3) starts.shift()
+    if (starts.length === 3 && starts.every((note, i) => note.hz === TARGET[i])) matched = true
   }
 
   function checkGoal() {
@@ -65,5 +46,5 @@ export function createTuneSim({ tones, getValues, startedAt }) {
     return `${now}. Target tune ${target}`
   }
 
-  return { update, stop, checkGoal, readout }
+  return { levels: () => ({}), output, checkGoal, readout }
 }

@@ -1,9 +1,15 @@
-// Code panel: heading, lesson line, param controls and the coloured sketch.
-// Lessons with a sketch get controls that fill its {{name}} slots and a trace
-// that loops a line highlight; other lessons show their example code.
-// Returns { toolbar, getValues, subscribe }: an empty slot after the lesson line
-// for the run controls, a copy of the current param values, and subscribe(fn)
-// that calls fn(values) on every control change and lesson change.
+// Code panel: heading, lesson line, param controls and the sketch editor.
+// Lessons with a sketch get controls that fill its {{name}} slots and an
+// editor: a transparent textarea over the coloured code, so the learner can
+// type while the colours, the trace highlight and an error line stay visible.
+// Once the text differs from the filled template the code counts as edited:
+// the trace stops and the controls switch off, except circuit params (a part
+// on the breadboard, not a number in the code), until Reset code. Lessons
+// without a sketch show their example code read only.
+// Returns { toolbar, getValues, subscribe, getSource, isEdited, setError }:
+// an empty slot after the lesson line for the run controls, a copy of the
+// param values, subscribe(fn) calling fn(values) on every control change and
+// lesson change, the code to run, and setError({ line, message } | null).
 import { tokenize } from './highlight.js'
 import { defaultValues, fillSketch, slotValues, stepDuration } from './sketch.js'
 
@@ -16,29 +22,74 @@ export function createCodePanel(panel, course) {
   const toolbar = document.createElement('div')
   const controls = document.createElement('div')
   controls.className = 'code-params'
+  const editedNote = document.createElement('p')
+  editedNote.className = 'code-edited-note'
+  editedNote.textContent = 'You changed the code, so the sliders are off. Reset code to use them again.'
+  editedNote.hidden = true
+
+  const editorBar = document.createElement('div')
+  editorBar.className = 'code-editor-bar'
+  const editorLabel = document.createElement('label')
+  editorLabel.htmlFor = 'code-input'
+  editorLabel.className = 'code-editor-label'
+  editorLabel.textContent = 'Sketch'
+  const resetButton = document.createElement('button')
+  resetButton.type = 'button'
+  resetButton.className = 'run-button code-reset'
+  resetButton.textContent = 'Reset code'
+  editorBar.append(editorLabel, resetButton)
+
+  const editor = document.createElement('div')
+  editor.className = 'code-editor'
+  const inner = document.createElement('div')
+  inner.className = 'code-editor-inner'
   const pre = document.createElement('pre')
   pre.className = 'info-code code-sketch'
   const code = document.createElement('code')
   pre.append(code)
-  panel.append(heading, lessonLine, toolbar, controls, pre)
+  const input = document.createElement('textarea')
+  input.id = 'code-input'
+  input.className = 'code-input'
+  input.spellcheck = false
+  input.setAttribute('autocomplete', 'off')
+  input.setAttribute('autocapitalize', 'off')
+  input.setAttribute('wrap', 'off')
+  inner.append(pre, input)
+  editor.append(inner)
+
+  const errorLine = document.createElement('p')
+  errorLine.className = 'code-error'
+  errorLine.setAttribute('role', 'alert')
+  errorLine.hidden = true
+  panel.append(heading, lessonLine, toolbar, controls, editedNote, editorBar, editor, errorLine)
 
   let lessonId = null
-  let source = ''
+  let template = ''
   let params = []
   let values = {}
+  let trace = null
   let lines = []
   let activeLine = -1
+  let errorAt = -1
   let timer = null
+  let edited = false
+  let editable = false
   const listeners = new Set()
+  const paramInputs = []
 
   function notify() {
     listeners.forEach((fn) => fn({ ...values }))
   }
 
-  function renderCode() {
-    lines = toLines(tokenize(fillSketch(source, slotValues(params, values))))
+  const filled = () => fillSketch(template, slotValues(params, values))
+
+  function renderCode(text) {
+    lines = toLines(tokenize(text))
     code.replaceChildren(...lines)
-    setActive(activeLine)
+    lines.forEach((line, i) => {
+      line.classList.toggle('is-active', i === activeLine)
+      line.classList.toggle('has-error', i === errorAt)
+    })
   }
 
   function setActive(index) {
@@ -46,30 +97,88 @@ export function createCodePanel(panel, course) {
     lines.forEach((line, i) => line.classList.toggle('is-active', i === index))
   }
 
-  function playTrace(trace, step) {
-    setActive(trace[step].line - 1)
-    timer = setTimeout(
-      () => playTrace(trace, (step + 1) % trace.length),
-      stepDuration(trace[step], values)
-    )
+  function stopTrace() {
+    clearTimeout(timer)
+    timer = null
+    setActive(-1)
   }
+
+  function playTrace(step) {
+    setActive(trace[step].line - 1)
+    timer = setTimeout(() => playTrace((step + 1) % trace.length), stepDuration(trace[step], values))
+  }
+
+  function startTrace() {
+    stopTrace()
+    if (trace && trace.length > 0) playTrace(0)
+  }
+
+  function setError(error) {
+    errorAt = error ? error.line - 1 : -1
+    lines.forEach((line, i) => line.classList.toggle('has-error', i === errorAt))
+    errorLine.hidden = !error
+    errorLine.textContent = error ? error.message : ''
+  }
+
+  // Controls follow the edited state; circuit params always stay on.
+  function setEdited(on) {
+    if (on === edited) return
+    edited = on
+    editedNote.hidden = !on
+    for (const { param, element } of paramInputs) element.disabled = on && !param.circuit
+    if (on) stopTrace()
+    else startTrace()
+  }
+
+  // A control changed: refill the code unless the learner has edited it.
+  function changed() {
+    if (!edited) {
+      input.value = filled()
+      renderCode(input.value)
+    }
+    notify()
+  }
+
+  input.addEventListener('input', () => {
+    setError(null)
+    renderCode(input.value)
+    setEdited(input.value !== filled())
+  })
+
+  resetButton.addEventListener('click', () => {
+    input.value = filled()
+    setError(null)
+    renderCode(input.value)
+    setEdited(false)
+    notify()
+  })
 
   function render({ lesson }) {
     if (lesson.id === lessonId) return
     lessonId = lesson.id
-    clearTimeout(timer)
-    timer = null
-    activeLine = -1
+    stopTrace()
+    errorAt = -1
+    setError(null)
     lessonLine.textContent = lesson.id + ' ' + lesson.title
 
     const sketch = lesson.sketch
+    editable = Boolean(sketch)
     params = sketch && sketch.params ? sketch.params : []
-    source = sketch ? sketch.code : lesson.example.code
+    template = sketch ? sketch.code : lesson.example.code
+    trace = sketch ? sketch.trace : null
     values = defaultValues(params)
+    paramInputs.length = 0
     controls.replaceChildren(...params.map((param) => buildControl(param)))
     controls.hidden = params.length === 0
-    renderCode()
-    if (sketch && sketch.trace && sketch.trace.length > 0) playTrace(sketch.trace, 0)
+    edited = false
+    editedNote.hidden = true
+    input.value = filled()
+    input.hidden = !editable
+    editorBar.hidden = !editable
+    editor.classList.toggle('is-editable', editable)
+    pre.setAttribute('aria-hidden', String(editable))
+    renderCode(input.value)
+    startTrace()
     notify()
   }
 
@@ -88,31 +197,31 @@ export function createCodePanel(panel, course) {
     const output = document.createElement('output')
     output.className = 'code-param-value'
     output.htmlFor = id
-    const input = document.createElement('input')
-    input.type = 'range'
-    input.id = id
-    input.min = String(param.min)
-    input.max = String(param.max)
-    input.step = String(param.step)
-    input.value = String(param.value)
+    const range = document.createElement('input')
+    range.type = 'range'
+    range.id = id
+    range.min = String(param.min)
+    range.max = String(param.max)
+    range.step = String(param.step)
+    range.value = String(param.value)
+    paramInputs.push({ param, element: range })
 
     function showValue() {
       const text = param.unit ? values[param.name] + ' ' + param.unit : String(values[param.name])
       output.textContent = text
-      input.setAttribute('aria-valuetext', text)
+      range.setAttribute('aria-valuetext', text)
     }
-    input.addEventListener('input', () => {
-      values[param.name] = Number(input.value)
+    range.addEventListener('input', () => {
+      values[param.name] = Number(range.value)
       showValue()
-      renderCode()
-      notify()
+      changed()
     })
     showValue()
 
     const top = document.createElement('div')
     top.className = 'code-param-top'
     top.append(label, output)
-    row.append(top, input)
+    row.append(top, range)
     return row
   }
 
@@ -122,26 +231,26 @@ export function createCodePanel(panel, course) {
     const legend = document.createElement('legend')
     legend.textContent = param.label
     fieldset.append(legend)
+    paramInputs.push({ param, element: fieldset })
     param.options.forEach((option, i) => {
       const id = 'code-param-' + param.name + '-' + i
-      const input = document.createElement('input')
-      input.type = 'radio'
-      input.id = id
-      input.name = 'code-param-' + param.name
-      input.value = String(option.value)
-      input.checked = option.value === param.value
-      input.addEventListener('change', () => {
-        if (!input.checked) return
+      const radio = document.createElement('input')
+      radio.type = 'radio'
+      radio.id = id
+      radio.name = 'code-param-' + param.name
+      radio.value = String(option.value)
+      radio.checked = option.value === param.value
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return
         values[param.name] = option.value
-        renderCode()
-        notify()
+        changed()
       })
       const label = document.createElement('label')
       label.htmlFor = id
       label.textContent = option.label
       const item = document.createElement('div')
       item.className = 'code-choice-option'
-      item.append(input, label)
+      item.append(radio, label)
       fieldset.append(item)
     })
     return fieldset
@@ -155,7 +264,14 @@ export function createCodePanel(panel, course) {
     return () => listeners.delete(fn)
   }
 
-  return { toolbar, getValues: () => ({ ...values }), subscribe }
+  return {
+    toolbar,
+    getValues: () => ({ ...values }),
+    subscribe,
+    getSource: () => input.value,
+    isEdited: () => edited,
+    setError
+  }
 }
 
 // Splits tokens into one span per source line; each non plain token gets a

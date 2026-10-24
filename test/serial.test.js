@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createSerial, createTicker, formatValue, MAX_LINES } from '../src/sim/serial.js'
+import { createSerial, formatValue, MAX_LINES } from '../src/sim/serial.js'
 import { usesSerial } from '../src/ui/serialMonitor.js'
 import { lessons } from '../src/course/lessons.js'
 
@@ -66,18 +66,6 @@ describe('createSerial input', () => {
     serial.clearInput()
     expect(serial.available()).toBe(0)
     expect(seen).toEqual(['input', 'input'])
-  })
-})
-
-describe('createTicker', () => {
-  it('counts runs due every period from the start, capped after a stall', () => {
-    const ticker = createTicker(200, 1000)
-    expect(ticker.due(999)).toBe(0)
-    expect(ticker.due(1000)).toBe(1)
-    expect(ticker.due(1150)).toBe(0)
-    expect(ticker.due(1450)).toBe(2)
-    expect(ticker.due(60000)).toBe(5)
-    expect(ticker.due(60100)).toBe(0)
   })
 })
 

@@ -1,62 +1,53 @@
-// Lesson 1.7 PWM fade sim: the analogWrite value on D9 counts 0 to 255, then
-// 255 to 0, one step every stepMs (read live), like the two for loops of the
-// sketch, so one full fade takes 512 * stepMs. D9 level is value / 255.
-// Pure module, no DOM. Goal: one complete fade (peak to peak or trough to
-// trough through the other end) took MIN_FADE_MS to MAX_FADE_MS, and the
-// current stepMs also gives a fade in that range.
+// Lesson 1.7 PWM fade board: the sketch fades D9 with analogWrite. Pure
+// module, no DOM. Goal: one complete fade, from one end (0 or 255) through the
+// other end and back, took MIN_FADE_MS to MAX_FADE_MS on the sketch's clock.
 const PIN = 'D9'
-const MAX = 255
-const STEPS = 2 * (MAX + 1)
 export const MIN_FADE_MS = 1000
 export const MAX_FADE_MS = 3000
+// Within half a step of an end counts as at the end.
+const END = 0.5 / 255
 
-function inRange(ms) {
-  return ms >= MIN_FADE_MS && ms <= MAX_FADE_MS
-}
-
-export function createFadeSim({ pins, getValues, startedAt }) {
-  let index = 0
+export function createFadeSim() {
   let value = 0
-  let stepAt = startedAt
-  // Arrival times at each end, oldest first; the run starts at the trough.
-  const arrivals = [{ end: 0, at: startedAt }]
+  let atEnd = 0
+  // Arrival times at each end, oldest first; the run starts at the low end.
+  let arrivals = [{ end: 0, at: null }]
   let fadeSeen = false
 
-  function stepMs() {
-    return Math.max(1, getValues().stepMs)
-  }
-
-  function step(at) {
-    index = (index + 1) % STEPS
-    const next = index <= MAX ? index : STEPS - 1 - index
-    if ((next === 0 || next === MAX) && next !== value) {
-      arrivals.push({ end: next, at })
-      if (arrivals.length > 3) arrivals.shift()
-      // Ends alternate, so two arrivals back is the same end: one full fade.
-      if (arrivals.length === 3 && inRange(at - arrivals[0].at)) fadeSeen = true
+  function output({ kind, pin, value: level, at }) {
+    if (kind !== 'pin' || pin !== PIN) return
+    value = Math.round(level * 255)
+    const end = level <= END ? 0 : level >= 1 - END ? 1 : null
+    if (arrivals[0].at === null) arrivals[0].at = at
+    if (end === null || end === atEnd) {
+      if (end === null) atEnd = null
+      return
     }
-    value = next
-  }
-
-  function update(now) {
-    while (now - stepAt >= stepMs()) {
-      stepAt += stepMs()
-      step(stepAt)
+    atEnd = end
+    const last = arrivals[arrivals.length - 1]
+    if (last.end === end) return
+    arrivals.push({ end, at })
+    if (arrivals.length > 3) arrivals.shift()
+    // Ends alternate, so two arrivals back is the same end: one full fade.
+    if (arrivals.length === 3) {
+      const took = at - arrivals[0].at
+      if (took >= MIN_FADE_MS && took <= MAX_FADE_MS) fadeSeen = true
     }
-    pins.set(PIN, value / MAX)
-  }
-
-  function stop() {
-    pins.set(PIN, 0)
   }
 
   function checkGoal() {
-    return fadeSeen && inRange(STEPS * stepMs())
+    return fadeSeen
   }
 
   function readout() {
-    return `analogWrite(9, ${value}), duty ${Math.round(value / MAX * 100)}%`
+    return `analogWrite(9, ${value}), duty ${Math.round(value / 255 * 100)}%`
   }
 
-  return { update, stop, checkGoal, readout }
+  // New code starts from 0 again, so a fade across the swap does not count.
+  function reload() {
+    atEnd = 0
+    arrivals = [{ end: 0, at: null }]
+  }
+
+  return { levels: () => ({}), output, reload, checkGoal, readout }
 }

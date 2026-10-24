@@ -1,20 +1,20 @@
-// Level 1 project sim, Room monitor. A sim day of DAY_MS (1 s per hour,
-// starting at midnight) drives the room light and temperature. The monitor
-// reads the photoresistor divider on A0 and the TMP36 on A1, lights the D13
-// night light while A0 is under darkLevel, and sounds ALARM_HZ on D8 while the
-// temperature is at or above alarmC (both params, live). Pure module, no DOM.
-// Goal: one whole sim day with the LED on through the night, off through the
-// day, the alarm on at the hottest hours and silent when cool.
+// Level 1 project board, Room monitor. A sim day of DAY_MS (1 s per hour,
+// starting at midnight) drives the room light and temperature, which feed the
+// photoresistor divider on A0 and the TMP36 on A1. The sketch drives the D13
+// night light and the D8 alarm. Pure module, no DOM. Goal: one whole sim day
+// with the LED on through the night, off through the day, the alarm on at the
+// hottest hours and silent when cool. The sketch gets REACT_MS to respond, so
+// a mistake counts only once it has lasted that long.
 import { dividerLevel } from './light.js'
 import { tmp36Level, rawToC } from './temp.js'
 
 export const DAY_MS = 24000
-export const ALARM_HZ = 880
 // Checked bands: outside them the monitor may do either.
 export const NIGHT_LIGHT = 0.2
 export const DAY_LIGHT = 0.5
 export const HOT_C = 32
 export const COOL_C = 28
+export const REACT_MS = 300
 
 // Room light (0 to 1) at an hour of the day: sun up from 6 to 18.
 export function lightAt(hour) {
@@ -27,20 +27,24 @@ export function tempAt(hour) {
   return 26 + 8 * Math.sin(2 * Math.PI * (hour - 9) / 24)
 }
 
-export function createMonitorSim({ pins, tones, room, getValues, startedAt }) {
+export function createMonitorSim({ pins, tones, room, startedAt }) {
   let day = -1
   let dayOk = true
   let seen = null
   let passed = false
-  let state = { hour: 0, light: 0, tempC: 0, led: false, alarm: false }
+  let hour = 0
+  let tempC = 0
+  let wrongSince = null
 
   function startDay(index) {
     day = index
     dayOk = true
     seen = { night: false, day: false, hot: false, cool: false }
+    wrongSince = null
   }
 
-  function update(now) {
+  // Sets the room for the time of day and returns the sensor levels.
+  function levels(now) {
     const elapsed = Math.max(0, now - startedAt)
     const index = Math.floor(elapsed / DAY_MS)
     // A day that ran its full length with no mistakes and every band seen passes.
@@ -48,46 +52,43 @@ export function createMonitorSim({ pins, tones, room, getValues, startedAt }) {
       if (day >= 0 && dayOk && Object.values(seen).every(Boolean)) passed = true
       startDay(index)
     }
-    const hour = (elapsed % DAY_MS) / (DAY_MS / 24)
+    hour = (elapsed % DAY_MS) / (DAY_MS / 24)
     room.setLight(lightAt(hour))
     room.setTempC(tempAt(hour))
-
-    const values = getValues()
-    const lightLevel = dividerLevel(room.getLight())
     const tempLevel = tmp36Level(room.getTempC())
-    const lightRaw = Math.round(lightLevel * 1023)
-    const tempC = rawToC(Math.round(tempLevel * 1023))
-    const led = lightRaw < values.darkLevel
-    const alarm = tempC >= values.alarmC
+    tempC = rawToC(Math.round(tempLevel * 1023))
+    return { A0: dividerLevel(room.getLight()), A1: tempLevel }
+  }
 
+  // Checks what the monitor is doing against the room right now.
+  function update(now) {
+    if (!seen) return
+    const led = pins.get('D13') >= 0.5
+    const alarm = tones.get('D8') > 0
     const light = room.getLight()
+    let wrong = false
     if (light <= NIGHT_LIGHT) {
       seen.night = true
-      if (!led) dayOk = false
+      if (!led) wrong = true
     }
     if (light >= DAY_LIGHT) {
       seen.day = true
-      if (led) dayOk = false
+      if (led) wrong = true
     }
     if (tempC >= HOT_C) {
       seen.hot = true
-      if (!alarm) dayOk = false
+      if (!alarm) wrong = true
     }
     if (tempC <= COOL_C) {
       seen.cool = true
-      if (alarm) dayOk = false
+      if (alarm) wrong = true
     }
-
-    state = { hour, light, tempC, led, alarm }
-    pins.set('A0', lightLevel)
-    pins.set('A1', tempLevel)
-    pins.set('D13', led ? 1 : 0)
-    tones.set('D8', alarm ? ALARM_HZ : 0)
+    if (!wrong) wrongSince = null
+    else if (wrongSince === null) wrongSince = now
+    else if (now - wrongSince > REACT_MS) dayOk = false
   }
 
   function stop() {
-    pins.set('D13', 0)
-    tones.set('D8', 0)
     room.reset()
   }
 
@@ -96,11 +97,11 @@ export function createMonitorSim({ pins, tones, room, getValues, startedAt }) {
   }
 
   function readout() {
-    const hh = String(Math.floor(state.hour)).padStart(2, '0')
+    const hh = String(Math.floor(hour)).padStart(2, '0')
     const verdict = dayOk ? 'ok so far' : 'missed, try the next day'
-    return `Day ${day + 1} ${hh}:00, light ${Math.round(state.light * 100)}%, ${state.tempC.toFixed(1)} deg C. ` +
-      `LED ${state.led ? 'on' : 'off'}, alarm ${state.alarm ? 'on' : 'off'}. Day ${verdict}`
+    return `Day ${day + 1} ${hh}:00, light ${Math.round(room.getLight() * 100)}%, ${tempC.toFixed(1)} deg C. ` +
+      `LED ${pins.get('D13') >= 0.5 ? 'on' : 'off'}, alarm ${tones.get('D8') > 0 ? 'on' : 'off'}. Day ${verdict}`
   }
 
-  return { update, stop, checkGoal, readout }
+  return { levels, update, stop, checkGoal, readout }
 }

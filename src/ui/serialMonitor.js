@@ -10,7 +10,8 @@ export function usesSerial(lesson) {
   return code.includes('Serial.begin')
 }
 
-export function createSerialMonitor({ container, serial }) {
+// onSend(text) receives each sent line; it defaults to the serial input queue.
+export function createSerialMonitor({ container, serial, onSend = (text) => serial.send(text) }) {
   const panel = document.createElement('section')
   panel.id = 'serial-panel'
   panel.setAttribute('aria-labelledby', 'serial-heading')
@@ -69,7 +70,7 @@ export function createSerialMonitor({ container, serial }) {
 
   form.addEventListener('submit', (event) => {
     event.preventDefault()
-    serial.send(input.value)
+    onSend(input.value)
     input.value = ''
   })
 

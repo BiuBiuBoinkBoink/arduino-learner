@@ -11,25 +11,6 @@ export function formatValue(value) {
   return String(value)
 }
 
-// Times a loop that runs every periodMs from startedAt: due(now) says how many
-// runs are due since the last call. After a long stall (a hidden tab) it skips
-// ahead instead of flooding, running at most MAX_CATCH_UP times.
-const MAX_CATCH_UP = 5
-
-export function createTicker(periodMs, startedAt) {
-  let next = startedAt
-  return {
-    due(now) {
-      let count = 0
-      while (now >= next) {
-        count += 1
-        next += periodMs
-      }
-      return Math.min(count, MAX_CATCH_UP)
-    }
-  }
-}
-
 export function createSerial({ maxLines = MAX_LINES } = {}) {
   let lines = []
   let partial = ''

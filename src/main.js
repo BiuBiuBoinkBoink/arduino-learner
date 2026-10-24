@@ -19,6 +19,7 @@ import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
 import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
+import { createCodeRunner } from './runner/codeRunner.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -95,7 +96,16 @@ const tones = createPins()
 const servos = createPins()
 // The serial port between the sketch and the Serial Monitor; cleared on lesson change.
 const serial = createSerial()
-const serialMonitor = createSerialMonitor({ container: app, serial })
+// The learner's sketch runs in a Web Worker; its batches go to the sim runner,
+// which is made further down once the course panels exist.
+const codeRunner = createCodeRunner({
+  onBatch: (batch) => runner.receive(batch),
+  onError: (error) => {
+    runner.fail(error)
+    run.noticeError()
+  }
+})
+const serialMonitor = createSerialMonitor({ container: app, serial, onSend: (text) => codeRunner.sendSerial(text) })
 course.subscribe(({ lesson }) => {
   if (lesson.id === serialLessonId) return
   serialLessonId = lesson.id
@@ -111,7 +121,8 @@ room.subscribe((name, value) => {
 })
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
-const { toolbar, getValues, subscribe: subscribeValues } = createCodePanel(panels.code, course)
+const codePanel = createCodePanel(panels.code, course)
+const { toolbar, getValues, subscribe: subscribeValues } = codePanel
 const runControls = document.createElement('div')
 toolbar.append(runControls)
 const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
@@ -238,7 +249,19 @@ tones.subscribe((name, hz) => {
 
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, onGoal: (id) => course.markComplete(id) })
-createRunControls({ container: runControls, course, runner, getValues })
+const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal: (id) => course.markComplete(id) })
+const run = createRunControls({
+  container: runControls,
+  course,
+  runner,
+  getValues,
+  getSource: codePanel.getSource,
+  onError: codePanel.setError
+})
+// A slider move while running swaps in the refilled sketch at once; edited
+// code waits for the next Run, like a real upload.
+subscribeValues(() => {
+  if (runner.getPhase() === 'running' && !codePanel.isEdited()) runner.reload(codePanel.getSource(), performance.now())
+})
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })
