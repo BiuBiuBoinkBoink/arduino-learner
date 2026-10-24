@@ -3,7 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { createRenderLoop } from './renderLoop.js'
 
 const BACKGROUND = 0xf4f1ea
-const GROUND_SIZE = 40
+const GROUND_SIZE = 120
+const SHADOW_SIZE = 40
 
 export function createStage(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -17,14 +18,14 @@ export function createStage(container) {
   scene.background = new THREE.Color(BACKGROUND)
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200)
-  camera.position.set(0, 8, 12)
+  camera.position.set(0, 20, 19)
   camera.lookAt(0, 0, 0)
 
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.target.set(0, 0, 0)
   controls.enableDamping = false
   controls.minDistance = 4
-  controls.maxDistance = 30
+  controls.maxDistance = 40
   controls.maxPolarAngle = Math.PI / 2 - 0.05
   controls.update()
 
@@ -35,7 +36,7 @@ export function createStage(container) {
   sun.position.set(6, 12, 8)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
-  const half = GROUND_SIZE / 2
+  const half = SHADOW_SIZE / 2
   sun.shadow.camera.left = -half
   sun.shadow.camera.right = half
   sun.shadow.camera.top = half

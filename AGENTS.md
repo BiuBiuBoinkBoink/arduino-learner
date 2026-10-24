@@ -46,11 +46,14 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/panels.js`, `src/style.css`, `src/course/lessons.js`, `src/course/state.js`,
 `src/course/hash.js`, `src/ui/lessonStrip.js`, `src/ui/infoPanel.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
-`src/ui/boardTour.js`. The other folders are the target for later jobs.
+`src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
+`src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`. The other
+folders are the target for later jobs.
 
 ```
 src/
-  main.js          boot: builds the scene, adds the Uno board to it, UI and course engine
+  main.js          boot: builds the scene, adds the Uno board and breadboard to it, UI and course engine;
+                   swaps the circuit group on every lesson change
   style.css        full viewport layout: stage behind, panels on the edges
   course/          lessons data, state, goTo(id), progress
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
@@ -62,8 +65,17 @@ src/
     stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate()
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
-    unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones
+    unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones;
+                   PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top
+    breadboard.js  createBreadboard() -> { group }, half size, 30 columns, no rails; BREADBOARD_COLUMNS,
+                   BREADBOARD_ROWS, parseHole('12e'), holePosition(hole) local Vector3, holeStrip(hole)
+    led.js         createLed({ color, anode, cathode }) -> { group }; red, green, yellow, blue; anode leg kinked
+    resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
+    wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
+    circuits.js    circuits keyed by lesson id (1.2, 1.3, 1.7 now); plain data, no three.js
+    buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
+                   to world positions, one factory result per id, item group name = id
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
   runner/          code runner for learner code (Level 2 onward)
@@ -79,6 +91,38 @@ test/              vitest unit tests
 Data flows one way: lesson data -> circuit table -> scene parts; Run -> sim ->
 pin levels -> parts update -> goal check -> progress. Only `goTo(id)` changes
 the current lesson, and every panel updates from it.
+
+## Breadboard grid and circuit tables
+
+- Holes are strings of column number plus row letter, like `'12e'`. 30 columns,
+  column 1 on the left (-x), column 30 on the right (+x). Row `a` is on the far
+  side (-z, towards the Uno digital headers), row `j` on the near side.
+- Rows are one pitch (0.254 cm) apart, with a centre channel so `e` to `f` is
+  three pitches. Holes `a` to `e` of one column share a strip (`'12-top'`),
+  `f` to `j` another (`'12-bottom'`). No power rails.
+- Uno pins use `unoPinPosition(name)`. Names follow the R3 header order:
+  `SCL`, `SDA`, `AREF`, `GND`, `D13` to `D8`; `D7` to `D0`; `NC`, `IOREF`,
+  `RESET`, `3.3V`, `5V`, `GND.2`, `GND.3`, `VIN`; `A0` to `A5`. Plain `GND` is
+  the ground next to `AREF` and `D13`.
+- A circuit table is plain data:
+
+  ```js
+  {
+    parts: [
+      { id: 'r1', type: 'resistor', ohms: 220, from: '5c', to: '9c' },
+      { id: 'led1', type: 'led', color: 'red', anode: '9e', cathode: '10e' }
+    ],
+    wires: [
+      { id: 'w1', color: 'yellow', from: 'D13', to: '5a' }
+    ]
+  }
+  ```
+
+  Part positions are holes. Wire `from` is an Uno pin name, `to` a hole.
+  Ids are unique within a circuit.
+- `main.js` places the Uno left and the breadboard right, 1 cm apart, centred on
+  x = 0. On every lesson change it removes and disposes the old circuit group,
+  builds `circuits[lesson.id]` if there is one, and calls `invalidate()`.
 
 ## Conventions
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { createUnoBoard, UNO_ZONE_IDS } from '../src/parts/unoBoard.js'
+import { createUnoBoard, UNO_ZONE_IDS, UNO_PIN_NAMES, unoPinPosition } from '../src/parts/unoBoard.js'
 
 function meshesOf(object) {
   const meshes = []
@@ -61,5 +61,40 @@ describe('createUnoBoard', () => {
     expect(size.z).toBeLessThanOrEqual(7)
     expect(box.min.y).toBeCloseTo(0, 3)
     expect(size.y).toBeLessThan(size.z)
+  })
+})
+
+describe('unoPinPosition', () => {
+  it('has 32 unique pin names in header order', () => {
+    expect(UNO_PIN_NAMES).toHaveLength(32)
+    expect(new Set(UNO_PIN_NAMES).size).toBe(32)
+    expect(UNO_PIN_NAMES.slice(0, 5)).toEqual(['SCL', 'SDA', 'AREF', 'GND', 'D13'])
+  })
+
+  it('puts every pin on its own header hole mesh', () => {
+    const { group } = createUnoBoard()
+    group.updateMatrixWorld(true)
+    const holes = meshesOf(group).filter((mesh) => mesh.geometry.parameters.height === 0.004)
+    expect(holes).toHaveLength(32)
+    const used = new Set()
+    for (const name of UNO_PIN_NAMES) {
+      const position = unoPinPosition(name)
+      const hole = holes.find((mesh) => mesh.getWorldPosition(new THREE.Vector3()).distanceTo(position) < 0.01)
+      expect(hole).toBeDefined()
+      used.add(hole)
+    }
+    expect(used.size).toBe(32)
+  })
+
+  it('places digital pins on the far side and power and analog on the near side', () => {
+    expect(unoPinPosition('D13').z).toBeLessThan(0)
+    expect(unoPinPosition('GND').z).toBeLessThan(0)
+    expect(unoPinPosition('A0').z).toBeGreaterThan(0)
+    expect(unoPinPosition('5V').z).toBeGreaterThan(0)
+    expect(unoPinPosition('GND').x).toBeLessThan(unoPinPosition('D13').x)
+  })
+
+  it('throws for unknown names', () => {
+    expect(() => unoPinPosition('D14')).toThrow('D14')
   })
 })
