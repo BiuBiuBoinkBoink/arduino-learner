@@ -505,7 +505,8 @@ void loop() {
     summary: 'Measure room light with a photoresistor and react when it gets dark.',
     overview: [
       'A photoresistor drops its resistance as light gets brighter. Paired with a fixed resistor it forms a voltage divider.',
-      'The middle point goes to an analog pin. In this wiring more light gives a higher reading, so a low reading means the room is dark.'
+      'The middle point goes to an analog pin. In this wiring more light gives a higher reading, so a low reading means the room is dark.',
+      'Goal: press Run, then dim the room until the LED turns on, and brighten it until the LED turns off. Use the Room light slider.'
     ],
     pinout: [
       { pin: 'A0', use: 'Middle of the divider, between the photoresistor and the 10 kohm resistor.' },
@@ -528,6 +529,28 @@ void loop() {
 }`,
       note: 'When the reading falls below the dark level the LED turns on, like a simple night light.'
     },
+    sketch: {
+      code: `const int ledPin = 13;
+const int darkLevel = {{darkLevel}};
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  int light = analogRead(A0);
+  digitalWrite(ledPin, light < darkLevel ? HIGH : LOW);
+  delay(100);
+}`,
+      params: [
+        { name: 'darkLevel', label: 'Dark level', type: 'range', min: 100, max: 900, step: 50, value: 300 }
+      ],
+      trace: [
+        { line: 9, ms: 300 },
+        { line: 10, ms: 300 },
+        { line: 11, ms: 300 }
+      ]
+    },
     specs: [
       { label: 'Photoresistor, bright room', value: 'about 1 to 10 kohm' },
       { label: 'Photoresistor, dark', value: 'about 1 Mohm' },
@@ -542,7 +565,8 @@ void loop() {
     summary: 'Read a temperature sensor and convert the value to deg C.',
     overview: [
       'The TMP36 is a small three leg sensor whose output voltage rises with temperature.',
-      'It outputs 0.5 V at 0 deg C and adds 10 mV for every degree. Subtract 0.5 V and multiply by 100 to get deg C.'
+      'It outputs 0.5 V at 0 deg C and adds 10 mV for every degree. Subtract 0.5 V and multiply by 100 to get deg C.',
+      'Goal: press Run, then cool the room to 15 deg C or less and warm it to 30 deg C or more. Use the Room temperature slider.'
     ],
     pinout: [
       { pin: 'A0', use: 'Sensor output, the middle leg.' },
@@ -562,6 +586,27 @@ void loop() {
   delay(1000);
 }`,
       note: 'The sketch turns the reading into volts, then into deg C, and prints it once a second.'
+    },
+    sketch: {
+      code: `void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  float volts = analogRead(A0) * 5.0 / 1023.0;
+  float tempC = (volts - 0.5) * 100.0;
+  Serial.print(tempC);
+  Serial.println(" deg C");
+  delay(1000);
+}`,
+      params: [],
+      trace: [
+        { line: 6, ms: 200 },
+        { line: 7, ms: 200 },
+        { line: 8, ms: 200 },
+        { line: 9, ms: 200 },
+        { line: 10, ms: 600 }
+      ]
     },
     specs: [
       { label: 'Sensor', value: 'TMP36' },

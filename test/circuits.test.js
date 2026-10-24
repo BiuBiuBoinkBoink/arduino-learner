@@ -19,13 +19,13 @@ function placedBoards() {
 
 function partHoles(part) {
   if (part.type === 'button') return buttonHoles(part.at)
-  if (part.type === 'potentiometer') return potHoles(part.at)
+  if (part.type === 'potentiometer' || part.type === 'tmp36') return potHoles(part.at)
   if (part.type === 'rgbLed') return rgbHoles(part.at)
   return part.type === 'led' ? [part.anode, part.cathode] : [part.from, part.to]
 }
 
 // The pin that drives each lesson's LED.
-const SIGNAL_PINS = { '1.2': 'D13', '1.3': 'D9', '1.4': 'D13', '1.5': 'D13', '1.7': 'D9' }
+const SIGNAL_PINS = { '1.2': 'D13', '1.3': 'D9', '1.4': 'D13', '1.5': 'D13', '1.7': 'D9', '1.9': 'D13' }
 // Lessons built from the plain pin, resistor, LED, GND circuit.
 const LED_ONLY = ['1.2', '1.7']
 
@@ -43,10 +43,10 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2 to 1.8', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.10', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
   })
 
   it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
@@ -258,6 +258,43 @@ describe('circuit tables', () => {
   it('throws naming the item for an RGB LED past column 27', () => {
     const boards = placedBoards()
     expect(() => buildCircuit({ parts: [{ id: 'q1', type: 'rgbLed', at: '28e' }], wires: [] }, boards)).toThrow('q1')
+  })
+
+  describe('lesson 1.9 light sensor circuit', () => {
+    const circuit = circuits['1.9']
+    const part = (id) => circuit.parts.find((item) => item.id === id)
+    const wireTo = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+
+    it('makes a divider: 5V, photoresistor, A0, 10 kohm, GND.2', () => {
+      const ldr = part('ldr1')
+      const fixed = part('r2')
+      expect(ldr.type).toBe('ldr')
+      expect(fixed.ohms).toBe(10000)
+      const ldrEnds = [holeStrip(ldr.from), holeStrip(ldr.to)]
+      const fixedEnds = [holeStrip(fixed.from), holeStrip(fixed.to)]
+      expect(ldrEnds).toContain(wireTo('5V'))
+      expect(ldrEnds).toContain(wireTo('A0'))
+      expect(fixedEnds).toContain(wireTo('A0'))
+      expect(fixedEnds).toContain(wireTo('GND.2'))
+      expect(new Set([wireTo('5V'), wireTo('A0'), wireTo('GND.2')]).size).toBe(3)
+    })
+
+    it('keeps the D13 LED circuit on its own strips', () => {
+      const sensorStrips = new Set([wireTo('5V'), wireTo('A0'), wireTo('GND.2')])
+      for (const pin of ['D13', 'GND']) expect(sensorStrips.has(wireTo(pin))).toBe(false)
+    })
+  })
+
+  describe('lesson 1.10 temperature circuit', () => {
+    const circuit = circuits['1.10']
+    const tmp = circuit.parts.find((item) => item.id === 'tmp1')
+
+    it('wires 5V, A0 and GND.2 to the +Vs, Vout and GND legs', () => {
+      expect(tmp.type).toBe('tmp36')
+      const [vs, out, gnd] = potHoles(tmp.at).map(holeStrip)
+      const wireTo = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+      expect([wireTo('5V'), wireTo('A0'), wireTo('GND.2')]).toEqual([vs, out, gnd])
+    })
   })
 
   describe('lesson 1.6 potentiometer circuit', () => {

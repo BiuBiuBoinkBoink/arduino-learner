@@ -80,6 +80,30 @@ export const circuits = {
     ]
   },
   '1.7': ledCircuit('D9'),
+  // 5V -> photoresistor -> A0 node -> 10 kohm -> GND.2; the D13 LED of the button
+  // lessons in columns 20 to 25 is the night light.
+  '1.9': {
+    parts: [
+      { id: 'ldr1', type: 'ldr', from: '4c', to: '7c' },
+      { id: 'r2', type: 'resistor', ohms: 10000, from: '7d', to: '11d' },
+      ...buttonLed.parts
+    ],
+    wires: [
+      { id: 'w3', color: 'red', from: '5V', to: '4a' },
+      { id: 'w4', color: 'green', from: 'A0', to: '7a' },
+      { id: 'w5', color: 'black', from: 'GND.2', to: '11a' },
+      ...buttonLed.wires
+    ]
+  },
+  // TMP36 flat side towards the viewer: +Vs to 5V, Vout to A0, GND to GND.2.
+  '1.10': {
+    parts: [{ id: 'tmp1', type: 'tmp36', at: '12e' }],
+    wires: [
+      { id: 'w1', color: 'red', from: '5V', to: '12a' },
+      { id: 'w2', color: 'green', from: 'A0', to: '13a' },
+      { id: 'w3', color: 'black', from: 'GND.2', to: '14a' }
+    ]
+  },
   // Common cathode RGB LED: red 14, cathode 15 to GND, green 16, blue 17. Each
   // colour pin reaches its leg through a 220 ohm resistor; green comes up from
   // the bottom half across the channel.

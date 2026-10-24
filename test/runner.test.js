@@ -40,14 +40,16 @@ function setup(options) {
 }
 
 describe('createSimRunner', () => {
-  it('passes the shared inputs to the sim factory', () => {
+  it('passes the shared inputs and room to the sim factory', () => {
     const fake = fakeFactory()
     const inputs = { isPressed: () => false }
-    const runner = createSimRunner({ sims: { '1.4': fake.create }, pins: createPins(), inputs, onGoal: () => {}, uploadMs: 100 })
+    const room = { getLight: () => 0.8 }
+    const runner = createSimRunner({ sims: { '1.4': fake.create }, pins: createPins(), inputs, room, onGoal: () => {}, uploadMs: 100 })
     runner.run({ lessonId: '1.4', getValues: () => ({}), now: 0 })
     runner.tick(100)
     expect(fake.log.created).toHaveLength(1)
     expect(fake.log.created[0].inputs).toBe(inputs)
+    expect(fake.log.created[0].room).toBe(room)
   })
 
   it('exports a 1500 ms upload time', () => {

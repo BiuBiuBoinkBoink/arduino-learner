@@ -6,6 +6,8 @@ import { createPotSim } from './pot.js'
 import { createFadeSim } from './fade.js'
 import { createOhmsSim } from './ohms.js'
 import { createRgbSim } from './rgb.js'
+import { createLightSim } from './light.js'
+import { createTempSim } from './temp.js'
 
 export const sims = {
   '1.2': createBlinkSim,
@@ -14,5 +16,7 @@ export const sims = {
   '1.5': createPullDownSim,
   '1.6': createPotSim,
   '1.7': createFadeSim,
-  '1.8': createRgbSim
+  '1.8': createRgbSim,
+  '1.9': createLightSim,
+  '1.10': createTempSim
 }

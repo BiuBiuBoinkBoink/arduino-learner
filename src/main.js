@@ -14,6 +14,8 @@ import { createPartPress, createHoldButton } from './ui/partPress.js'
 import { createPartTurn, createKnobSlider } from './ui/partTurn.js'
 import { createMultimeter } from './ui/multimeter.js'
 import { ledBrightness } from './sim/ohm.js'
+import { createRoom } from './sim/room.js'
+import { createRoomControls } from './ui/roomControls.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -84,6 +86,11 @@ window.addEventListener('hashchange', () => {
 // and one set of learner inputs (held buttons) the sims read.
 const pins = createPins()
 const inputs = createInputs()
+// The room the sensors read; its light level also dims the scene.
+const room = createRoom()
+room.subscribe((name, value) => {
+  if (name === 'light') stage.setDaylight(value)
+})
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
 const { toolbar, getValues, subscribe: subscribeValues } = createCodePanel(panels.code, course)
@@ -93,6 +100,7 @@ const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.it
 const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
 const partTurn = createPartTurn({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
 const knobSlider = createKnobSlider({ container: toolbar, partTurn, inputs })
+const roomControls = createRoomControls({ container: toolbar, room })
 const multimeter = createMultimeter({ container: toolbar, stage, getItems: () => (circuit ? circuit.items : null), inputs })
 
 // Parts with showWhen are drawn only while that code panel param has that value.
@@ -145,6 +153,10 @@ function showCircuit({ lesson }) {
   if (pot) partTurn.setValue(pot.id, 0.5)
   knobSlider.setTarget(pot ? pot.id : null)
   multimeter.setTargets(circuit ? circuits[lesson.id].meter : null)
+  // Every new circuit starts in the default room; sensor parts show their sliders.
+  room.reset()
+  const types = circuit ? circuits[lesson.id].parts.map((part) => part.type) : []
+  roomControls.setSensors({ light: types.includes('ldr'), temp: types.includes('tmp36') })
   stage.invalidate()
 }
 // Light circuit LEDs from the level of the Uno pin that drives each (0 to 1, PWM
@@ -180,7 +192,7 @@ pins.subscribe((name) => lightLeds(name))
 
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, onGoal: (id) => course.markComplete(id) })
+const runner = createSimRunner({ sims, pins, inputs, room, onGoal: (id) => course.markComplete(id) })
 createRunControls({ container: runControls, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })

@@ -77,5 +77,16 @@ export function createStage(container) {
   resize()
   invalidate()
 
-  return { scene, camera, renderer, controls, invalidate }
+  // Room light from 0 (dark) to 1 (bright) dims the scene lights; 0.8 is the
+  // normal look, so lights are scaled relative to that.
+  const HEMI = hemi.intensity
+  const SUN = sun.intensity
+  function setDaylight(level) {
+    const scale = (0.3 + 0.7 * Math.min(1, Math.max(0, level))) / (0.3 + 0.7 * 0.8)
+    hemi.intensity = HEMI * scale
+    sun.intensity = SUN * scale
+    invalidate()
+  }
+
+  return { scene, camera, renderer, controls, invalidate, setDaylight }
 }
