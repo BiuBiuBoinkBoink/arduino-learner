@@ -73,3 +73,74 @@ describe('lesson 1.1 board tour', () => {
     }
   })
 })
+
+function slotNames(code) {
+  return [...code.matchAll(/\{\{(\w+)\}\}/g)].map((match) => match[1])
+}
+
+describe('lesson sketches', () => {
+  for (const lesson of lessons.filter((item) => item.sketch)) {
+    describe(lesson.id, () => {
+      const { code, params, trace } = lesson.sketch
+      const names = params.map((param) => param.name)
+      const ranges = params.filter((param) => param.type === 'range').map((param) => param.name)
+
+      it('has unique param names of type range or choice', () => {
+        expect(new Set(names).size).toBe(names.length)
+        for (const param of params) expect(['range', 'choice']).toContain(param.type)
+      })
+
+      it('has a param for every slot and uses every param', () => {
+        const slots = slotNames(code)
+        for (const slot of slots) expect(names).toContain(slot)
+        for (const name of names) expect(slots).toContain(name)
+      })
+
+      it('has range defaults within min and max', () => {
+        for (const param of params.filter((item) => item.type === 'range')) {
+          expect(param.step).toBeGreaterThan(0)
+          expect(param.value).toBeGreaterThanOrEqual(param.min)
+          expect(param.value).toBeLessThanOrEqual(param.max)
+        }
+      })
+
+      it('has choice defaults that are one of the options', () => {
+        for (const param of params.filter((item) => item.type === 'choice')) {
+          expect(param.options.map((option) => option.value)).toContain(param.value)
+        }
+      })
+
+      it('has trace lines inside the code and valid durations', () => {
+        const lineCount = code.split('\n').length
+        for (const step of trace) {
+          expect(Number.isInteger(step.line)).toBe(true)
+          expect(step.line).toBeGreaterThanOrEqual(1)
+          expect(step.line).toBeLessThanOrEqual(lineCount)
+          if (typeof step.ms === 'string') expect(ranges).toContain(step.ms)
+          else expect(step.ms).toBeGreaterThan(0)
+        }
+      })
+
+      it('uses ASCII only in code, labels and units', () => {
+        const texts = [
+          code,
+          ...params.map((param) => param.label),
+          ...params.filter((param) => param.unit !== undefined).map((param) => param.unit),
+          ...params.flatMap((param) => (param.options || []).map((option) => option.label))
+        ]
+        for (const text of texts) {
+          expect(nonEmpty(text)).toBe(true)
+          expect(isAscii(text)).toBe(true)
+        }
+      })
+    })
+  }
+
+  it('gives 1.2 and 1.3 a sketch with a non empty trace', () => {
+    for (const id of ['1.2', '1.3']) {
+      const lesson = lessons.find((item) => item.id === id)
+      expect(lesson.sketch).toBeTruthy()
+      expect(lesson.sketch.trace.length).toBeGreaterThan(0)
+    }
+  })
+})

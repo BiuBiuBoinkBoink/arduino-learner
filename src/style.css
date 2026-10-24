@@ -270,6 +270,117 @@ body {
   border-radius: 6px;
 }
 
+.code-params {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+}
+
+.code-param {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.code-param-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.code-param-top label,
+.code-choice legend {
+  font-weight: 600;
+}
+
+.code-param input[type='range'] {
+  width: 100%;
+  margin: 0;
+}
+
+.code-choice {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.code-choice legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.code-choice-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.code-param input:focus-visible {
+  outline: 2px solid #2f6fd6;
+  outline-offset: 2px;
+}
+
+/* Sketch block: the .info-code look on an opaque background, so the token
+   colours keep at least 4.5:1 contrast whatever the stage shows behind. */
+.code-sketch {
+  background: #eceef1;
+}
+
+.code-sketch code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+.code-line {
+  display: block;
+  min-height: 1.4em;
+  border-radius: 3px;
+}
+
+.code-line.is-active {
+  background: #fff0b3;
+  box-shadow: inset 3px 0 0 #c99a00;
+}
+
+.tok-comment {
+  color: #5c6470;
+  font-style: italic;
+}
+
+.tok-keyword {
+  color: #8a1f8f;
+}
+
+.tok-type {
+  color: #0d6670;
+}
+
+.tok-constant {
+  color: #a03a00;
+}
+
+.tok-number {
+  color: #1f4fb0;
+}
+
+.tok-builtin {
+  color: #2b6a12;
+}
+
+.tok-string {
+  color: #a3202b;
+}
+
+.tok-preprocessor {
+  color: #7a4b00;
+}
+
 .info-specs {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);

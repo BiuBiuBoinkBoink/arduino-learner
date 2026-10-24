@@ -1,6 +1,7 @@
 // Level 1 lesson data. Each lesson holds the text for the info panel tabs:
 // overview paragraphs, pinout rows, an example snippet and key specs.
-// Later jobs add levels.
+// Optional sketch: code panel template with {{name}} param slots, the params
+// that fill them and a timed trace of { line, ms } steps. Later jobs add levels.
 export const lessons = [
   {
     id: '1.1',
@@ -77,6 +78,31 @@ void loop() {
 }`,
       note: 'The LED stays on for half a second, then off for half a second, so it blinks once per second.'
     },
+    sketch: {
+      code: `// Blink the LED on pin 13
+const int ledPin = 13;
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(ledPin, HIGH); // LED on
+  delay({{onMs}});
+  digitalWrite(ledPin, LOW);  // LED off
+  delay({{offMs}});
+}`,
+      params: [
+        { name: 'onMs', label: 'On time', type: 'range', min: 100, max: 1000, step: 50, value: 500, unit: 'ms' },
+        { name: 'offMs', label: 'Off time', type: 'range', min: 100, max: 1000, step: 50, value: 500, unit: 'ms' }
+      ],
+      trace: [
+        { line: 9, ms: 150 },
+        { line: 10, ms: 'onMs' },
+        { line: 11, ms: 150 },
+        { line: 12, ms: 'offMs' }
+      ]
+    },
     specs: [
       { label: 'HIGH output', value: 'about 5 V' },
       { label: 'LOW output', value: '0 V' },
@@ -106,6 +132,42 @@ float ledV = 2.0;     // volts
 float current = 0.014; // amps, 14 mA
 float r = (supply - ledV) / current; // about 214 ohm`,
       note: 'The math picks the resistor; round up to the next common value, which is 220 ohm.'
+    },
+    sketch: {
+      code: `// LED current through the resistor on D9
+const int ledPin = 9;
+const int ohms = {{ohms}};
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);
+}
+
+void loop() {
+  float volts = 5.0 - 2.0;       // left for the resistor
+  float amps = volts / ohms;     // I = V / R
+  float milliamps = amps * 1000; // 220 ohm gives about 14
+  delay(1000);
+}`,
+      params: [
+        {
+          name: 'ohms',
+          label: 'Resistor',
+          type: 'choice',
+          value: 220,
+          options: [
+            { value: 220, label: '220 ohm' },
+            { value: 1000, label: '1 kohm' },
+            { value: 10000, label: '10 kohm' }
+          ]
+        }
+      ],
+      trace: [
+        { line: 11, ms: 400 },
+        { line: 12, ms: 400 },
+        { line: 13, ms: 400 },
+        { line: 14, ms: 800 }
+      ]
     },
     specs: [
       { label: 'Supply', value: '5 V' },

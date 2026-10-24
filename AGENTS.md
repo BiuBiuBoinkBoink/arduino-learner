@@ -45,7 +45,7 @@ There is no linter yet. Match the formatting of the file you are editing.
 Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/panels.js`, `src/style.css`, `src/course/lessons.js`, `src/course/state.js`,
 `src/course/hash.js`, `src/ui/lessonStrip.js`, `src/ui/infoPanel.js`,
-`src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
+`src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
 `src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`. The other
 folders are the target for later jobs.
@@ -60,7 +60,11 @@ src/
     lessons.js     lesson objects: id, level, title, summary, plus info tab content:
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
                    example ({ code, note }), specs ([{ label, value }]); optional
-                   tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only)
+                   tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only);
+                   optional sketch ({ code, params, trace }, 1.2 and 1.3 now): code is a template with
+                   {{name}} slots; params are range ({ name, label, min, max, step, value, unit? }) or
+                   choice ({ name, label, value, options: [{ value, label }] }); trace is a looping list
+                   of { line (1 based), ms (number or a range param name) }
   scene/           renderer, camera, lights, render loop
     stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate()
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
@@ -83,7 +87,14 @@ src/
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
+    codePanel.js   Code heading, lesson line, param controls (range sliders with value text, choice
+                   radio fieldsets) and the sketch coloured per line; controls refill the slots live,
+                   values reset on lesson change; the trace loops an is-active line highlight on timers;
+                   lessons without a sketch show coloured example.code, no controls, no trace
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
+    highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
+    sketch.js      pure defaultValues(params), fillSketch(code, values), stepDuration(step, values),
+                   traceStepAt(trace, values, elapsedMs)
     boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; marks 1.1 done
 test/              vitest unit tests
 ```
