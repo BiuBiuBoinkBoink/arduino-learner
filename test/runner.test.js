@@ -63,6 +63,16 @@ describe('createSimRunner', () => {
     expect(tones.get('D8')).toBe(0)
   })
 
+  it('passes servos to the sim and keeps their angle on stop', () => {
+    const servos = createPins()
+    const create = (args) => ({ update: () => args.servos.set('D9', 45), stop: () => {} })
+    const runner = createSimRunner({ sims: { '1.12': create }, pins: createPins(), servos, onGoal: () => {}, uploadMs: 100 })
+    runner.run({ lessonId: '1.12', getValues: () => ({}), now: 0 })
+    runner.tick(100)
+    runner.stop()
+    expect(servos.get('D9')).toBe(45)
+  })
+
   it('exports a 1500 ms upload time', () => {
     expect(UPLOAD_MS).toBe(1500)
   })

@@ -89,6 +89,8 @@ const pins = createPins()
 const inputs = createInputs()
 // Tone frequency in Hz per pin, 0 for silent: the same store shape as pins.
 const tones = createPins()
+// Servo arm angle in deg per pin; kept on Stop, like a real servo.
+const servos = createPins()
 // The room the sensors read; its light level also dims the scene.
 const room = createRoom()
 room.subscribe((name, value) => {
@@ -122,6 +124,7 @@ let circuit = null
 let circuitLeds = []
 let circuitRgbLeds = []
 let circuitBuzzer = null
+let circuitServo = null
 let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
@@ -165,6 +168,13 @@ function showCircuit({ lesson }) {
   const buzzer = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'buzzer') : null
   circuitBuzzer = buzzer ? { pin: buzzer.pin, item: circuit.items[buzzer.id] } : null
   sound.setPin(buzzer ? buzzer.pin : null)
+  // A new servo starts centred at 90 deg.
+  const servo = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'servo') : null
+  circuitServo = servo ? { pin: servo.pin, item: circuit.items[servo.id] } : null
+  if (servo) {
+    servos.set(servo.pin, 90)
+    circuitServo.item.setAngle(90)
+  }
   stage.invalidate()
 }
 // Light circuit LEDs from the level of the Uno pin that drives each (0 to 1, PWM
@@ -198,6 +208,13 @@ subscribeValues((values) => {
 
 pins.subscribe((name) => lightLeds(name))
 
+// Turn the servo horn to the arm angle on its pin.
+servos.subscribe((name, degrees) => {
+  if (!circuitServo || circuitServo.pin !== name) return
+  circuitServo.item.setAngle(degrees)
+  stage.invalidate()
+})
+
 // Show the buzzer sound ring while its pin has a tone.
 tones.subscribe((name, hz) => {
   if (!circuitBuzzer || circuitBuzzer.pin !== name) return
@@ -207,7 +224,7 @@ tones.subscribe((name, hz) => {
 
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, room, tones, onGoal: (id) => course.markComplete(id) })
+const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, onGoal: (id) => course.markComplete(id) })
 createRunControls({ container: runControls, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })

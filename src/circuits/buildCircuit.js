@@ -11,6 +11,7 @@ import { createRgbLed } from '../parts/rgbLed.js'
 import { createLdr } from '../parts/ldr.js'
 import { createTmp36 } from '../parts/tmp36.js'
 import { createBuzzer } from '../parts/buzzer.js'
+import { createServo } from '../parts/servo.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
@@ -49,6 +50,8 @@ const PART_FACTORIES = {
   potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
   rgbLed: (part, hole) => createRgbLed({ legs: rgbHoles(part.at).map(hole) }),
   buzzer: (part, hole) => createBuzzer({ legs: buzzerHoles(part.at).map(hole) }),
+  // A servo cable ends in three holes in a row like a potentiometer: GND, 5V, signal.
+  servo: (part, hole) => createServo({ legs: potHoles(part.at).map(hole) }),
   ldr: (part, hole) => createLdr({ from: hole(part.from), to: hole(part.to) }),
   // A TMP36 uses the same three holes in a row as a potentiometer: +Vs, Vout, GND.
   tmp36: (part, hole) => createTmp36({ legs: potHoles(part.at).map(hole) }),

@@ -138,8 +138,8 @@ describe('lesson sketches', () => {
     })
   }
 
-  it('gives 1.2 to 1.5 a sketch with a non empty trace', () => {
-    for (const id of ['1.2', '1.3', '1.4', '1.5']) {
+  it('gives 1.2 to 1.12 a sketch with a non empty trace', () => {
+    for (const id of ['1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '1.10', '1.11', '1.12']) {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.sketch).toBeTruthy()
       expect(lesson.sketch.trace.length).toBeGreaterThan(0)
@@ -184,8 +184,8 @@ describe('lesson 1.6 sketch', () => {
 })
 
 describe('lesson overviews with a goal paragraph', () => {
-  it('give 1.3 to 1.11 three ASCII paragraphs with no exclamation marks', () => {
-    for (const id of ['1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '1.10', '1.11']) {
+  it('give 1.3 to 1.12 three ASCII paragraphs with no exclamation marks', () => {
+    for (const id of ['1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '1.10', '1.11', '1.12']) {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.overview).toHaveLength(3)
       for (const text of lesson.overview) {
