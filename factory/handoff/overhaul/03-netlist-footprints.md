@@ -317,4 +317,25 @@ modules to the architecture tree.
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+- The hole grid (names, rows, rails, strips) moved to a new pure module `src/circuits/holes.js`,
+  because `breadboard.js` imports three.js and the circuits modules must stay pure.
+  `breadboard.js` re-exports all of it, so every import of it still works. `holes.js` also has
+  `holeName(column, row)` and `rowAt(row, pitches)` for the footprints.
+- Hole marks are named `hole` and stripes `stripe`, so the breadboard test counts the 420 holes by
+  name (it used to count meshes without shadows, which the stripes would also match).
+- `button-gap` also fires when the reference button straddles the channel, the build's does not,
+  and the circuit does not match (restricted to `only` when given). With the button terminals as
+  specified (a = legs 0 and 2), a button in rows a to d keeps its sides in separate strips, so
+  "a and b in one net" alone could not catch the 1.4 case this file lists.
+- `wrong-pin` does not fire when some reference net with the same other tokens uses the build's
+  pin. Without that, the two ends of a potentiometer (5V and GND) or a buzzer matched each other
+  and every reference reported a wrong pin.
+- `loose-wire` is skipped while every part the pin should meet in the reference is unplaced, so a
+  missing LED reports `missing` first instead of a loose GND wire.
+- `loose` counts only reference joins within `only` (and no pins with `only`), so a build step
+  that places just the LED does not call its legs loose.
+- `reversed` compares with pins kept (limited to the `only` parts, or all reference parts), since
+  a TMP36 turned round only differs in which pins its legs meet.
+- `short` lists 5V, 3.3V and VIN first, then other pins, then GND.
+- `partLabel` takes labels from the reference parts plus any extra build parts.
+- `orientationCount` is 1 for bending parts; `footprint` returns null for them (use `bendLegs`).

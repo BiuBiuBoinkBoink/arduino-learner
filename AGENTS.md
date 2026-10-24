@@ -71,7 +71,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/course/progress.js`, `src/course/hash.js`, `src/ui/infoPanel.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
-`src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/sim/pins.js`,
+`src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/circuits/holes.js`,
+`src/circuits/footprints.js`, `src/circuits/netlist.js`, `src/circuits/rules.js`, `src/sim/pins.js`,
 `src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`,
 `src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
@@ -143,8 +144,9 @@ src/
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
     unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones;
                    PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top
-    breadboard.js  createBreadboard() -> { group }, half size, 30 columns, no rails; BREADBOARD_COLUMNS,
-                   BREADBOARD_ROWS, parseHole('12e'), holePosition(hole) local Vector3, holeStrip(hole)
+    breadboard.js  createBreadboard() -> { group }, half size, 30 columns, four power rails with red and blue
+                   stripes (hole marks named 'hole', stripes 'stripe'); re-exports the grid from
+                   src/circuits/holes.js; holePosition(hole) local Vector3, rails included
     led.js         createLed({ color, anode, cathode }) -> { group, setLit(on), setBrightness(b) }; red, green, yellow,
                    blue; anode leg kinked; setBrightness(b) for b from 0 to 1 glows the lens in its own colour
                    (emissive only) at LIT_INTENSITY * b, none at 0; setLit(on) is setBrightness(on ? 1 : 0);
@@ -169,9 +171,16 @@ src/
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
     circuits.js    circuits keyed by lesson id (1.2 to 1.12 and P1 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
-                   to world positions, one factory result per id, item group name = id;
-                   buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes;
-                   rgbHoles(at) -> the four RGB LED leg holes; buzzerHoles(at) -> the two buzzer leg holes
+                   to world positions, one factory result per id, item group name = id; a wire end is a
+                   hole when isHole(name) (rails included); re-exports buttonHoles, potHoles, rgbHoles and
+                   buzzerHoles from footprints.js
+    holes.js       pure hole grid: BREADBOARD_COLUMNS, BREADBOARD_ROWS, RAIL_ROWS, ALL_ROWS, ALL_HOLES (420),
+                   parseHole, isHole, holeName(column, row), rowPitchZ(row), rowAt(row, pitches), holeStrip
+    footprints.js  pure PART_TYPES, TERMINAL_LABELS, legsOf, terminalHoles, footprint, orientationCount,
+                   bendLegs, buttonHoles, potHoles, rgbHoles, buzzerHoles (see "Netlist and footprints")
+    netlist.js     pure buildNetlist, canonical, compare, align, diagnose, normalizePin, placeOf, partLabel,
+                   thingLabel, placeLabel, formatOhms (see "Netlist and footprints")
+    rules.js       pure createRuleContext(build, reference), evaluateRule(rule, ruleContext)
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
@@ -341,7 +350,14 @@ the current lesson, and every panel updates from it.
   side (-z, towards the Uno digital headers), row `j` on the near side.
 - Rows are one pitch (0.254 cm) apart, with a centre channel so `e` to `f` is
   three pitches. Holes `a` to `e` of one column share a strip (`'12-top'`),
-  `f` to `j` another (`'12-bottom'`). No power rails.
+  `f` to `j` another (`'12-bottom'`).
+- Four power rails run along the long edges, a hole in every column, named row
+  then column: `'T+12'`, `'T-12'` on the far side (z -9 and -8 pitches) and
+  `'B-12'`, `'B+12'` on the near side (8 and 9 pitches). Each rail is one strip
+  (`holeStrip('T+12')` is `'rail-T+'`). A red stripe sits half a pitch outside
+  each + rail and a blue one half a pitch inside each - rail. Wires may start or
+  end on rails; existing reference circuits do not use them. The pure grid lives
+  in `src/circuits/holes.js`; `breadboard.js` re-exports it.
 - Uno pins use `unoPinPosition(name)`. Names follow the R3 header order:
   `SCL`, `SDA`, `AREF`, `GND`, `D13` to `D8`; `D7` to `D0`; `NC`, `IOREF`,
   `RESET`, `3.3V`, `5V`, `GND.2`, `GND.3`, `VIN`; `A0` to `A5`. Plain `GND` is
@@ -404,6 +420,60 @@ the current lesson, and every panel updates from it.
   x = 0. On every lesson change it removes and disposes the old circuit group,
   builds `circuits[lesson.id]` if there is one, and calls `invalidate()`. A held
   button is released first.
+
+## Netlist and footprints
+
+- Part types (`PART_TYPES` in `footprints.js`), with terminals in leg order:
+  led `anode`, `cathode` (polar, shape pair); resistor and ldr `a`, `b` (bend,
+  2 to 8 and 2 to 6 pitches); button `a`, `b` (button); potentiometer `end1`,
+  `wiper`, `end2` (row of 3, flips); tmp36 `vs`, `vout`, `gnd` and servo `gnd`,
+  `vcc`, `signal` (polar rows of 3, no flip); rgbLed `red`, `cathode`, `green`,
+  `blue` (polar row of 4, flips); buzzer `a`, `b` (gap of 3, flips, not polar).
+  `TERMINAL_LABELS[type][terminal]` gives the words for messages (`long leg`,
+  `outer leg`, `orange signal wire` ...).
+- A placed part has `legs`, holes in terminal order; a button has four legs
+  `[c r1, c+2 r1, c r2, c+2 r2]`, terminal `a` being legs 0 and 2 and `b` legs 1
+  and 3. `legsOf(part)` reads `legs` or the reference fields (anode and cathode,
+  from and to, at), and gives `[]` for an unplaced part. `footprint(type, anchor,
+  orientation)` gives the legs of a fixed shape (null when off the board; an LED
+  steps one column, or one row only between rows exactly a pitch apart; a button's
+  second pair is 3 pitches towards +z). `bendLegs(type, from, to)` allows one row
+  or one column within the part's span, across the channel too.
+- `buildNetlist(circuit)` joins keys with union find: `term:<id>.<terminal>`,
+  `pin:<pin>` (GND.2 and GND.3 are GND), `strip:<n>-top|bottom`, `rail:<row>`.
+  Each leg joins its terminal to its hole's place; each wire joins its from (pin
+  or place) to its to. Nets are `{ id, terms, pins, places }`, the id being the
+  smallest key; `netOf` takes any key form, a terminal, a pin or a hole.
+- Tokens: pins by name; `id.terminal` for polar parts, `id.*` for resistor, ldr,
+  button and buzzer, `id.end` and `id.wiper` for a potentiometer. `canonical`
+  gives one sorted token string per net; with `only` (part ids) it keeps those
+  parts' tokens and drops pins. `compare(build, reference, { only })` ->
+  `{ match, missing, extra }` after `align`, which swaps ids between parts with
+  the same `interchangeKey` (`resistor:<ohms>`, `led:<color>`, else the type) to
+  fit the reference best (ties keep ids).
+- `diagnose(build, reference, { only })` -> `[{ id, text, targets: { parts,
+  holes, pins, places } }]`, most important first:
+
+  | id | Found when |
+  | --- | --- |
+  | `short` | a net holds two different pins |
+  | `button-gap` | a button's sides share a net, or it does not straddle the channel where the reference one does and the circuit does not match |
+  | `same-net` | two terminals of a part share a net they do not share in the reference |
+  | `reversed` | turning an LED, RGB LED or TMP36 round fits the reference better |
+  | `wrong-pin` | a net with pin P fits a reference net with pin Q, and none with P |
+  | `no-resistor` | an LED anode or RGB colour leg meets a pin other than GND that its reference net does not have |
+  | `loose-wire` | a pin's net has only places, unless the parts it should meet are unplaced |
+  | `missing` | a reference part is not placed |
+  | `not-joined` | a reference net has no equal build net (names its first two tokens in different build nets) |
+  | `loose` | a terminal is alone in its net and joined to something in the reference |
+
+  The texts are in `netlist.js` and `03-netlist-footprints.md`. Wording helpers:
+  `partLabel` (adds the value, colour or id only when needed), `thingLabel`,
+  `placeLabel` (`strip 9 (rows a to e)`, `the top + rail`), `formatOhms`.
+- Step rules (`rules.js`): `{ placed: id }`, `{ apart: [x, y] }`, `{ allApart: id }`,
+  `{ joined: [items] }` (`id.*` any terminal, `id.end` either outer leg, pins
+  normalized), `{ wired: pin }`, `{ noShorts: true }`, `{ matches: 'all' | [ids] }`.
+  `createRuleContext` aligns the build once and caches its netlist and diagnosis.
 
 ## Sims and goal checks
 

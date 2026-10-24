@@ -44,7 +44,7 @@ request until the owner says so.
 
 - [x] Overhaul phase 1, layout shell: top bar, course map, step guide with Reference drawer, collapsible code panel, run bar, view buttons and controls dock on the workbench -> 01-layout-shell.md -> feature/lesson-overhaul
 - [x] Overhaul phase 2, milestone engine: lesson steps, checks, per step progress, board progress names, lesson 1.2 as steps -> 02-milestone-engine.md -> feature/lesson-overhaul
-- [ ] Overhaul phase 3, netlist and footprints: power rails, part footprints, connection checker with mistake messages, step rules -> 03-netlist-footprints.md
+- [x] Overhaul phase 3, netlist and footprints: power rails, part footprints, connection checker with mistake messages, step rules -> 03-netlist-footprints.md -> feature/lesson-overhaul
 - [ ] Overhaul phase 4, placement: workbench build, parts tray, ghost and snap placement, wires, keyboard path, edit mode, run lock -> 04-placement.md
 - [ ] Overhaul phase 5, build steps and hints: circuit checks, mistakes in 3D, hint ladder with show me and do it for me, 1.2 built by hand -> 05-build-steps-hints.md
 - [ ] Overhaul phase 6, lessons converted: every lesson as milestones with carry over, breadboard steps in 1.1 -> 06-lessons-converted.md

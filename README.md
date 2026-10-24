@@ -23,7 +23,7 @@ Uno and breadboard in the middle and the code panel on the right. Go to `#1.1` f
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 528 tests at the moment
+npm test        # vitest, 617 tests at the moment
 npm run build   # production build
 ```
 
@@ -194,6 +194,12 @@ status icons, a To pass checklist, feedback, a hint and Continue, and the top ba
 segment per step. Progress is saved per step under `robo-learn:steps`. Every board reports named
 progress for run steps. Lesson 1.2 now has a quiz, a predict step (Run stays locked until you
 guess) and a code step. Lessons without steps pass exactly as before.
+
+**Lesson overhaul phase 3, netlist and footprints** (`feature/lesson-overhaul`, not merged): the
+breadboard has four power rails with red and blue stripes. New pure modules describe where each
+part's legs go (`footprints.js`), work out what is joined to what and compare a build with the
+lesson's reference circuit in any working layout (`netlist.js`), name mistakes in plain words, and
+check build and wire step rules (`rules.js`). Nothing uses them in the UI yet.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.

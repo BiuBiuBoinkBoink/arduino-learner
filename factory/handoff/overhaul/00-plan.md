@@ -196,3 +196,12 @@ the final screenshot shows, anything not verified.
   Not verified: a real mouse hold on the 3D button (1.4 was passed through the Hold to press
   keyboard path), screen reader announcements (only the role="status" markup was checked), and
   check 8 was done on the passed code step before the reset rather than after check 7.
+- 2026-10-25: phase 3 netlist and footprints, last code commit cf7142c, 617 tests. Final screenshot
+  (pane width, about 800 px) on 1.2 in Top view: the Uno on the left and the breadboard on the
+  right with all four rails, red stripes outside the + rails and blue stripes inside the - rails,
+  the red LED, resistor and two wires, and the guide with the Learn step. Browser checks: 1.2,
+  1.4, 1.8 and P1 draw their circuits, 1.8 still passes (orange, Goal met), rails in the 3D and
+  Top views do not overlap the Uno; no console errors. Not verified in the browser: P1 passing
+  (covered by test/lessonGoals.test.js, the 24 s day was not run because the pane throttled
+  frames), and the rail check was done at the pane's own size (about 800 x 670) because
+  screenshots under 1440 x 900 emulation came back scaled.
