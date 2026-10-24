@@ -17,6 +17,8 @@ import { ledBrightness } from './sim/ohm.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
+import { createSerial } from './sim/serial.js'
+import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -91,6 +93,17 @@ const inputs = createInputs()
 const tones = createPins()
 // Servo arm angle in deg per pin; kept on Stop, like a real servo.
 const servos = createPins()
+// The serial port between the sketch and the Serial Monitor; cleared on lesson change.
+const serial = createSerial()
+const serialMonitor = createSerialMonitor({ container: app, serial })
+course.subscribe(({ lesson }) => {
+  if (lesson.id === serialLessonId) return
+  serialLessonId = lesson.id
+  serial.clear()
+  serialMonitor.setVisible(usesSerial(lesson))
+})
+let serialLessonId = course.getState().lesson.id
+serialMonitor.setVisible(usesSerial(course.getState().lesson))
 // The room the sensors read; its light level also dims the scene.
 const room = createRoom()
 room.subscribe((name, value) => {
@@ -225,7 +238,7 @@ tones.subscribe((name, hz) => {
 
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, onGoal: (id) => course.markComplete(id) })
+const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, onGoal: (id) => course.markComplete(id) })
 createRunControls({ container: runControls, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })

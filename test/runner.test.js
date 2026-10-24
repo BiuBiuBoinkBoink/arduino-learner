@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createPins } from '../src/sim/pins.js'
 import { createSimRunner, UPLOAD_MS } from '../src/sim/runner.js'
+import { createSerial } from '../src/sim/serial.js'
 
 // Fake sim factory that records its calls; goal is a function so tests can flip it.
 function fakeFactory({ goal } = {}) {
@@ -71,6 +72,17 @@ describe('createSimRunner', () => {
     runner.tick(100)
     runner.stop()
     expect(servos.get('D9')).toBe(45)
+  })
+
+  it('passes serial to the sim and drops unread input on a new run', () => {
+    const fake = fakeFactory()
+    const serial = createSerial()
+    const runner = createSimRunner({ sims: { '1.6': fake.create }, pins: createPins(), serial, onGoal: () => {}, uploadMs: 100 })
+    serial.send('old')
+    runner.run({ lessonId: '1.6', getValues: () => ({}), now: 0 })
+    runner.tick(100)
+    expect(fake.log.created[0].serial).toBe(serial)
+    expect(serial.available()).toBe(0)
   })
 
   it('exports a 1500 ms upload time', () => {

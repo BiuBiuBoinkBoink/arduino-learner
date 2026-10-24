@@ -325,6 +325,87 @@ body {
   outline-offset: 2px;
 }
 
+/* Serial Monitor: docked above the lesson strip between the side panels. */
+#serial-panel {
+  position: fixed;
+  left: calc(var(--side-width) + var(--gap) * 2);
+  right: calc(var(--side-width) + var(--gap) * 2);
+  bottom: calc(var(--strip-height) + var(--gap) * 2);
+  height: clamp(140px, 26vh, 240px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(29, 35, 48, 0.18);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+#serial-panel[hidden] {
+  display: none;
+}
+
+.serial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.serial-heading {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.serial-clear {
+  padding: 2px 12px;
+}
+
+.serial-output {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 8px;
+  overflow: auto;
+  background: #eceef1;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.serial-output:focus-visible,
+.serial-send input:focus-visible {
+  outline: 2px solid #2f6fd6;
+  outline-offset: 2px;
+}
+
+.serial-send {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.serial-send label {
+  font-weight: 600;
+}
+
+.serial-send input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font: inherit;
+  border: 1px solid rgba(29, 35, 48, 0.18);
+  border-radius: 6px;
+}
+
+.serial-send .run-button {
+  padding: 4px 12px;
+}
+
 /* Run controls: the #lesson-strip button look. */
 .run-controls {
   display: flex;
