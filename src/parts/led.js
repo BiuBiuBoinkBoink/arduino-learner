@@ -69,11 +69,17 @@ export function createLed({ color, anode, cathode }) {
     new THREE.Vector3(anode.x, baseY, anode.z)
   ], metal)
 
-  // Lit glows in the LED's own colour on the shared lens material; unlit has no glow.
-  function setLit(on) {
-    lens.emissive.setHex(on ? COLORS[color] : 0x000000)
-    lens.emissiveIntensity = on ? LIT_INTENSITY : 1
+  // Brightness 0 to 1 glows in the LED's own colour on the shared lens material,
+  // scaled from LIT_INTENSITY; 0 has no glow.
+  function setBrightness(b) {
+    const level = Math.min(1, Math.max(0, b))
+    lens.emissive.setHex(level > 0 ? COLORS[color] : 0x000000)
+    lens.emissiveIntensity = level > 0 ? LIT_INTENSITY * level : 1
   }
 
-  return { group, setLit }
+  function setLit(on) {
+    setBrightness(on ? 1 : 0)
+  }
+
+  return { group, setLit, setBrightness }
 }

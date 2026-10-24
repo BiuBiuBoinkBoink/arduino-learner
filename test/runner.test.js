@@ -181,4 +181,25 @@ describe('createSimRunner', () => {
     runner.tick(3000)
     expect(goals).toEqual(['1.2', '1.2'])
   })
+
+  it('getReadout is the sim readout while running, else empty', () => {
+    const pins = createPins()
+    let text = 'A0 reads 512, 2.50 V'
+    const withReadout = () => ({ update: () => {}, stop: () => {}, readout: () => text })
+    const plain = () => ({ update: () => {}, stop: () => {} })
+    const runner = createSimRunner({ sims: { '1.6': withReadout, '1.2': plain }, pins, onGoal: () => {}, uploadMs: 100 })
+    expect(runner.getReadout()).toBe('')
+    runner.run({ lessonId: '1.6', getValues: () => ({}), now: 0 })
+    runner.tick(50)
+    expect(runner.getReadout()).toBe('')
+    runner.tick(100)
+    expect(runner.getReadout()).toBe('A0 reads 512, 2.50 V')
+    text = 'A0 reads 0, 0.00 V'
+    expect(runner.getReadout()).toBe('A0 reads 0, 0.00 V')
+    runner.stop()
+    expect(runner.getReadout()).toBe('')
+    runner.run({ lessonId: '1.2', getValues: () => ({}), now: 200 })
+    runner.tick(300)
+    expect(runner.getReadout()).toBe('')
+  })
 })

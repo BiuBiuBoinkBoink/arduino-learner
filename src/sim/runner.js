@@ -49,12 +49,19 @@ export function createSimRunner({ sims, pins, inputs, onGoal, uploadMs = UPLOAD_
     phase = 'idle'
   }
 
+  // The sim's short readout line while running, else ''.
+  function getReadout() {
+    if (phase !== 'running' || typeof sim.readout !== 'function') return ''
+    return sim.readout()
+  }
+
   return {
     hasSim,
     run,
     tick,
     stop,
     getPhase: () => phase,
-    isGoalMet: () => goalMet
+    isGoalMet: () => goalMet,
+    getReadout
   }
 }

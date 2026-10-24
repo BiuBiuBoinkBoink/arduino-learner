@@ -67,6 +67,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 007 | Run and Stop with a fake upload, shared pin levels, per lesson sim registry, goal check API |
 | 008 | Lesson 1.2 end to end: LED glows from pin levels, goal passes when a blink takes under 500 ms |
 | 009 | Push button you press in 3D or with Hold to press, lessons 1.4 Button input and 1.5 Pull up vs pull down with a floating pin |
+| 010 | Potentiometer you turn by dragging or with the Knob slider, analog pin levels, LED brightness, lessons 1.6 Potentiometer and 1.7 PWM fade |
 
 ### Where we stopped
 
@@ -89,18 +90,20 @@ when one full blink takes under 500 ms. Its spec is
 - Goals: three clean presses while running (1.5 only counts them with the resistor fitted).
   These goals are an assumption; check them against the curriculum doc.
 
-**Next is job 010, the second Phase 2 item:** a potentiometer you turn by dragging its knob,
-analog pin levels and LED brightness, plus lessons 1.6 Potentiometer and 1.7 PWM fade.
-The spec is ready, nothing is built yet:
-[factory/handoff/010-potentiometer-spec.md](factory/handoff/010-potentiometer-spec.md). In short:
+**Job 010, the second Phase 2 item, is built** on the `feature/potentiometer` branch, from
+[factory/handoff/010-potentiometer-spec.md](factory/handoff/010-potentiometer-spec.md):
 
 - A procedural potentiometer part (`src/parts/potentiometer.js`) whose knob turns over 270 degrees.
 - `src/ui/partTurn.js`: drag up or down on the knob to turn it, orbit paused while turning,
-  plus a "Knob" slider for keyboard users.
+  plus a "Knob" slider (0 to 1023) for keyboard users.
 - Pin levels from 0 to 1 for analog inputs and PWM duty, and LED `setBrightness`.
 - A readout line under the run status that stands in for the Serial Monitor.
-- 1.6 passes when A0 has read near both ends; 1.7 passes on one full fade taking 1 to 3 s.
+- 1.6 passes when A0 has read near both ends since Run; 1.7 passes on one full fade taking
+  1 to 3 s (step delay 2 to 5 ms; the default 10 ms does not pass).
   These goals are an assumption; check them against the curriculum doc.
+
+**Next is the multimeter and lesson 1.3**, the next unticked item in
+[factory/backlog.md](factory/backlog.md). It has no spec yet.
 
 ## How to continue
 

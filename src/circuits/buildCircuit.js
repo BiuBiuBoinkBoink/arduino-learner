@@ -6,6 +6,7 @@ import { unoPinPosition } from '../parts/unoBoard.js'
 import { holePosition, parseHole, BREADBOARD_COLUMNS } from '../parts/breadboard.js'
 import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
+import { createPotentiometer } from '../parts/potentiometer.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
@@ -17,9 +18,17 @@ export function buttonHoles(at) {
   return [`${column}e`, `${column + 2}e`, `${column}f`, `${column + 2}f`]
 }
 
+// A potentiometer at '12e' has its legs at 12e, 13e and 14e; the middle one is the wiper.
+export function potHoles(at) {
+  const { column, row } = parseHole(at)
+  if (column > BREADBOARD_COLUMNS - 2) throw new Error(`Potentiometer hole '${at}' needs a column of at most ${BREADBOARD_COLUMNS - 2}`)
+  return [`${column}${row}`, `${column + 1}${row}`, `${column + 2}${row}`]
+}
+
 const PART_FACTORIES = {
   button: (part, hole) => createButton({ legs: buttonHoles(part.at).map(hole) }),
   led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
+  potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
   resistor: (part, hole) => createResistor({ ohms: part.ohms, from: hole(part.from), to: hole(part.to) })
 }
 
