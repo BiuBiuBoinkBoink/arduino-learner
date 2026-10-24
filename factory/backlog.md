@@ -12,7 +12,7 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 - [x] Breadboard and parts system: breadboard model with a column plus row grid helper, per lesson circuit tables that build parts at grid positions, LED and resistor parts, and wires as arched tubes from board pins to breadboard holes → 005-breadboard-parts
 - [x] Code panel: shows the lesson sketch with syntax colouring, fills {{param}} slots from param controls (range sliders and choices built from lesson data), and highlights the active line from a timed trace → 006-code-panel
 - [x] Sim framework: Run and Stop buttons, fake upload step, per lesson sim registry with update(now) and stop(), shared pin levels, and a goal check API that marks a lesson done only when its goal passes → 007-sim-framework
-- [x] Lesson 1.2 Blink end to end: LED glow driven by the sim, on and off sliders, goal check passes when the LED blinks with a period under 500 ms → 008-blink-end-to-end
+- [ ] Lesson 1.2 Blink end to end: LED glow driven by the sim, on and off sliders, goal check passes when the LED blinks with a period under 500 ms
 
 ## Phase 2: Level 1 lessons
 
