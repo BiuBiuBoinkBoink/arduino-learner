@@ -1,7 +1,9 @@
-// Circuit view: owns the circuit group in the scene. show(table) removes and
-// disposes the old group, builds the new one, lights its LEDs and applies
-// showWhen; it returns the new items. LEDs follow the pin levels, the servo
-// horn its angle and the buzzer ring its tone, through store subscriptions.
+// Circuit view: owns the circuit group in the scene. show(table, { fresh })
+// removes and disposes the old group, builds the new one, lights its LEDs and
+// applies showWhen; it returns the new items. fresh is true on a lesson change:
+// only then is the servo centred at 90 deg; a rebuild after an edit keeps the
+// servo angle and the buzzer ring. LEDs follow the pin levels, the servo horn
+// its angle and the buzzer ring its tone, through store subscriptions.
 import { buildCircuit } from '../circuits/buildCircuit.js'
 import { ledBrightness } from '../sim/ohm.js'
 
@@ -61,10 +63,10 @@ export function createCircuitView({ stage, board, breadboard, pins, servos, tone
     if (changed) stage.invalidate()
   }
 
-  function show(table) {
+  function show(table, { fresh = true } = {}) {
     dispose()
     if (table) {
-      circuit = buildCircuit(table, { board, breadboard })
+      circuit = buildCircuit(table, { board, breadboard, values: getValues() })
       current = table
       const withItem = (type) => table.parts
         .filter((part) => part.type === type)
@@ -75,6 +77,11 @@ export function createCircuitView({ stage, board, breadboard, pins, servos, tone
       buzzer = buzzerPart ? { pin: buzzerPart.pin, item: circuit.items[buzzerPart.id] } : null
       const servoPart = table.parts.find((part) => part.type === 'servo')
       servo = servoPart ? { pin: servoPart.pin, item: circuit.items[servoPart.id] } : null
+      if (servo) {
+        if (fresh) servos.set(servo.pin, 90)
+        servo.item.setAngle(fresh ? 90 : servos.get(servo.pin))
+      }
+      if (buzzer) buzzer.item.setPlaying(tones.get(buzzer.pin) > 0)
       relight()
       stage.scene.add(circuit.group)
       showParts(getValues())

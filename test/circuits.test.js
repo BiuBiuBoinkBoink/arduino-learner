@@ -202,14 +202,25 @@ describe('circuit tables', () => {
     const resistors = circuit.parts.filter((part) => part.type === 'resistor')
     const led = circuit.parts.find((part) => part.type === 'led')
 
-    it('has a 220 ohm, 1 kohm and 10 kohm resistor in the same holes, one per ohms choice', () => {
-      expect(resistors.map((part) => part.ohms)).toEqual([220, 1000, 10000])
-      for (const part of resistors) {
-        expect([part.from, part.to]).toEqual(['5c', '9c'])
-        expect(part.showWhen).toEqual({ param: 'ohms', value: part.ohms })
-      }
+    it('has one resistor whose ohms follow the ohms choice', () => {
+      expect(resistors).toEqual([{ id: 'r1', type: 'resistor', ohms: 220, ohmsParam: 'ohms', from: '5c', to: '9c' }])
       const choice = lessons.find((lesson) => lesson.id === '1.3').sketch.params.find((param) => param.name === 'ohms')
       expect(choice.options.map((option) => option.value)).toEqual([220, 1000, 10000])
+    })
+
+    it('draws the resistor bands for the chosen ohms', () => {
+      const bandsOf = (values) => {
+        const { items } = buildCircuit(circuit, { ...placedBoards(), values })
+        const names = []
+        items.r1.group.traverse((object) => {
+          if (object.name.startsWith('band-')) names.push(object.name)
+        })
+        return names
+      }
+      expect(bandsOf({ ohms: 220 })).toEqual(['band-red', 'band-red', 'band-brown', 'band-gold'])
+      expect(bandsOf({})).toEqual(bandsOf({ ohms: 220 }))
+      expect(bandsOf({ ohms: 1000 })).toEqual(['band-brown', 'band-black', 'band-red', 'band-gold'])
+      expect(bandsOf({ ohms: 10000 })).toEqual(['band-brown', 'band-black', 'band-orange', 'band-gold'])
     })
 
     it('wires D9 through the resistor to a red LED on D9 that dims with ohms', () => {
@@ -437,5 +448,33 @@ describe('circuit tables', () => {
     expect(() => buildCircuit(pin, boards)).toThrow('w9')
     const hole = { parts: [{ id: 'r7', type: 'resistor', ohms: 220, from: '1a', to: '40a' }], wires: [] }
     expect(() => buildCircuit(hole, boards)).toThrow('r7')
+  })
+})
+
+describe('buildCircuit with legs', () => {
+  it('builds parts from legs like the reference fields and tags item ids', () => {
+    const boards = placedBoards()
+    const reference = buildCircuit(circuits['1.4'], boards)
+    const withLegs = buildCircuit({
+      parts: [
+        { id: 'btn1', type: 'button', legs: ['12e', '14e', '12f', '14f'] },
+        { id: 'led1', type: 'led', color: 'red', legs: ['24e', '25e'] },
+        { id: 'r1', type: 'resistor', ohms: 220, legs: ['20c', '24c'] }
+      ],
+      wires: [{ id: 'u1', color: 'blue', from: 'D2', to: '12a' }]
+    }, boards)
+    const box = (item) => new THREE.Box3().setFromObject(item.group)
+    for (const id of ['btn1', 'led1', 'r1']) {
+      expect(box(withLegs.items[id]).min.distanceTo(box(reference.items[id]).min)).toBeLessThan(1e-6)
+      expect(withLegs.items[id].group.userData.partId).toBe(id)
+    }
+    expect(withLegs.items.u1.group.userData.wireId).toBe('u1')
+    expect(withLegs.items.u1.group.userData.partId).toBeUndefined()
+  })
+
+  it('turns a flipped potentiometer round and refuses an unplaced part', () => {
+    const boards = placedBoards()
+    expect(() => buildCircuit({ parts: [{ id: 'pot1', type: 'potentiometer', legs: ['14e', '13e', '12e'] }], wires: [] }, boards)).not.toThrow()
+    expect(() => buildCircuit({ parts: [{ id: 'led9', type: 'led', color: 'red', legs: [] }], wires: [] }, boards)).toThrow('led9')
   })
 })

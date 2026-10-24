@@ -3,7 +3,7 @@ import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
 import { createStepTracker } from './course/stepTracker.js'
 import { createFlow } from './course/flow.js'
-import { stepsFor, hasGeneratedSteps, CODE_OPEN_KINDS } from './course/steps.js'
+import { stepsFor, hasGeneratedSteps, CODE_OPEN_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
 import { evaluate } from './course/checks.js'
 import { idFromHash, hashForId } from './course/hash.js'
 import { createScene } from './app/scene.js'
@@ -28,6 +28,8 @@ import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createCodeRunner } from './runner/codeRunner.js'
 import { circuits } from './circuits/circuits.js'
+import { kitFor } from './build/kit.js'
+import { createWorkbench } from './build/workbench.js'
 import { createPins } from './sim/pins.js'
 import { createInputs } from './sim/inputs.js'
 import { sims } from './sim/sims.js'
@@ -136,43 +138,78 @@ const sound = createSound({ container: dock, tones, storage: getStorage() })
 const multimeter = createMultimeter({ container: dock, stage, getItems: view.items, inputs })
 createViewControls({ container: layout.viewControls, stage, getFrameBox: frameBox })
 
-// Swap the lesson circuit on every lesson change, then point the per lesson
-// controls at its parts; lessons without one show the empty breadboard.
-let circuitLessonId = null
-function showCircuit({ lesson }) {
-  if (lesson.id === circuitLessonId) return
-  circuitLessonId = lesson.id
+// The learner's build of the lesson circuit. The scene draws it, not the
+// reference table, which is the answer key. Until build steps exist every
+// lesson opens with its whole circuit prebuilt (lesson prebuilt lists wait for
+// BUILD_STEPS_ENABLED).
+const workbench = createWorkbench({ storage: getStorage() })
+let reference = null
+
+// The table the view draws: the build plus the reference meter and room flags.
+function buildTable() {
+  if (!reference) return null
+  return { ...workbench.getBuild(), meter: reference.meter, roomDriven: reference.roomDriven }
+}
+
+// Draw the build, then point the per lesson controls at its parts. fresh is
+// true on a lesson change: only then do the knob, servo and room start over
+// and the meter forget its probe.
+// The values of the params that resistors in the drawn build take their ohms from.
+let ohmsKey = ''
+function ohmsKeyOf(values) {
+  const table = view.table()
+  if (!table) return ''
+  return table.parts.filter((part) => part.type === 'resistor' && part.ohmsParam).map((part) => values[part.ohmsParam]).join()
+}
+
+function drawBuild({ fresh }) {
   partPress.release()
   partTurn.release()
-  const table = circuits[lesson.id] || null
-  const items = view.show(table)
+  const table = buildTable()
+  view.show(table, { fresh })
+  ohmsKey = ohmsKeyOf(getValues())
   const find = (type) => (table ? table.parts.find((part) => part.type === type) : null)
   const button = find('button')
   holdButton.setTarget(button ? button.id : null)
-  // Every new circuit starts with its knob in the middle.
+  // Every new circuit starts with its knob in the middle; a rebuild keeps it.
   const pot = find('potentiometer')
-  if (pot) partTurn.setValue(pot.id, 0.5)
+  if (pot) partTurn.setValue(pot.id, fresh ? 0.5 : inputs.getValue(pot.id))
   knobSlider.setTarget(pot ? pot.id : null)
-  multimeter.setTargets(table ? table.meter : null)
+  if (fresh) multimeter.setTargets(table ? table.meter : null)
   // Every new circuit starts in the default room; sensor parts show their sliders.
-  room.reset()
+  if (fresh) room.reset()
   const types = table ? table.parts.map((part) => part.type) : []
   const ownRoom = table && !table.roomDriven
   roomControls.setSensors({ light: ownRoom && types.includes('ldr'), temp: ownRoom && types.includes('tmp36') })
   const buzzer = find('buzzer')
   sound.setPin(buzzer ? buzzer.pin : null)
-  // A new servo starts centred at 90 deg.
-  const servo = find('servo')
-  if (servo) {
-    servos.set(servo.pin, 90)
-    items[servo.id].setAngle(90)
-  }
   stage.invalidate()
 }
 
+// Load the lesson build on every lesson change; lessons without a circuit show
+// the empty breadboard.
+let circuitLessonId = null
+function showCircuit({ lesson }) {
+  if (lesson.id === circuitLessonId) return
+  circuitLessonId = lesson.id
+  reference = circuits[lesson.id] || null
+  workbench.load(lesson.id, { kit: kitFor(lesson, reference, { prebuiltLists: BUILD_STEPS_ENABLED }), reference })
+  drawBuild({ fresh: true })
+}
+
+// Every edit redraws the build in place.
+workbench.subscribe((event) => {
+  if (event.type !== 'load') drawBuild({ fresh: false })
+})
+
 showCircuit(course.getState())
 course.subscribe(showCircuit)
+// A resistor that takes its ohms from a param is rebuilt when that param changes.
 subscribeValues((values) => {
+  if (ohmsKeyOf(values) !== ohmsKey) {
+    drawBuild({ fresh: false })
+    return
+  }
   view.showParts(values)
   view.relight()
 })

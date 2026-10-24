@@ -4,7 +4,7 @@
 import * as THREE from 'three'
 import { unoPinPosition } from '../parts/unoBoard.js'
 import { holePosition, isHole } from '../parts/breadboard.js'
-import { buttonHoles, potHoles, rgbHoles, buzzerHoles } from './footprints.js'
+import { buttonHoles, potHoles, rgbHoles, buzzerHoles, legsOf } from './footprints.js'
 import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
 import { createPotentiometer } from '../parts/potentiometer.js'
@@ -19,21 +19,28 @@ import { createWire } from '../parts/wire.js'
 // The leg hole helpers live in footprints.js; re-exported so old imports keep working.
 export { buttonHoles, potHoles, rgbHoles, buzzerHoles }
 
+// Each factory takes the part, its legs as world positions in terminal order
+// (four for a button) and the code panel values.
 const PART_FACTORIES = {
-  button: (part, hole) => createButton({ legs: buttonHoles(part.at).map(hole) }),
-  led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
-  potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
-  rgbLed: (part, hole) => createRgbLed({ legs: rgbHoles(part.at).map(hole) }),
-  buzzer: (part, hole) => createBuzzer({ legs: buzzerHoles(part.at).map(hole) }),
+  button: (part, legs) => createButton({ legs }),
+  led: (part, legs) => createLed({ color: part.color, anode: legs[0], cathode: legs[1] }),
+  potentiometer: (part, legs) => createPotentiometer({ legs }),
+  rgbLed: (part, legs) => createRgbLed({ legs }),
+  buzzer: (part, legs) => createBuzzer({ legs }),
   // A servo cable ends in three holes in a row like a potentiometer: GND, 5V, signal.
-  servo: (part, hole) => createServo({ legs: potHoles(part.at).map(hole) }),
-  ldr: (part, hole) => createLdr({ from: hole(part.from), to: hole(part.to) }),
+  servo: (part, legs) => createServo({ legs }),
+  ldr: (part, legs) => createLdr({ from: legs[0], to: legs[1] }),
   // A TMP36 uses the same three holes in a row as a potentiometer: +Vs, Vout, GND.
-  tmp36: (part, hole) => createTmp36({ legs: potHoles(part.at).map(hole) }),
-  resistor: (part, hole) => createResistor({ ohms: part.ohms, from: hole(part.from), to: hole(part.to) })
+  tmp36: (part, legs) => createTmp36({ legs }),
+  // A resistor with ohmsParam takes its ohms, and so its bands, from that code panel value.
+  resistor: (part, legs, values) => {
+    const ohms = part.ohmsParam && values && Number.isFinite(values[part.ohmsParam]) ? values[part.ohmsParam] : part.ohms
+    return createResistor({ ohms, from: legs[0], to: legs[1] })
+  }
 }
 
-export function buildCircuit(circuit, { board, breadboard }) {
+// Parts may give legs or the reference position fields (legsOf reads both).
+export function buildCircuit(circuit, { board, breadboard, values = {} }) {
   board.group.updateMatrixWorld(true)
   breadboard.group.updateMatrixWorld(true)
   const hole = (name) => breadboard.group.localToWorld(holePosition(name))
@@ -43,7 +50,7 @@ export function buildCircuit(circuit, { board, breadboard }) {
   group.name = 'circuit'
   const items = {}
 
-  function add(id, build) {
+  function add(id, tag, build) {
     let item
     try {
       item = build()
@@ -51,20 +58,23 @@ export function buildCircuit(circuit, { board, breadboard }) {
       throw new Error(`Circuit item ${id}: ${error.message}`)
     }
     item.group.name = id
+    item.group.userData[tag] = id
     items[id] = item
     group.add(item.group)
   }
 
   for (const part of circuit.parts) {
-    add(part.id, () => {
+    add(part.id, 'partId', () => {
       if (!Object.hasOwn(PART_FACTORIES, part.type)) throw new Error(`unknown part type ${part.type}`)
-      return PART_FACTORIES[part.type](part, hole)
+      const legs = legsOf(part)
+      if (legs.length === 0) throw new Error('not placed')
+      return PART_FACTORIES[part.type](part, legs.map(hole), values)
     })
   }
   // A wire starts at an Uno pin, or at a hole (rails included) for a jumper.
   const start = (name) => (isHole(name) ? hole(name) : pin(name))
   for (const wire of circuit.wires) {
-    add(wire.id, () => createWire({ color: wire.color, from: start(wire.from), to: hole(wire.to) }))
+    add(wire.id, 'wireId', () => createWire({ color: wire.color, from: start(wire.from), to: hole(wire.to) }))
   }
   return { group, items }
 }
