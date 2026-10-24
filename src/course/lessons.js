@@ -120,6 +120,133 @@ void loop() {
       { label: 'Red LED forward voltage', value: 'about 2 V' },
       { label: 'Series resistor', value: '220 ohm' },
       { label: 'Max current per pin', value: '20 mA recommended' }
+    ],
+    prebuilt: [],
+    steps: [
+      {
+        id: 'led-legs',
+        kind: 'learn',
+        title: 'What an LED needs',
+        body: [
+          'An LED only lets current through one way: in at the long leg, the anode, and out at the short leg, the cathode.',
+          'It also needs a resistor in line with it. Without one, too much current flows and the LED burns out.'
+        ],
+        check: {
+          type: 'quiz',
+          question: 'Which leg of the LED goes towards GND?',
+          options: ['The long leg, the anode', 'The short leg, the cathode', 'Either leg works'],
+          answer: 1,
+          explain: [
+            'Not quite. Current goes in at the long leg and out at the short leg, so the short leg goes towards GND.',
+            'Right. The short leg, on the side with the flat edge, goes towards GND.',
+            'Not quite. An LED only works one way round, so it matters which leg goes where.'
+          ]
+        },
+        hint: 'Current goes in at one leg and out at the other. Which one is the way out?',
+        done: 'You know which way round an LED goes.'
+      },
+      {
+        id: 'place-led',
+        kind: 'build',
+        title: 'Place the LED',
+        parts: ['led1'],
+        body: [
+          'Pick the LED from the tray and put it in the breadboard so its two legs sit in two different strips.',
+          'The ghost shows where the long leg goes. R turns it.'
+        ],
+        check: {
+          type: 'circuit',
+          items: [
+            { text: 'LED is on the breadboard', rule: { placed: 'led1' } },
+            { text: 'Legs in two different strips', rule: { apart: ['led1.anode', 'led1.cathode'] } }
+          ]
+        },
+        hint: 'The five holes in one column are joined. Give each leg its own column, side by side in the same row.',
+        done: 'The legs sit in two strips, so current has to pass through the LED.'
+      },
+      {
+        id: 'add-resistor',
+        kind: 'build',
+        title: 'Add the resistor',
+        parts: ['r1'],
+        body: [
+          'The resistor keeps the current safe. One end must share a strip with the long leg of the LED.',
+          'Place the 220 ohm resistor from a free strip to the strip that holds the long leg.'
+        ],
+        check: {
+          type: 'circuit',
+          items: [
+            { text: 'Resistor is on the breadboard', rule: { placed: 'r1' } },
+            { text: 'One end shares a strip with the long leg', rule: { joined: ['r1.*', 'led1.anode'] } },
+            { text: 'The other end has a strip of its own', rule: { matches: ['led1', 'r1'] } }
+          ],
+          pass: { matches: ['led1', 'r1'] }
+        },
+        hint: 'Find the strip with the long leg of the LED. One end of the resistor goes in that strip, the other end in a free one.',
+        done: 'The resistor and the long leg share a strip, so whatever feeds the resistor feeds the LED.'
+      },
+      {
+        id: 'wire-up',
+        kind: 'wire',
+        title: 'Wire D13 and GND',
+        parts: [],
+        body: [
+          'Wires join the Uno to the breadboard. Pick Jumper wires, click a pin on the Uno, then click a hole.',
+          'Run one wire from D13 to the free end of the resistor, and one from GND to the short leg of the LED.'
+        ],
+        check: {
+          type: 'circuit',
+          items: [
+            { text: 'D13 reaches the resistor', rule: { joined: ['D13', 'r1.*'] } },
+            { text: 'GND reaches the short leg', rule: { joined: ['GND', 'led1.cathode'] } },
+            { text: 'No short circuits', rule: { noShorts: true } }
+          ],
+          pass: { matches: 'all' }
+        },
+        hint: 'D13 is on the top header of the Uno, next to a GND pin. Each wire goes into a free hole in the right strip.',
+        done: 'The circuit is complete: D13, resistor, LED, GND. Run is unlocked.'
+      },
+      {
+        id: 'guess',
+        kind: 'predict',
+        title: 'Guess, then run',
+        body: [
+          'The sketch sets D13 HIGH, waits 500 ms, sets it LOW and waits 500 ms again. Then loop() starts over.',
+          'Before you press Run, make a guess.'
+        ],
+        check: {
+          type: 'predict',
+          question: 'What will the LED do?',
+          options: ['Stay on', 'Blink once a second', 'Blink ten times a second'],
+          answer: 1,
+          explain: [
+            'You guessed it would stay on. It blinks, because loop() runs again and again: on, wait, off, wait.',
+            'Right. 500 ms on and 500 ms off makes one blink every second.',
+            'You guessed ten times a second. Each delay(500) is half a second, so it blinks once a second.'
+          ],
+          then: { type: 'sim', progress: 'blinked', text: 'Run the sketch and watch a full blink' }
+        },
+        done: 'loop() repeats forever, so the LED keeps blinking.'
+      },
+      {
+        id: 'faster',
+        kind: 'code',
+        title: 'Blink faster',
+        body: [
+          'Now change the code. Make one full blink, on plus off, take less than 500 ms.',
+          'Edit the two delay() values, or use the On time and Off time sliders, then press Run again.'
+        ],
+        check: {
+          type: 'all',
+          checks: [
+            { type: 'code', rule: 'compiles', text: 'The sketch compiles' },
+            { type: 'sim', goal: true, text: 'One blink takes under 500 ms' }
+          ]
+        },
+        hint: 'Each delay() is half of one blink. Two delays of 200 ms make a 400 ms blink.',
+        showMe: { lines: [10, 12], note: 'try 200' },
+        done: 'Shorter delays make a faster blink.'
+      }
     ]
   },
   {

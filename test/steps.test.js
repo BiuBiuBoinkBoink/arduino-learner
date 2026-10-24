@@ -16,8 +16,16 @@ describe('stepsFor', () => {
     }])
   })
 
-  it('gives 1.2 one run step with its goal text', () => {
-    const lesson = byId('1.2')
+  it('gives 1.2 its own steps without build and wire steps', () => {
+    expect(stepsFor(byId('1.2')).map((step) => [step.kind, step.title])).toEqual([
+      ['learn', 'What an LED needs'],
+      ['predict', 'Guess, then run'],
+      ['code', 'Blink faster']
+    ])
+  })
+
+  it('gives 1.4 one run step with its goal text', () => {
+    const lesson = byId('1.4')
     expect(stepsFor(lesson)).toEqual([{
       id: 'goal',
       kind: 'run',

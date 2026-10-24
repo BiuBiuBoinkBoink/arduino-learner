@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { lessons } from '../src/course/lessons.js'
 import { UNO_ZONE_IDS } from '../src/parts/unoBoard.js'
 import { fillSketch, slotValues } from '../src/ui/sketch.js'
+import { STEP_KINDS } from '../src/course/steps.js'
+import { CHECK_TYPES } from '../src/course/checks.js'
 
 function isAscii(text) {
   return [...text].every((ch) => ch.charCodeAt(0) < 128)
@@ -193,5 +195,47 @@ describe('lesson overviews with a goal paragraph', () => {
         expect(text.includes('!')).toBe(false)
       }
     }
+  })
+})
+
+describe('lesson steps', () => {
+  // Build and wire steps use circuit checks, which arrive with placement (phase 5).
+  const knownType = (step, check) => CHECK_TYPES.includes(check.type) || (check.type === 'circuit' && ['build', 'wire'].includes(step.kind))
+
+  function checkShape(step, check) {
+    expect(knownType(step, check), step.id + ' ' + check.type).toBe(true)
+    if (check.type === 'quiz' || check.type === 'predict') {
+      expect(nonEmpty(check.question)).toBe(true)
+      expect(check.options.length).toBeGreaterThan(1)
+      expect(Number.isInteger(check.answer)).toBe(true)
+      expect(check.answer).toBeGreaterThanOrEqual(0)
+      expect(check.answer).toBeLessThan(check.options.length)
+      expect(check.explain).toHaveLength(check.options.length)
+    }
+    if (check.type === 'predict') checkShape(step, check.then)
+    if (check.type === 'all') for (const inner of check.checks) checkShape(step, inner)
+  }
+
+  for (const lesson of lessons.filter((item) => item.steps)) {
+    it(lesson.id + ' has well formed steps', () => {
+      const ids = lesson.steps.map((step) => step.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      for (const step of lesson.steps) {
+        expect(STEP_KINDS).toContain(step.kind)
+        expect(nonEmpty(step.title)).toBe(true)
+        expect(step.body.length).toBeGreaterThan(0)
+        for (const text of step.body) {
+          expect(nonEmpty(text)).toBe(true)
+          expect(isAscii(text)).toBe(true)
+        }
+        checkShape(step, step.check)
+      }
+    })
+  }
+
+  it('gives 1.2 the six steps from the plan', () => {
+    const lesson = lessons.find((item) => item.id === '1.2')
+    expect(lesson.prebuilt).toEqual([])
+    expect(lesson.steps.map((step) => step.id)).toEqual(['led-legs', 'place-led', 'add-resistor', 'wire-up', 'guess', 'faster'])
   })
 })
