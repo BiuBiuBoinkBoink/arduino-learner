@@ -184,8 +184,8 @@ describe('lesson 1.6 sketch', () => {
 })
 
 describe('lesson overviews with a goal paragraph', () => {
-  it('give 1.3 to 1.7 three ASCII paragraphs with no exclamation marks', () => {
-    for (const id of ['1.3', '1.4', '1.5', '1.6', '1.7']) {
+  it('give 1.3 to 1.8 three ASCII paragraphs with no exclamation marks', () => {
+    for (const id of ['1.3', '1.4', '1.5', '1.6', '1.7', '1.8']) {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.overview).toHaveLength(3)
       for (const text of lesson.overview) {

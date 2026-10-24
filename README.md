@@ -69,6 +69,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 009 | Push button you press in 3D or with Hold to press, lessons 1.4 Button input and 1.5 Pull up vs pull down with a floating pin |
 | 010 | Potentiometer you turn by dragging or with the Knob slider, analog pin levels, LED brightness, lessons 1.6 Potentiometer and 1.7 PWM fade |
 | 011 | Sim multimeter you point at a part in 3D or with Meter on, lesson 1.3 Resistors and Ohm's law with a 220 ohm, 1k and 10k choice |
+| 012 | RGB LED part and lesson 1.8 Colour mixing, match orange with three sliders |
 
 ### Where we stopped
 
@@ -108,6 +109,11 @@ when one full blink takes under 500 ms. Its spec is
 multimeter (click a part or use "Meter on") and lesson 1.3, where the resistor choice swaps
 the resistor and dims the LED. 1.3 passes once the LED current has been measured with all
 three resistors. This goal is an assumption; check it against the curriculum doc.
+
+**Job 012 is built** on `feature/rgb-led`, from
+[factory/handoff/012-rgb-led-spec.md](factory/handoff/012-rgb-led-spec.md): a common cathode
+RGB LED part and lesson 1.8, which passes when the Red, Green and Blue sliders bring the LED
+within 25 of orange (255, 128, 0) while running. The target is an assumption.
 
 ## How to continue
 

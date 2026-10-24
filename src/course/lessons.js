@@ -430,7 +430,8 @@ void loop() {
     summary: 'Blend red, green and blue on an RGB LED to make new colours.',
     overview: [
       'An RGB LED holds a red, a green and a blue LED in one case. A common cathode type shares one GND leg, the longest one.',
-      'Each colour gets its own PWM pin and resistor. Mixing the three at different levels makes other colours, such as red plus green for yellow.'
+      'Each colour gets its own PWM pin and resistor. Mixing the three at different levels makes other colours, such as red plus green for yellow.',
+      'Goal: press Run, then move the three sliders until the LED shows orange, about 255 red, 128 green and 0 blue. Each channel must be within 25 of the target.'
     ],
     pinout: [
       { pin: 'D9', use: 'Red leg through a 220 ohm resistor.' },
@@ -458,6 +459,36 @@ void loop() {
   delay(1000);
 }`,
       note: 'The helper sets all three channels at once, and the loop switches between two mixed colours every second.'
+    },
+    sketch: {
+      code: `const int redPin = 9;
+const int greenPin = 10;
+const int bluePin = 11;
+
+void setColour(int r, int g, int b) {
+  analogWrite(redPin, r);
+  analogWrite(greenPin, g);
+  analogWrite(bluePin, b);
+}
+
+void setup() {}
+
+void loop() {
+  setColour({{red}}, {{green}}, {{blue}});
+  delay(100);
+}`,
+      params: [
+        { name: 'red', label: 'Red', type: 'range', min: 0, max: 255, step: 1, value: 0 },
+        { name: 'green', label: 'Green', type: 'range', min: 0, max: 255, step: 1, value: 120 },
+        { name: 'blue', label: 'Blue', type: 'range', min: 0, max: 255, step: 1, value: 255 }
+      ],
+      trace: [
+        { line: 15, ms: 300 },
+        { line: 6, ms: 200 },
+        { line: 7, ms: 200 },
+        { line: 8, ms: 200 },
+        { line: 16, ms: 300 }
+      ]
     },
     specs: [
       { label: 'LED type', value: 'RGB, common cathode' },

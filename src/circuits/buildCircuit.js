@@ -7,6 +7,7 @@ import { holePosition, parseHole, BREADBOARD_COLUMNS } from '../parts/breadboard
 import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
 import { createPotentiometer } from '../parts/potentiometer.js'
+import { createRgbLed } from '../parts/rgbLed.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
@@ -25,10 +26,18 @@ export function potHoles(at) {
   return [`${column}${row}`, `${column + 1}${row}`, `${column + 2}${row}`]
 }
 
+// An RGB LED at '14e' has its legs at 14e (red), 15e (cathode), 16e (green) and 17e (blue).
+export function rgbHoles(at) {
+  const { column, row } = parseHole(at)
+  if (column > BREADBOARD_COLUMNS - 3) throw new Error(`RGB LED hole '${at}' needs a column of at most ${BREADBOARD_COLUMNS - 3}`)
+  return [0, 1, 2, 3].map((offset) => `${column + offset}${row}`)
+}
+
 const PART_FACTORIES = {
   button: (part, hole) => createButton({ legs: buttonHoles(part.at).map(hole) }),
   led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
   potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
+  rgbLed: (part, hole) => createRgbLed({ legs: rgbHoles(part.at).map(hole) }),
   resistor: (part, hole) => createResistor({ ohms: part.ohms, from: hole(part.from), to: hole(part.to) })
 }
 

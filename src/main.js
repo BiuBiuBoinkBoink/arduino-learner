@@ -108,6 +108,7 @@ function showParts(values) {
 // Swap the lesson circuit on every lesson change; lessons without one show the empty breadboard.
 let circuit = null
 let circuitLeds = []
+let circuitRgbLeds = []
 let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
@@ -123,11 +124,15 @@ function showCircuit({ lesson }) {
     })
     circuit = null
     circuitLeds = []
+    circuitRgbLeds = []
   }
   if (circuits[lesson.id]) {
     circuit = buildCircuit(circuits[lesson.id], { board, breadboard })
     circuitLeds = circuits[lesson.id].parts
       .filter((part) => part.type === 'led')
+      .map((part) => ({ part, led: circuit.items[part.id] }))
+    circuitRgbLeds = circuits[lesson.id].parts
+      .filter((part) => part.type === 'rgbLed')
       .map((part) => ({ part, led: circuit.items[part.id] }))
     lightLeds()
     stage.scene.add(circuit.group)
@@ -152,6 +157,13 @@ function lightLeds(name) {
     if (name !== undefined && part.pin !== name) continue
     const scale = part.ohmsParam ? ledBrightness(values[part.ohmsParam]) : 1
     led.setBrightness(pins.get(part.pin) * scale)
+    changed = true
+  }
+  // RGB LEDs mix their three channel pins.
+  for (const { part, led } of circuitRgbLeds) {
+    const { red, green, blue } = part.pins
+    if (name !== undefined && ![red, green, blue].includes(name)) continue
+    led.setColor(pins.get(red), pins.get(green), pins.get(blue))
     changed = true
   }
   if (changed) stage.invalidate()
