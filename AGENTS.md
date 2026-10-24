@@ -75,7 +75,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
 `src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`, `src/runner/interpreter.js`, `src/runner/session.js`,
-`src/runner/worker.js`, `src/runner/codeRunner.js`. The other
+`src/runner/worker.js`, `src/runner/codeRunner.js`, `src/runner/codeChecks.js`, `src/sim/responseTimer.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -161,7 +161,10 @@ src/
     blink.js       pure createBlinkSim (1.2) board: goal is the last two rising edges of D13 under 500 ms apart
                    on the sketch clock; reload forgets the last edge
     button.js      pure createButtonSim (1.4) board: btn1 held drives D2 LOW, released leaves it undriven (the
-                   sketch pull up reads HIGH); goal is 3 full presses, each with D13 on while held
+                   sketch pull up reads HIGH); goal is 3 full presses, each with D13 on while held; the
+                   readout shows how fast D13 reacts to D2 (response timer)
+    responseTimer.js pure createResponseTimer({ inputPin, outputPin }) -> { output(event), times(), last(),
+                   worst(), waiting(at) }: ms from an input event to the next output pin change
     pullDown.js    pure createPullDownSim (1.5) board: held drives D2 HIGH, released LOW with pull 'down', a random
                    level every 40 to 160 ms with 'none'; goal is 3 full presses with D13 on while held, while
                    fitted, removing the pull down resets the count
@@ -189,11 +192,15 @@ src/
                    pinName(n) maps 0 to 13 -> D0 to D13 and 14 to 19 -> A0 to A5
     session.js     pure createSession(source, { random }) -> { advance(untilMs) -> batch, setInputs(levels),
                    sendSerial(text) }; batch { pins (0 to 1), tones (Hz), servos (deg), events ([ms, kind, pin,
-                   value] for every change in order, kind 'pin', 'tone' or 'servo'), serial, millis, error };
+                   value] for every change in order, kind 'pin', 'tone', 'servo', or 'input' when the
+                   circuit changes an input level), serial, millis, error };
                    tone(pin, hz, ms) ends by itself at its own time; null or unset input pins read HIGH with
                    INPUT_PULLUP, else LOW
     worker.js      Web Worker: start, stop, inputs, serial messages in; batch and error messages out; follows
                    real time every 16 ms
+    codeChecks.js  pure analyzeCode(source) -> { error, calls [{ name, line, inFunction }], functions, includes },
+                   names as written ('delay', 'Serial.println', 'arm.write'); findCalls, countCalls, callLines
+                   (each with { inFunction }), definesFunction; a parse error gives error, not a throw
     codeRunner.js  createCodeRunner({ onBatch, onError }) -> { start(source), stop(), setInputs(levels),
                    sendSerial(text) }; main thread client for the worker
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
@@ -321,7 +328,7 @@ the current lesson, and every panel updates from it.
 - Run sends the learner's sketch (the code panel text) through the code runner
   in `src/runner/`. The lesson sim is a board: the circuit around the sketch and
   the goal. It is made by `create({ pins, inputs, room, tones, servos, serial,
-  getValues, startedAt })` and returns:
+  getValues, startedAt, getCode })` and returns:
   - `levels(now)`: the input levels the circuit puts on the sketch's pins
     (0 to 1, or null when it does not drive the pin), sent to the code runner
     when they change;
@@ -329,6 +336,10 @@ the current lesson, and every panel updates from it.
     after the runner applied it, with `at` on the same clock as `now`;
   - `update(now)`, `reload(now)`, `stop()`, `checkGoal()`, `readout()`, all
     optional.
+- `getCode()` gives `analyzeCode` of the code now running, for goals that
+  inspect the code (like `countCalls(getCode(), 'delay')`). Input events
+  (`kind: 'input'`) reach `output(event)` too, so `createResponseTimer` can time
+  how fast the sketch reacts, on the sketch clock.
 - `getValues()` gives the live code panel param values. Only circuit params
   (`circuit: true`) change the board; the others are numbers in the code.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
