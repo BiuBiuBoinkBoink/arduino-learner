@@ -369,6 +369,18 @@ body {
   line-height: 1.4;
 }
 
+/* Hold to press: a run button that stays down while held. */
+.hold-button {
+  margin: 8px 0 0;
+  touch-action: none;
+  user-select: none;
+}
+
+.hold-button[aria-pressed='true'] {
+  background: #dfe7f5;
+  border-color: #2f6fd6;
+}
+
 /* Sketch block: the .info-code look on an opaque background, so the token
    colours keep at least 4.5:1 contrast whatever the stage shows behind. */
 .code-sketch {

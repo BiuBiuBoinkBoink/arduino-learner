@@ -10,11 +10,13 @@ import { createInfoPanel } from './ui/infoPanel.js'
 import { createCodePanel } from './ui/codePanel.js'
 import { createBoardTour } from './ui/boardTour.js'
 import { createRunControls } from './ui/runControls.js'
+import { createPartPress, createHoldButton } from './ui/partPress.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
 import { buildCircuit } from './circuits/buildCircuit.js'
 import { createPins } from './sim/pins.js'
+import { createInputs } from './sim/inputs.js'
 import { sims } from './sim/sims.js'
 import { createSimRunner } from './sim/runner.js'
 
@@ -75,8 +77,27 @@ window.addEventListener('hashchange', () => {
   resetHash()
 })
 
-// One shared set of pin levels for the sims and the circuit parts they drive.
+// One shared set of pin levels for the sims and the circuit parts they drive,
+// and one set of learner inputs (held buttons) the sims read.
 const pins = createPins()
+const inputs = createInputs()
+
+// Created before the circuit swap so its lesson values are current when a new circuit is built.
+const { toolbar, getValues, subscribe: subscribeValues } = createCodePanel(panels.code, course)
+const runControls = document.createElement('div')
+toolbar.append(runControls)
+const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
+const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
+
+// Parts with showWhen are drawn only while that code panel param has that value.
+function showParts(values) {
+  if (!circuit) return
+  for (const part of circuits[circuitLessonId].parts) {
+    if (!part.showWhen) continue
+    circuit.items[part.id].group.visible = values[part.showWhen.param] === part.showWhen.value
+  }
+  stage.invalidate()
+}
 
 // Swap the lesson circuit on every lesson change; lessons without one show the empty breadboard.
 let circuit = null
@@ -85,6 +106,7 @@ let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
   circuitLessonId = lesson.id
+  partPress.release()
   if (circuit) {
     stage.scene.remove(circuit.group)
     circuit.group.traverse((object) => {
@@ -102,11 +124,15 @@ function showCircuit({ lesson }) {
       .map((part) => ({ pin: part.pin, led: circuit.items[part.id] }))
     for (const { pin, led } of circuitLeds) led.setLit(pins.get(pin) === 1)
     stage.scene.add(circuit.group)
+    showParts(getValues())
   }
+  const button = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'button') : null
+  holdButton.setTarget(button ? button.id : null)
   stage.invalidate()
 }
 showCircuit(course.getState())
 course.subscribe(showCircuit)
+subscribeValues(showParts)
 
 // Light each circuit LED from the level of the Uno pin that drives it.
 pins.subscribe((name, level) => {
@@ -117,9 +143,8 @@ pins.subscribe((name, level) => {
 })
 
 createInfoPanel(panels.info, course)
-// One runner over the shared pin levels; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, onGoal: (id) => course.markComplete(id) })
-const { toolbar, getValues } = createCodePanel(panels.code, course)
-createRunControls({ container: toolbar, course, runner, getValues })
+// One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
+const runner = createSimRunner({ sims, pins, inputs, onGoal: (id) => course.markComplete(id) })
+createRunControls({ container: runControls, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })
