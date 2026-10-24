@@ -624,7 +624,8 @@ void loop() {
     summary: 'Play tones on a piezo buzzer at different pitches.',
     overview: [
       'A passive piezo buzzer clicks each time its voltage changes. Fast clicks make a tone.',
-      'The tone function makes a square wave at the frequency you ask for. A higher frequency gives a higher pitch.'
+      'The tone function makes a square wave at the frequency you ask for. A higher frequency gives a higher pitch.',
+      'Goal: pick the three notes so the tune plays E, D, C, then press Run and let it play once. Sound on plays the tune out loud.'
     ],
     pinout: [
       { pin: 'D8', use: 'Buzzer positive leg.' },
@@ -644,6 +645,76 @@ void loop() {
   delay(1000);
 }`,
       note: 'The loop plays five notes going up the scale, each for 300 ms, then pauses.'
+    },
+    sketch: {
+      code: `const int buzzerPin = 8;
+int notes[] = { {{note1}}, {{note2}}, {{note3}} };
+
+void setup() {}
+
+void loop() {
+  for (int i = 0; i < 3; i++) {
+    tone(buzzerPin, notes[i], 300);
+    delay(350);
+  }
+  delay(1000);
+}`,
+      params: [
+        {
+          name: 'note1',
+          label: 'Note 1',
+          type: 'choice',
+          value: 262,
+          options: [
+            { value: 262, label: 'C' },
+            { value: 294, label: 'D' },
+            { value: 330, label: 'E' },
+            { value: 349, label: 'F' },
+            { value: 392, label: 'G' },
+            { value: 440, label: 'A' },
+            { value: 494, label: 'B' }
+          ]
+        },
+        {
+          name: 'note2',
+          label: 'Note 2',
+          type: 'choice',
+          value: 294,
+          options: [
+            { value: 262, label: 'C' },
+            { value: 294, label: 'D' },
+            { value: 330, label: 'E' },
+            { value: 349, label: 'F' },
+            { value: 392, label: 'G' },
+            { value: 440, label: 'A' },
+            { value: 494, label: 'B' }
+          ]
+        },
+        {
+          name: 'note3',
+          label: 'Note 3',
+          type: 'choice',
+          value: 330,
+          options: [
+            { value: 262, label: 'C' },
+            { value: 294, label: 'D' },
+            { value: 330, label: 'E' },
+            { value: 349, label: 'F' },
+            { value: 392, label: 'G' },
+            { value: 440, label: 'A' },
+            { value: 494, label: 'B' }
+          ]
+        }
+      ],
+      trace: [
+        { line: 8, ms: 300 },
+        { line: 9, ms: 50 },
+        { line: 8, ms: 300 },
+        { line: 9, ms: 50 },
+        { line: 8, ms: 300 },
+        { line: 9, ms: 50 },
+        { line: 11, ms: 1000 }
+      ]
     },
     specs: [
       { label: 'Buzzer type', value: 'passive piezo' },

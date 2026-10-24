@@ -16,6 +16,7 @@ import { createMultimeter } from './ui/multimeter.js'
 import { ledBrightness } from './sim/ohm.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
+import { createSound } from './ui/sound.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -86,6 +87,8 @@ window.addEventListener('hashchange', () => {
 // and one set of learner inputs (held buttons) the sims read.
 const pins = createPins()
 const inputs = createInputs()
+// Tone frequency in Hz per pin, 0 for silent: the same store shape as pins.
+const tones = createPins()
 // The room the sensors read; its light level also dims the scene.
 const room = createRoom()
 room.subscribe((name, value) => {
@@ -101,6 +104,7 @@ const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
 const partTurn = createPartTurn({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
 const knobSlider = createKnobSlider({ container: toolbar, partTurn, inputs })
 const roomControls = createRoomControls({ container: toolbar, room })
+const sound = createSound({ container: toolbar, tones, storage: getStorage() })
 const multimeter = createMultimeter({ container: toolbar, stage, getItems: () => (circuit ? circuit.items : null), inputs })
 
 // Parts with showWhen are drawn only while that code panel param has that value.
@@ -117,6 +121,7 @@ function showParts(values) {
 let circuit = null
 let circuitLeds = []
 let circuitRgbLeds = []
+let circuitBuzzer = null
 let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
@@ -157,6 +162,9 @@ function showCircuit({ lesson }) {
   room.reset()
   const types = circuit ? circuits[lesson.id].parts.map((part) => part.type) : []
   roomControls.setSensors({ light: types.includes('ldr'), temp: types.includes('tmp36') })
+  const buzzer = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'buzzer') : null
+  circuitBuzzer = buzzer ? { pin: buzzer.pin, item: circuit.items[buzzer.id] } : null
+  sound.setPin(buzzer ? buzzer.pin : null)
   stage.invalidate()
 }
 // Light circuit LEDs from the level of the Uno pin that drives each (0 to 1, PWM
@@ -190,9 +198,16 @@ subscribeValues((values) => {
 
 pins.subscribe((name) => lightLeds(name))
 
+// Show the buzzer sound ring while its pin has a tone.
+tones.subscribe((name, hz) => {
+  if (!circuitBuzzer || circuitBuzzer.pin !== name) return
+  circuitBuzzer.item.setPlaying(hz > 0)
+  stage.invalidate()
+})
+
 createInfoPanel(panels.info, course)
 // One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, room, onGoal: (id) => course.markComplete(id) })
+const runner = createSimRunner({ sims, pins, inputs, room, tones, onGoal: (id) => course.markComplete(id) })
 createRunControls({ container: runControls, course, runner, getValues })
 createLessonStrip(panels.strip, course)
 createBoardTour({ stage, board, course, container: app })

@@ -73,7 +73,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
-`src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`. The other
+`src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
+`src/ui/sound.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -110,6 +111,8 @@ src/
     ldr.js         createLdr({ from, to }) -> { group }; photoresistor disc with a wavy track on two legs
     tmp36.js       createTmp36({ legs }) -> { group }; black TO-92 half cylinder, flat face to +z, three legs
                    (+Vs, Vout, GND from left to right)
+    buzzer.js      createBuzzer({ legs }) -> { group, setPlaying(on) }; passive piezo, two legs (positive,
+                   negative); setPlaying shows the sound-ring above the hole
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
     button.js      createButton({ legs }) -> { group, setPressed(on) }; 4 leg tactile switch, legs are four
                    hole tops; setPressed lowers the cap 0.05 cm; group.userData.pressable = true
@@ -119,18 +122,21 @@ src/
                    group.userData.turnable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2 to 1.10 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2 to 1.11 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
                    to world positions, one factory result per id, item group name = id;
                    buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes;
-                   rgbHoles(at) -> the four RGB LED leg holes
+                   rgbHoles(at) -> the four RGB LED leg holes; buzzerHoles(at) -> the two buzzer leg holes
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
-    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.10' now)
+    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.11' now)
+    tune.js        pure createTuneSim (1.11): NOTES C to B, note1 to note3 params (Hz, read as each note starts)
+                   on D8 in tones for 300 ms every 350 ms, then 1000 ms silent; goal is one loop playing
+                   TARGET E D C in order
     room.js        pure createRoom(): getLight (0 to 1, default 0.8), getTempC (0 to 40, default 22), setLight,
                    setTempC, reset, subscribe(fn) with (name, value), name 'light' or 'tempC'
     light.js       pure createLightSim (1.9): ldrOhms(light) 1 Mohm dark to 1 kohm bright (log), dividerLevel(light)
@@ -156,7 +162,7 @@ src/
     fade.js        pure createFadeSim (1.7): analogWrite value 0 to 255 then 255 to 0, one step every stepMs (live),
                    D9 level value / 255; readout 'analogWrite(9, <value>), duty <percent>%'; goal is one full
                    fade (512 steps) seen taking 1000 to 3000 ms with the current stepMs also in range
-    runner.js      pure createSimRunner({ sims, pins, inputs, room, onGoal, uploadMs }): hasSim, run, tick(now), stop,
+    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, onGoal, uploadMs }): hasSim, run, tick(now), stop,
                    getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
                    else ''); UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
@@ -184,6 +190,9 @@ src/
     roomControls.js createRoomControls({ container, room }) -> { setSensors({ light, temp }) }: "Room light"
                    (0 to 100 %) and "Room temperature" (0 to 40 deg C) sliders below the Run row, each shown
                    only when the circuit has an ldr or tmp36, following the room both ways
+    sound.js       createSound({ container, tones, storage }) -> { setPin(name) }: Web Audio square wave following
+                   the tone on the buzzer pin; "Sound on" / "Sound off" toggle below the Run row on buzzer
+                   lessons, saved under robo-learn:sound (default on)
     multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
                    select below the Run row and click to probe a visible part of a target (a pointer up within
                    5 px of its down); both write inputs.setProbe(id); hidden with no targets
@@ -247,6 +256,9 @@ the current lesson, and every panel updates from it.
   `{ id, type: 'tmp36', at: '12e' }` with its legs in the same three holes as a
   potentiometer: +Vs, Vout, GND. A circuit with either shows its room slider,
   and `main.js` resets the room to its defaults on every circuit build.
+- A buzzer is `{ id, type: 'buzzer', at: '12e', pin: 'D8' }`, with its positive
+  leg at `at` and its negative leg three columns on; the column must be at most
+  27. `pin` names the Uno pin whose tone it plays.
 - An LED may carry `ohmsParam`, the code panel param holding its series
   resistor in ohms. `main.js` then lights it at the pin level times
   `ledBrightness(ohms)`, and re-lights LEDs on every param change.
@@ -263,7 +275,7 @@ the current lesson, and every panel updates from it.
 
 ## Sims and goal checks
 
-- A lesson sim is made by a factory `create({ pins, inputs, room, getValues, startedAt })` and
+- A lesson sim is made by a factory `create({ pins, inputs, room, tones, getValues, startedAt })` and
   returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
   the same clock. `getValues()` gives the live code panel param values.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
@@ -272,6 +284,8 @@ the current lesson, and every panel updates from it.
   pins read `0`. Digital pins use `0` (LOW) and `1` (HIGH). An analog input is its
   voltage as a share of 5 V; a PWM output is its duty cycle, the `analogWrite`
   value / 255. Stop resets every pin to `0`.
+- `tones` is a second `createPins()` holding a tone frequency in Hz per pin, 0
+  for silent. Sims call `tones.set(pin, hz)`; Stop resets it like the pins.
 - A sim may return `readout()`, a short string. The runner `getReadout()` gives it
   while running, else `''`, and `runControls` shows it under the status. It stands
   in for the Serial Monitor until Phase 3.

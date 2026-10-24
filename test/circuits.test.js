@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { circuits } from '../src/circuits/circuits.js'
-import { buildCircuit, buttonHoles, potHoles, rgbHoles } from '../src/circuits/buildCircuit.js'
+import { buildCircuit, buttonHoles, potHoles, rgbHoles, buzzerHoles } from '../src/circuits/buildCircuit.js'
 import { lessons } from '../src/course/lessons.js'
 import { createUnoBoard, unoPinPosition, UNO_PIN_NAMES } from '../src/parts/unoBoard.js'
 import { createBreadboard, holePosition, holeStrip, parseHole } from '../src/parts/breadboard.js'
@@ -21,6 +21,7 @@ function partHoles(part) {
   if (part.type === 'button') return buttonHoles(part.at)
   if (part.type === 'potentiometer' || part.type === 'tmp36') return potHoles(part.at)
   if (part.type === 'rgbLed') return rgbHoles(part.at)
+  if (part.type === 'buzzer') return buzzerHoles(part.at)
   return part.type === 'led' ? [part.anode, part.cathode] : [part.from, part.to]
 }
 
@@ -43,10 +44,10 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2 to 1.10', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.11', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.10', '1.11', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9'])
   })
 
   it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
@@ -282,6 +283,26 @@ describe('circuit tables', () => {
     it('keeps the D13 LED circuit on its own strips', () => {
       const sensorStrips = new Set([wireTo('5V'), wireTo('A0'), wireTo('GND.2')])
       for (const pin of ['D13', 'GND']) expect(sensorStrips.has(wireTo(pin))).toBe(false)
+    })
+  })
+
+  describe('lesson 1.11 buzzer circuit', () => {
+    const circuit = circuits['1.11']
+    const buzzer = circuit.parts.find((item) => item.id === 'bz1')
+
+    it('wires D8 to the positive leg and GND to the negative leg', () => {
+      expect(buzzerHoles('12e')).toEqual(['12e', '15e'])
+      expect(buzzer.pin).toBe('D8')
+      const [positive, negative] = buzzerHoles(buzzer.at).map(holeStrip)
+      const wireTo = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+      expect(wireTo('D8')).toBe(positive)
+      expect(wireTo('GND')).toBe(negative)
+    })
+
+    it('builds a buzzer item with setPlaying, and throws past column 27', () => {
+      const { items } = buildCircuit(circuit, placedBoards())
+      expect(typeof items.bz1.setPlaying).toBe('function')
+      expect(() => buildCircuit({ parts: [{ id: 'b8', type: 'buzzer', at: '28e' }], wires: [] }, placedBoards())).toThrow('b8')
     })
   })
 

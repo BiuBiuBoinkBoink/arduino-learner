@@ -95,6 +95,14 @@ export const circuits = {
       ...buttonLed.wires
     ]
   },
+  // Passive buzzer: positive leg to D8, negative leg to GND.
+  '1.11': {
+    parts: [{ id: 'bz1', type: 'buzzer', at: '12e', pin: 'D8' }],
+    wires: [
+      { id: 'w1', color: 'yellow', from: 'D8', to: '12a' },
+      { id: 'w2', color: 'black', from: 'GND', to: '15a' }
+    ]
+  },
   // TMP36 flat side towards the viewer: +Vs to 5V, Vout to A0, GND to GND.2.
   '1.10': {
     parts: [{ id: 'tmp1', type: 'tmp36', at: '12e' }],

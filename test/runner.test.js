@@ -52,6 +52,17 @@ describe('createSimRunner', () => {
     expect(fake.log.created[0].room).toBe(room)
   })
 
+  it('passes tones to the sim and silences them on stop', () => {
+    const tones = createPins()
+    const create = (args) => ({ update: () => args.tones.set('D8', 262), stop: () => {} })
+    const runner = createSimRunner({ sims: { '1.11': create }, pins: createPins(), tones, onGoal: () => {}, uploadMs: 100 })
+    runner.run({ lessonId: '1.11', getValues: () => ({}), now: 0 })
+    runner.tick(100)
+    expect(tones.get('D8')).toBe(262)
+    runner.stop()
+    expect(tones.get('D8')).toBe(0)
+  })
+
   it('exports a 1500 ms upload time', () => {
     expect(UPLOAD_MS).toBe(1500)
   })

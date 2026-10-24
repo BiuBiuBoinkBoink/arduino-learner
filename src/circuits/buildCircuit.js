@@ -10,6 +10,7 @@ import { createPotentiometer } from '../parts/potentiometer.js'
 import { createRgbLed } from '../parts/rgbLed.js'
 import { createLdr } from '../parts/ldr.js'
 import { createTmp36 } from '../parts/tmp36.js'
+import { createBuzzer } from '../parts/buzzer.js'
 import { createResistor } from '../parts/resistor.js'
 import { createWire } from '../parts/wire.js'
 
@@ -35,11 +36,19 @@ export function rgbHoles(at) {
   return [0, 1, 2, 3].map((offset) => `${column + offset}${row}`)
 }
 
+// A buzzer at '12e' has its positive leg at 12e and its negative leg 3 columns on, at 15e.
+export function buzzerHoles(at) {
+  const { column, row } = parseHole(at)
+  if (column > BREADBOARD_COLUMNS - 3) throw new Error(`Buzzer hole '${at}' needs a column of at most ${BREADBOARD_COLUMNS - 3}`)
+  return [`${column}${row}`, `${column + 3}${row}`]
+}
+
 const PART_FACTORIES = {
   button: (part, hole) => createButton({ legs: buttonHoles(part.at).map(hole) }),
   led: (part, hole) => createLed({ color: part.color, anode: hole(part.anode), cathode: hole(part.cathode) }),
   potentiometer: (part, hole) => createPotentiometer({ legs: potHoles(part.at).map(hole) }),
   rgbLed: (part, hole) => createRgbLed({ legs: rgbHoles(part.at).map(hole) }),
+  buzzer: (part, hole) => createBuzzer({ legs: buzzerHoles(part.at).map(hole) }),
   ldr: (part, hole) => createLdr({ from: hole(part.from), to: hole(part.to) }),
   // A TMP36 uses the same three holes in a row as a potentiometer: +Vs, Vout, GND.
   tmp36: (part, hole) => createTmp36({ legs: potHoles(part.at).map(hole) }),
