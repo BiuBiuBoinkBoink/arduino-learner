@@ -1,4 +1,4 @@
-// Empty panel shells. Later jobs fill them.
+// Panel shells. The info, code and lesson strip modules fill them.
 export function createPanels(root) {
   const info = document.createElement('aside')
   info.id = 'info-panel'
