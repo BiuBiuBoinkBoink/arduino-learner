@@ -6,7 +6,9 @@
 // circuit does not drive the pin, so it reads its INPUT_PULLUP state (HIGH)
 // or LOW. A batch holds what happened since the last advance:
 // { pins, tones, servos } (the last value of each), events (every change in
-// order, as [ms, kind, pin, value] with kind 'pin', 'tone' or 'servo'),
+// order, as [ms, kind, pin, value] with kind 'pin', 'tone' or 'servo', plus
+// 'input' when the circuit changes an input level, at the time the sketch
+// first sees it),
 // serial text, millis and error.
 import { createProgram } from './interpreter.js'
 
@@ -108,6 +110,11 @@ export function createSession(source, { random = Math.random } = {}) {
   return {
     advance,
     setInputs(next) {
+      for (const [pin, level] of Object.entries(next)) {
+        const before = levels[pin] === undefined ? null : levels[pin]
+        const after = level === undefined ? null : level
+        if (before !== after) batch.events.push([program.millis(), 'input', pin, after])
+      }
       levels = { ...levels, ...next }
     },
     sendSerial(text) {

@@ -78,6 +78,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 018 | Code runner lexer and parser: Arduino C subset to an AST, errors with line numbers |
 | 019 | Code runner runtime: interpreter on a virtual clock, Arduino built-ins, Serial, tone and Servo, in a Web Worker |
 | 020 | Editable code panel: Run executes the learner's sketch in the code runner, errors on their line, Reset code; lesson sims become boards |
+| 021 | Code checks for goals: code analysis (count calls like delay) and a response timer on the sketch clock; 1.4 shows reaction time |
 
 ### Where we stopped
 
@@ -169,6 +170,12 @@ is an editor, and Run sends the learner's own sketch through the code runner. Er
 line, and Reset code restores the lesson code. Each lesson sim is now a board (circuit inputs plus
 a goal that watches the sketch's outputs). Every existing lesson goal still passes; an end to end
 test proves it for each one.
+
+**Job 021 is built** on `feature/code-checks`, from
+[factory/handoff/021-code-checks-spec.md](factory/handoff/021-code-checks-spec.md): goals can now
+inspect the learner's code (`analyzeCode`, `countCalls`) and time how fast the sketch reacts to an
+input (`createResponseTimer`). No goals changed; lesson 1.4 shows the LED reaction time in its
+readout. The remaining Phase 3 items are the Level 2 lessons, which are on hold.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.

@@ -9,9 +9,12 @@
 // first (pins and tones to their stores; servos are left to the board), then
 // passed to the board's output(event) with at on the same clock as now. The
 // runner never marks progress itself: it calls onGoal(lessonId) once per run
-// when checkGoal() first passes. reload(source, now) swaps the running code
+// when checkGoal() first passes. Boards also get getCode(), the analyzeCode
+// result for the code now running, for goals that inspect the code itself.
+// 'input' events (the circuit changing an input) reach the board only. reload(source, now) swaps the running code
 // without a new upload; the board may reset timing in its own reload(now).
 import { createProgram } from '../runner/interpreter.js'
+import { analyzeCode } from '../runner/codeChecks.js'
 
 export const UPLOAD_MS = 1500
 
@@ -38,6 +41,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   let goalMet = false
   let error = null
   let sentLevels = {}
+  let analysis = null
 
   function hasSim(id) {
     return Object.prototype.hasOwnProperty.call(sims, id)
@@ -67,6 +71,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     if (phase !== 'running') return false
     if (checkCode(nextSource)) return false
     source = nextSource
+    analysis = analyzeCode(source)
     codeStart = now
     sentLevels = {}
     if (typeof sim.reload === 'function') sim.reload(now)
@@ -92,7 +97,8 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
       startedAt = now
       codeStart = now
       sentLevels = {}
-      sim = sims[lessonId]({ pins, inputs, room, tones, servos, serial, getValues, startedAt })
+      analysis = analyzeCode(source)
+      sim = sims[lessonId]({ pins, inputs, room, tones, servos, serial, getValues, startedAt, getCode: () => analysis })
       codeRunner.start(source)
       phase = 'running'
     }
@@ -113,7 +119,9 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   function receive(batch) {
     if (phase !== 'running') return
     for (const [ms, kind, pin, value] of batch.events || []) {
-      if (kind === 'pin') pins.set(pin, value)
+      if (kind === 'input') {
+        // Seen by the board only; the stores hold the sketch's outputs.
+      } else if (kind === 'pin') pins.set(pin, value)
       else if (kind === 'tone' && tones) tones.set(pin, value)
       if (typeof sim.output === 'function') sim.output({ kind, pin, value, at: codeStart + ms })
     }

@@ -146,6 +146,25 @@ describe('createSimRunner', () => {
     expect(seen.outputs.at(-1).at).toBe(1210)
   })
 
+  it('gives the board the code analysis, updated on reload', () => {
+    const { runner, seen, values } = setup()
+    runner.run({ lessonId: '1.2', getValues: values, source: 'void setup() {} void loop() { delay(5); }', now: 0 })
+    runner.tick(1000)
+    const getCode = seen.created[0].getCode
+    expect(getCode().calls.map((call) => call.name)).toEqual(['delay'])
+    runner.reload('void setup() {} void loop() { delay(1); delay(2); }', 1100)
+    expect(getCode().calls).toHaveLength(2)
+  })
+
+  it('passes input events to the board without touching the stores', () => {
+    const { runner, seen, pins, values } = setup()
+    runner.run({ lessonId: '1.2', getValues: values, source: SKETCH, now: 0 })
+    runner.tick(1000)
+    runner.receive({ events: [[3, 'input', 'D2', 0]] })
+    expect(seen.outputs).toEqual([{ kind: 'input', pin: 'D2', value: 0, at: 1003 }])
+    expect(pins.get('D2')).toBe(0)
+  })
+
   it('reads out the board while running, else nothing', () => {
     const { runner, values } = setup({ readout: () => 'A0 reads 512' })
     expect(runner.getReadout()).toBe('')
