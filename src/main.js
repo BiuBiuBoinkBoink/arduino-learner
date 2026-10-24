@@ -105,15 +105,6 @@ const codeRunner = createCodeRunner({
     run.noticeError()
   }
 })
-const serialMonitor = createSerialMonitor({ container: app, serial, onSend: (text) => codeRunner.sendSerial(text) })
-course.subscribe(({ lesson }) => {
-  if (lesson.id === serialLessonId) return
-  serialLessonId = lesson.id
-  serial.clear()
-  serialMonitor.setVisible(usesSerial(lesson))
-})
-let serialLessonId = course.getState().lesson.id
-serialMonitor.setVisible(usesSerial(course.getState().lesson))
 // The room the sensors read; its light level also dims the scene.
 const room = createRoom()
 room.subscribe((name, value) => {
@@ -123,6 +114,20 @@ room.subscribe((name, value) => {
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
 const codePanel = createCodePanel(panels.code, course)
 const { toolbar, getValues, subscribe: subscribeValues } = codePanel
+// The Serial Monitor sits under the sketch editor, and moves with it to full screen.
+const serialMonitor = createSerialMonitor({
+  container: codePanel.serialSlot,
+  serial,
+  onSend: (text) => codeRunner.sendSerial(text)
+})
+let serialLessonId = course.getState().lesson.id
+serialMonitor.setVisible(usesSerial(course.getState().lesson))
+course.subscribe(({ lesson }) => {
+  if (lesson.id === serialLessonId) return
+  serialLessonId = lesson.id
+  serial.clear()
+  serialMonitor.setVisible(usesSerial(lesson))
+})
 const runControls = document.createElement('div')
 toolbar.append(runControls)
 const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
