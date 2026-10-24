@@ -71,6 +71,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 011 | Sim multimeter you point at a part in 3D or with Meter on, lesson 1.3 Resistors and Ohm's law with a 220 ohm, 1k and 10k choice |
 | 012 | RGB LED part and lesson 1.8 Colour mixing, match orange with three sliders |
 | 013 | Room light and temperature sliders, photoresistor and TMP36 parts, lessons 1.9 Light sensor and 1.10 Temperature |
+| 014 | Piezo buzzer with Web Audio and a Sound on/off toggle, lesson 1.11 Sound with an E D C tune goal |
 
 ### Where we stopped
 
@@ -121,6 +122,11 @@ within 25 of orange (255, 128, 0) while running. The target is an assumption.
 room with Room light and Room temperature sliders (the light also dims the scene), photoresistor
 and TMP36 parts, and lessons 1.9 (the night light turns on and off again) and 1.10 (15 deg C or
 less and 30 deg C or more). These goals are assumptions.
+
+**Job 014 is built** on `feature/buzzer`, from
+[factory/handoff/014-buzzer-spec.md](factory/handoff/014-buzzer-spec.md): a piezo buzzer part,
+a tones store (Hz per pin), a Web Audio square wave with a saved Sound on/off toggle, and
+lesson 1.11, which passes when one loop plays E, D, C. The target tune is an assumption.
 
 ## How to continue
 
