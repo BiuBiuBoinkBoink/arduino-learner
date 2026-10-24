@@ -14,11 +14,12 @@ import { defaultValues, slotValues, fillSketch } from '../src/ui/sketch.js'
 const FRAME_MS = 16
 
 // Drives one lesson: a runner over real stores and a synchronous code runner.
-function drive(lessonId, overrides = {}) {
+// edit(source) may change the filled sketch, like a learner typing.
+function drive(lessonId, overrides = {}, edit = (source) => source) {
   const lesson = lessons.find((item) => item.id === lessonId)
   const { code, params } = lesson.sketch
   let values = { ...defaultValues(params), ...overrides }
-  const sourceFor = () => fillSketch(code, slotValues(params, values))
+  const sourceFor = () => edit(fillSketch(code, slotValues(params, values)))
   const stores = { pins: createPins(), inputs: createInputs(), room: createRoom(), tones: createPins(), servos: createPins(), serial: createSerial() }
   stores.servos.set('D9', 90)
   let session = null
@@ -105,6 +106,22 @@ describe('lesson goals through the code runner', () => {
       expect(lesson.stores.pins.get('D13')).toBe(0)
     }
     expect(lesson.passed()).toBe(true)
+  })
+
+  it('1.4 times how fast the LED reacts, on the sketch clock', () => {
+    const quick = drive('1.4')
+    quick.wait(100)
+    quick.stores.inputs.setPressed('btn1', true)
+    quick.wait(100)
+    expect(quick.runner.getReadout()).toBe('D2 LOW, LED on, reacts in under 1 ms. Presses: 0 of 3')
+    // A learner adds a slow delay to the loop, so the LED lags the button.
+    const slow = drive('1.4', {}, (source) => source.replace(/(digitalWrite\(ledPin[^;]*;)/, '$1 delay(200);'))
+    slow.wait(500)
+    slow.stores.inputs.setPressed('btn1', true)
+    slow.wait(400)
+    const reacts = Number(/reacts in (\d+) ms/.exec(slow.runner.getReadout())[1])
+    expect(reacts).toBeGreaterThan(50)
+    expect(reacts).toBeLessThanOrEqual(220)
   })
 
   it('1.5 counts presses only with the pull down fitted, and floats without it', () => {

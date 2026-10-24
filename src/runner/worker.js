@@ -20,8 +20,8 @@ function stop() {
 function step() {
   if (!session) return
   const batch = session.advance(performance.now() - startedAt)
-  const changed = Object.keys(batch.pins).length || Object.keys(batch.tones).length ||
-    Object.keys(batch.servos).length || batch.serial
+  // Input events count too: a reaction timer needs them even in a quiet slice.
+  const changed = batch.events.length || batch.serial
   if (changed) self.postMessage({ type: 'batch', ...batch, error: null })
   if (batch.error) {
     self.postMessage({ type: 'error', ...batch.error })
