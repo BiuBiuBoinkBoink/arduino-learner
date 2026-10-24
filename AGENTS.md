@@ -67,6 +67,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/app/scene.js`, `src/app/circuitView.js`, `src/app/storage.js`, `src/ui/layout.js`, `src/ui/topBar.js`,
 `src/ui/courseMap.js`, `src/ui/guidePanel.js`, `src/ui/viewControls.js`, `src/scene/cameraMath.js`,
 `src/style.css`, `src/course/lessons.js`, `src/course/state.js`, `src/course/goalText.js`, `src/course/steps.js`,
+`src/course/stepTracker.js`, `src/course/checks.js`, `src/course/flow.js`,
 `src/course/progress.js`, `src/course/hash.js`, `src/ui/infoPanel.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
@@ -82,10 +83,12 @@ folders are the target for later jobs.
 
 ```
 src/
-  main.js          boot: composes the layout, scene, course engine, stores, runner and UI; on every lesson
-                   change shows the lesson circuit through the circuit view, then points the per lesson
-                   controls (hold button, knob, meter, room, sound, servo centring) at its parts, and opens
-                   the code panel by default when the lesson has a sketch
+  main.js          boot: composes the layout, scene, course engine, step tracker and flow, stores, runner
+                   and UI; on every lesson change shows the lesson circuit through the circuit view, then
+                   points the per lesson controls (hold button, knob, meter, room, sound, servo centring) at
+                   its parts; builds the step check context (currentContext) and feeds it to the flow each
+                   run frame, on Stop, lesson change, tour completion and 300 ms after a code edit; opens
+                   the code panel on predict, run and code steps and closes it on the others
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
@@ -105,9 +108,16 @@ src/
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
     goalText.js    pure splitGoal(paragraphs) -> { intro, goal }: goal is the text after 'Goal: ' in the first
                    paragraph that has it; every other text stays in intro (goal null when there is none)
-    steps.js       pure stepsFor(lesson) -> step[]: lesson.steps when given, else one generated step
-                   { id: 'goal', kind: 'run', title: 'Goal', body: [goal], check: { type: 'legacy' } }, or for a
-                   lesson with a tour kind 'explore', title 'Tour the board'
+    steps.js       pure stepsFor(lesson) -> step[]: lesson.steps when given (without build and wire steps
+                   while BUILD_STEPS_ENABLED is false), else one generated step { id: 'goal', kind: 'run',
+                   title: 'Goal', body: [goal], check: { type: 'legacy' } }, or for a lesson with a tour kind
+                   'explore', title 'Tour the board'; hasGeneratedSteps(lesson); CODE_OPEN_KINDS; STEP_KINDS
+    stepTracker.js pure createStepTracker({ storage, lessons, stepsFor }): get(lessonId) -> { current, passed,
+                   helped, answers, latched, hintLevels }, has, setCurrent, markPassed, answer, latch,
+                   setHintLevel, reset, completeAll, subscribe; key robo-learn:steps
+    checks.js      pure evaluate(step, ctx) -> { passed, items, feedback }; CHECK_TYPES; simKey, simKeys(check)
+    flow.js        pure createFlow({ course, tracker, stepsFor, evaluate }): getView, update(ctx), answer, next,
+                   toggleOpen, runLock, subscribe (see "Lesson steps and checks")
     progress.js    pure lessonStatus(lessons, completed, id) -> 'done' | 'next' | '' (next is the first lesson in
                    course order that is not done)
     lessons.js     levels ([{ id, title }], 1 Basics to 5 Beyond the Uno); lesson objects: id, level,
@@ -208,7 +218,8 @@ src/
     runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal,
                    uploadMs }): hasSim, run({ lessonId, getValues, source, now }), reload(source, now), tick(now),
                    receive(batch), fail(error), stop, getPhase (idle, uploading, running, error), getError,
-                   isGoalMet, getReadout; checkCode(source) compiles without running; UPLOAD_MS (1500)
+                   isGoalMet, getReadout, getProgress; checkCode(source) compiles without running; UPLOAD_MS
+                   (1500); RAN_MS (1000)
   runner/          code runner for learner code (Level 2 onward)
     lexer.js       pure lex(source) -> tokens { type, value, line, column } (number, string, char, ident, keyword,
                    op, include, eof); CodeError(message, line, column) with message 'Line N: ...'
@@ -241,16 +252,27 @@ src/
                    setCodeOpen(on), isCodeOpen(), subscribeCode(fn) }: builds header#top-bar, aside#guide-panel,
                    main#workbench (with #stage, #run-bar, #view-controls and #controls-dock inside) and
                    aside#code-panel; setCodeOpen toggles is-closed on the code panel
-    topBar.js      createTopBar(container, course, { levels, onOpenMap }) -> { mapButton }: Robo Learn, the
-                   'Level 1 Basics / 1.2 Blink' breadcrumb, a Done pill on completed lessons, Prev and Next,
-                   and the Course map button
+    topBar.js      createTopBar(container, course, { levels, onOpenMap, flow }) -> { mapButton }: Robo Learn, the
+                   'Level 1 Basics / 1.2 Blink' breadcrumb, step progress from the flow (one 28 x 6 px segment
+                   per step, good when passed, accent when current, line when locked, then 'Step 2 of 3' or
+                   'Done'; the group's aria-label is 'Step 2 of 3' or 'Lesson done'), Prev and Next, and the
+                   Course map button
     courseMap.js   createCourseMap({ container, course, levels, button }) -> { open, close, isOpen }: #course-map
                    dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
                    per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
                    Escape closes and refocuses the button, a click outside closes; lessons are never locked
-    guidePanel.js  createGuidePanel(container, course) -> { referenceBody }: lesson header, an ol.guide-steps of
-                   step cards from stepsFor (kind label, title, intro paragraphs, Goal box, a success box with a
-                   Next lesson button once done) and a closed details.guide-reference hosting the info tabs
+    guidePanel.js  createGuidePanel(container, { course, flow, tracker }) -> { referenceBody }: lesson header, an
+                   ol.guide-steps from flow.getView() and a closed details.guide-reference hosting the info
+                   tabs. One li per step: a row with an 18 px status icon (done tick, current ring and dot,
+                   locked padlock), kind label and title; done rows are buttons (aria-expanded) opening a read
+                   only card, locked rows are dimmed with aria-label '<title>, locked'. The current card shows
+                   the body (generated steps show the lesson intro and Goal box instead), the question with
+                   .guide-option buttons (aria-pressed; right good border, wrong bad border, predict accent),
+                   the 'To pass' checklist, feedback, a Hint button, and once passed a success box ('Milestone
+                   done' and Continue, or 'Lesson done' and the next lesson). Feedback and success sit in
+                   persistent role="status" regions; a re-render keeps focus on the same control. 'Start this
+                   lesson again' needs a second click within 3 s ('Click again to start over') and calls
+                   tracker.reset
     viewControls.js createViewControls({ container, stage, getFrameBox }) -> { setView(kind, opts) }: Top view,
                    3D view and Reset view buttons; Top and 3D follow stage.getView() with aria-pressed
     infoPanel.js   createInfoPanel(panel, course, { heading = true }): lesson heading (left out with heading
@@ -266,13 +288,16 @@ src/
                    lessons without a sketch show coloured example.code read only; a Full screen button at
                    the top right of the editor (Escape or the button closes) moves the workspace (editor,
                    error line, serial slot) to the body to fill the window over a backdrop; returns
-                   { serialSlot, getValues, subscribe, getSource, isEdited, setError }
+                   { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError }; onInput(fn)
+                   calls fn(source) on every edit of the sketch text
     runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
                    { noticeError }: Run sends getSource() and shows a compile or runtime error as
                    'Stopped. Line N: ...' plus onError(error) for the code panel; Stop button and status
                    line; hidden on lessons without a sim; rAF loop calls runner.tick while running; stops
                    the runner on lesson change; .run-readout line shows runner.getReadout(); main.js puts it
-                   in #run-bar, a floating bar at the top left of the workbench
+                   in #run-bar, a floating bar at the top left of the workbench; options getLock() (a string
+                   disables Run and shows as the status; refreshLock() re-checks it) and onFrame() (after
+                   every loop frame, on Stop and on an error); returns { noticeError, refreshLock }
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
@@ -298,8 +323,10 @@ src/
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
                    traceStepAt(trace, values, elapsedMs)
-    boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; the card sits
-                   inside the workbench below the view buttons; marks 1.1 done
+    boardTour.js   createBoardTour({ stage, board, course, container, onComplete }): board hover labels, zone
+                   clicks and tour card checklist for lessons with a tour; the card sits inside the workbench
+                   below the view buttons; calls onComplete(lessonId) once every zone is opened (main.js marks
+                   1.1 done while its step is the generated one)
 test/              vitest unit tests
 ```
 
@@ -419,9 +446,20 @@ the current lesson, and every panel updates from it.
 - Moving a slider while running reloads the refilled sketch at once
   (`runner.reload`), keeping the board and its goal progress. Edited code waits
   for the next Run, like a real upload.
-- A lesson is marked done only by `onGoal(lessonId)`, which the runner calls once
-  per run when `checkGoal()` first returns true. The runner never calls
-  `markComplete` itself; `main.js` passes `onGoal: (id) => course.markComplete(id)`.
+- The runner calls `onGoal(lessonId)` once per run when `checkGoal()` first
+  returns true. It never calls `markComplete` itself. `main.js` marks the lesson
+  done in `onGoal` only when its steps are the generated one (`legacy`); a lesson
+  with its own steps is marked done by the flow once every step passed.
+- A board may return `progress()`, an object of named booleans that lesson steps
+  check (`{ type: 'sim', progress: 'name' }`). The names are fixed: blink (1.2)
+  `blinked`, `fast`; ohms (1.3) `measured220`, `measured1000`, `measured10000`;
+  button (1.4) `pressedOnce`; pullDown (1.5) `floated`, `pressedOnce`; pot (1.6)
+  `seenLow`, `seenHigh`; fade (1.7) `rampSeen`; rgb (1.8) none; light (1.9)
+  `turnedOn`; temp (1.10) `seenCool`, `seenWarm`; tune (1.11) `played`; sweep
+  (1.12) `reached45`, `reached90`, `reached135`; monitor (P1) none.
+- `runner.getProgress()` is `{}` unless the phase is `running`; then it is
+  `{ ran, goal, ...board.progress() }`, where `ran` is true once the board has run
+  for `RAN_MS` (1000 ms, by the last `tick(now)`) and `goal` is `isGoalMet()`.
 - `test/lessonGoals.test.js` runs every lesson sketch through the runtime, its
   board and the runner, and checks that each goal fails at the defaults and passes
   after the learner's action. Keep it passing when a lesson changes.
@@ -434,6 +472,59 @@ the current lesson, and every panel updates from it.
   it with `inputs.isPressed(id)` and `inputs.getValue(id)`. `subscribe` fires
   `(id, on)` for a press and `(id, value)` for a knob, only on a real change.
   Stop does not reset it, so a held button stays held until released.
+
+## Lesson steps and checks
+
+- A lesson may have `steps: [step, ...]` (1.2 now) and `prebuilt: [ids]`. A step
+  is `{ id, kind, title, body: [1 to 3 paragraphs], check, hint?, done?, showMe? }`.
+  Ids are kebab case and unique in the lesson. Kinds: `learn`, `explore`, `build`,
+  `wire`, `predict`, `run`, `code`. Build and wire steps (with `parts` and a
+  `circuit` check) stay hidden while `BUILD_STEPS_ENABLED` in `steps.js` is false
+  (phase 5 turns it on). Lessons without steps get one generated step whose check
+  is `legacy`.
+- `evaluate(step, ctx)` in `src/course/checks.js` returns `{ passed, items: [{ text,
+  ok }], feedback: null | { tone: 'good' | 'bad' | 'info', text } }`. Check types:
+  - `legacy`: passes when `ctx.lessonCompleted`; item `Meet the goal`.
+  - `quiz` `{ question, options, answer, explain }`: passes when the stored answer
+    is `answer`; item `Answer the question`; feedback after an answer, `bad` with
+    the picked option's explain or `good` with the right one's.
+  - `predict` `{ question, options, answer, explain, then }`: a guess is stored and
+    the `then` sim check passes; items `Make a guess` plus those of `then`;
+    feedback `info` `Now press Run and watch.` after a guess, then `good` with the
+    right explain when the guess was right, else `info` with the picked one's.
+  - `sim` `{ progress: 'name', text }` or `{ goal: true, text }`: the key is ok in
+    `ctx.sim.progress` now or is latched for this step.
+  - `code` `{ rule: 'compiles', text }`: `ctx.code.error` is null; else feedback
+    `bad` `The sketch does not compile. <message>`.
+  - `tour` `{ text }`: `ctx.tour.complete`.
+  - `all` `{ checks }`: every inner check passes; items in order, the first non
+    null feedback.
+- The context: `{ lessonId, lessonCompleted, answers, latched, sim: { phase,
+  progress }, code: { error }, tour: { complete } }`. `main.js` builds `sim`,
+  `code` (checkCode of the code panel source, cached by source) and `tour`; the
+  flow adds `lessonId`, `lessonCompleted`, `answers` and `latched` from the course
+  and the tracker.
+- Latching: on every update the flow latches each sim key of the current step that
+  is ok now (`tracker.latch`), so progress made in one run survives Stop. A step
+  stored as passed counts its sim keys as latched and its answer as given, so its
+  items stay ticked after a reload; code items stay live.
+- Flow rules (`src/course/flow.js`): `update(ctx)` evaluates the current step,
+  latches, stores a pass once (`markPassed`) and, when every step passed and the
+  course does not list the lesson, calls `course.markComplete` once. `next()` moves
+  on only from a passed step and does nothing on the last. `answer(stepId,
+  option)` works on the current step until it passes. `toggleOpen(index)` opens
+  or closes done cards. `runLock()` is `Make a guess first.` on a predict step
+  with no guess, else null. A lesson the course lists as done with no tracker
+  record gets `completeAll` on first view. A lesson change resets the flow's
+  context to idle, so an old run never counts. Subscribers hear only real view
+  changes. The view: `{ lesson, steps: [{ step, status: 'done' | 'current' |
+  'locked', passed, helped, open, result, answer }], index, result, passedNow,
+  lessonDone }`.
+- Step progress is saved under `robo-learn:steps`: a JSON object keyed by lesson id
+  of `{ current, passed, helped, answers, latched, hintLevels }`. Loading drops
+  unknown lesson and step ids, wrong types and non integer indexes, and clamps
+  `current`. `reset` keeps an empty record, so a reset lesson is not migrated
+  again.
 
 ## Conventions
 

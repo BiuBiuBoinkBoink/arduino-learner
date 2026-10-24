@@ -322,4 +322,33 @@ new modules to the architecture tree. Under "Sims and goal checks", document
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+- The flow fills `lessonId`, `lessonCompleted`, `answers` and `latched` into the context itself,
+  from the course and the tracker; `currentContext()` in main.js only builds `sim`, `code` and
+  `tour`. This keeps one source of truth for answers and latched keys.
+- A step stored as passed is evaluated with its sim keys latched and its stored answer (or the
+  right one, after a migration) given, so its checklist stays ticked after a reload or for a
+  lesson done before steps existed. Code items stay live, so breaking the code on a passed code
+  step unticks `The sketch compiles` and shows the error (browser check 8 was done this way,
+  before the reset in check 6).
+- Answers are accepted only for the current step and only until it passes, for quiz and predict
+  alike, so a passed quiz cannot be turned wrong again.
+- The tracker has `has(lessonId)` for the migration rule. `reset` leaves an empty record, so a
+  reset lesson that the course lists as done is not completed again on the next view.
+- A lesson change resets the flow's context to idle, so the old lesson's run progress (main.js
+  feeds the flow after the run controls stop the runner) can never latch for the new lesson.
+- Step rows show the done icon for a passed current step (the last step of a finished lesson),
+  so all steps look ticked; the row stays the current row with its card open.
+- The guide keeps the feedback and success boxes in two persistent `role="status"` regions that
+  move into the current card on each render, and only changes their content when the text
+  changes, so screen readers announce a pass once. Re-rendering restores focus by a
+  `data-focus-key`; a passed step's answer buttons use `aria-disabled` instead of `disabled` so
+  focus stays on them. After Continue, focus moves to the new current row (tabindex -1), because
+  the Continue button is gone.
+- Generated steps keep the phase 1 card look (lesson intro and Goal box) above the checklist.
+- runControls calls `onFrame` also on Stop and on an error, which covers the "after a Stop"
+  update. Code edits and slider changes update the flow 300 ms after the last change.
+- 1.5 `floated` counts changes of the floating level only while it keeps floating; a press or
+  fitting the pull down starts the count of the next change again. 1.7 `rampSeen` is set when the
+  duty reaches one end after the other since Run, and is not cleared by a reload.
+- The lessons test accepts the `circuit` check type only on build and wire steps; phase 5 adds
+  that type to `checks.js`.

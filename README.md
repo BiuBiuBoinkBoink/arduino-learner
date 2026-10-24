@@ -23,7 +23,7 @@ Uno and breadboard in the middle and the code panel on the right. Go to `#1.1` f
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 475 tests at the moment
+npm test        # vitest, 528 tests at the moment
 npm run build   # production build
 ```
 
@@ -187,6 +187,13 @@ Next and a Course map popover. The guide on the left shows the lesson as a step 
 box and a Reference drawer for the info tabs. The workbench in the middle has the Run bar, camera
 view buttons (Top, 3D, Reset) and a Controls dock over the 3D view, and the code panel on the right
 folds to a rail. How lessons pass has not changed.
+
+**Lesson overhaul phase 2, milestone engine** (`feature/lesson-overhaul`, not merged): lessons
+are lists of steps that unlock in order. Each step has a check; the guide shows the step list with
+status icons, a To pass checklist, feedback, a hint and Continue, and the top bar shows one
+segment per step. Progress is saved per step under `robo-learn:steps`. Every board reports named
+progress for run steps. Lesson 1.2 now has a quiz, a predict step (Run stays locked until you
+guess) and a code step. Lessons without steps pass exactly as before.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.

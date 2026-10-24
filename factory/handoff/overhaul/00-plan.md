@@ -187,3 +187,12 @@ the final screenshot shows, anything not verified.
   code panel with On time and Off time sliders. No console errors. Not verified: the 450 ms tween
   was not watched frame by frame (the browser pane only ran frames while visible; top, 3D, orbit
   and reset were each checked in screenshots), and reduced motion was not emulated.
+- 2026-10-25: phase 2 milestone engine, last code commit c6d048c, 528 tests. Final screenshot at
+  1440 x 900 on 1.2 after Start this lesson again: top bar with three step segments (first accent)
+  and Step 1 of 3, the guide with the Learn card (two paragraphs, the question and three options,
+  To pass with Answer the question, Hint), Predict and Code rows locked, Start this lesson again,
+  the Run bar, the Uno and breadboard, and the code panel folded to its rail. All 8 browser checks
+  done; no app console errors (three setPointerCapture errors came from synthetic test events).
+  Not verified: a real mouse hold on the 3D button (1.4 was passed through the Hold to press
+  keyboard path), screen reader announcements (only the role="status" markup was checked), and
+  check 8 was done on the passed code step before the reset rather than after check 7.
