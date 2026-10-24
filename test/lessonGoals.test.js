@@ -246,3 +246,126 @@ describe('lesson goals through the code runner', () => {
     }
   })
 })
+
+describe('lesson progress names through the code runner', () => {
+  const progress = (lesson) => lesson.runner.getProgress()
+
+  it('1.2 reports blinked after a full blink and fast with the goal', () => {
+    const lesson = drive('1.2')
+    lesson.wait(500)
+    expect(progress(lesson)).toMatchObject({ ran: false, goal: false, blinked: false, fast: false })
+    lesson.wait(1200)
+    expect(progress(lesson)).toMatchObject({ ran: true, blinked: true, fast: false })
+    lesson.set({ onMs: 200, offMs: 200 })
+    lesson.wait(1000)
+    expect(progress(lesson)).toMatchObject({ goal: true, fast: true })
+  })
+
+  it('1.3 reports each measured resistor', () => {
+    const lesson = drive('1.3')
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ measured220: false, measured1000: false, measured10000: false })
+    lesson.stores.inputs.setProbe('led')
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ measured220: true, measured1000: false, measured10000: false })
+    lesson.set({ ohms: 10000 })
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ measured220: true, measured1000: false, measured10000: true })
+  })
+
+  it('1.4 reports pressedOnce after one full press', () => {
+    const lesson = drive('1.4')
+    lesson.wait(100)
+    lesson.stores.inputs.setPressed('btn1', true)
+    lesson.wait(100)
+    expect(progress(lesson).pressedOnce).toBe(false)
+    lesson.stores.inputs.setPressed('btn1', false)
+    lesson.wait(100)
+    expect(progress(lesson).pressedOnce).toBe(true)
+  })
+
+  it('1.5 reports floated without the pull down and pressedOnce with it', () => {
+    const fitted = drive('1.5')
+    fitted.wait(2000)
+    expect(progress(fitted)).toMatchObject({ floated: false, pressedOnce: false })
+    const lesson = drive('1.5', { pull: 'none' })
+    lesson.wait(2000)
+    expect(progress(lesson)).toMatchObject({ floated: true, pressedOnce: false })
+    lesson.set({ pull: 'down' })
+    lesson.stores.inputs.setPressed('btn1', true)
+    lesson.wait(100)
+    lesson.stores.inputs.setPressed('btn1', false)
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ floated: true, pressedOnce: true })
+  })
+
+  it('1.6 reports seenLow and seenHigh separately', () => {
+    const lesson = drive('1.6')
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenLow: false, seenHigh: false })
+    lesson.stores.inputs.setValue('pot1', 0)
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenLow: true, seenHigh: false })
+    lesson.stores.inputs.setValue('pot1', 1)
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenLow: true, seenHigh: true })
+  })
+
+  it('1.7 reports rampSeen after one end then the other, at any speed', () => {
+    const lesson = drive('1.7')
+    lesson.wait(1000)
+    expect(progress(lesson).rampSeen).toBe(false)
+    lesson.wait(2000)
+    expect(progress(lesson).rampSeen).toBe(true)
+    expect(progress(lesson).goal).toBe(false)
+  })
+
+  it('1.8 and P1 report only ran and goal', () => {
+    for (const id of ['1.8', 'P1']) {
+      const lesson = drive(id)
+      lesson.wait(1100)
+      expect(progress(lesson), id).toEqual({ ran: true, goal: false })
+    }
+  })
+
+  it('1.9 reports turnedOn once the night light changes', () => {
+    const lesson = drive('1.9')
+    lesson.wait(300)
+    expect(progress(lesson).turnedOn).toBe(false)
+    lesson.stores.room.setLight(0.2)
+    lesson.wait(300)
+    expect(progress(lesson).turnedOn).toBe(true)
+    expect(progress(lesson).goal).toBe(false)
+  })
+
+  it('1.10 reports seenCool and seenWarm separately', () => {
+    const lesson = drive('1.10')
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenCool: false, seenWarm: false })
+    lesson.stores.room.setTempC(14)
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenCool: true, seenWarm: false })
+    lesson.stores.room.setTempC(31)
+    lesson.wait(100)
+    expect(progress(lesson)).toMatchObject({ seenCool: true, seenWarm: true })
+  })
+
+  it('1.11 reports played after three notes, even the wrong tune', () => {
+    const lesson = drive('1.11')
+    lesson.wait(100)
+    expect(progress(lesson).played).toBe(false)
+    lesson.wait(2000)
+    expect(progress(lesson)).toMatchObject({ played: true, goal: false })
+  })
+
+  it('1.12 reports each angle reached', () => {
+    const lesson = drive('1.12')
+    lesson.wait(100)
+    lesson.set({ angle: 45 })
+    lesson.wait(500)
+    expect(progress(lesson)).toMatchObject({ reached45: true, reached90: false, reached135: false })
+    lesson.set({ angle: 135 })
+    lesson.wait(500)
+    expect(progress(lesson)).toMatchObject({ reached45: true, reached90: false, reached135: true })
+  })
+})

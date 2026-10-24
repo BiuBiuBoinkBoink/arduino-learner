@@ -13,11 +13,22 @@ export function createFadeSim() {
   // Arrival times at each end, oldest first; the run starts at the low end.
   let arrivals = [{ end: 0, at: null }]
   let fadeSeen = false
+  // Ends reached since Run, for progress: a ramp is one end then the other.
+  let seenLow = false
+  let seenHigh = false
+  let rampSeen = false
 
   function output({ kind, pin, value: level, at }) {
     if (kind !== 'pin' || pin !== PIN) return
     value = Math.round(level * 255)
     const end = level <= END ? 0 : level >= 1 - END ? 1 : null
+    if (end === 0) {
+      if (seenHigh) rampSeen = true
+      seenLow = true
+    } else if (end === 1) {
+      if (seenLow) rampSeen = true
+      seenHigh = true
+    }
     if (arrivals[0].at === null) arrivals[0].at = at
     if (end === null || end === atEnd) {
       if (end === null) atEnd = null
@@ -49,5 +60,9 @@ export function createFadeSim() {
     arrivals = [{ end: 0, at: null }]
   }
 
-  return { levels: () => ({}), output, reload, checkGoal, readout }
+  function progress() {
+    return { rampSeen }
+  }
+
+  return { levels: () => ({}), output, reload, checkGoal, readout, progress }
 }

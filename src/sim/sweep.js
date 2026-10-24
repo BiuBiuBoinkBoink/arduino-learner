@@ -41,5 +41,9 @@ export function createSweepSim({ servos, startedAt }) {
     return `${command}, arm at ${Math.round(arm)} deg. ${rest}`
   }
 
-  return { levels: () => ({}), output, update, checkGoal, readout }
+  function progress() {
+    return { reached45: reached.has(45), reached90: reached.has(90), reached135: reached.has(135) }
+  }
+
+  return { levels: () => ({}), output, update, checkGoal, readout, progress }
 }

@@ -43,5 +43,9 @@ export function createButtonSim({ pins, inputs }) {
     return `D2 ${inputs.isPressed(BUTTON) ? 'LOW' : 'HIGH'}, LED ${pins.get('D13') >= 0.5 ? 'on' : 'off'}${reacts}. Presses: ${Math.min(presses, GOAL_PRESSES)} of ${GOAL_PRESSES}`
   }
 
-  return { levels, output, update, checkGoal, readout }
+  function progress() {
+    return { pressedOnce: presses >= 1 }
+  }
+
+  return { levels, output, update, checkGoal, readout, progress }
 }

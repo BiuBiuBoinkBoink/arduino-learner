@@ -34,5 +34,9 @@ export function createBlinkSim() {
     lastRise = null
   }
 
-  return { levels: () => ({}), output, reload, checkGoal, readout }
+  function progress() {
+    return { blinked: lastGap !== null, fast: checkGoal() }
+  }
+
+  return { levels: () => ({}), output, reload, checkGoal, readout, progress }
 }

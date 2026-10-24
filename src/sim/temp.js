@@ -38,5 +38,9 @@ export function createTempSim({ room }) {
     return `A0 reads ${raw}, ${rawToC(raw).toFixed(1)} deg C`
   }
 
-  return { levels, checkGoal, readout }
+  function progress() {
+    return { seenCool, seenWarm }
+  }
+
+  return { levels, checkGoal, readout, progress }
 }

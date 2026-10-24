@@ -15,20 +15,27 @@ export function createPullDownSim({ pins, inputs, getValues, random = Math.rando
   let presses = 0
   let floatLevel = 0
   let nextFloat = null
+  // Changes of the floating level seen while the pull down is removed.
+  let lastFloat = null
+  let floatChanges = 0
 
   function levels(now) {
     const fitted = getValues().pull === 'down'
     if (inputs.isPressed(BUTTON)) {
       nextFloat = null
+      lastFloat = null
       return { D2: 1 }
     }
     if (fitted) {
       nextFloat = null
+      lastFloat = null
       return { D2: 0 }
     }
     if (nextFloat === null || now >= nextFloat) {
       floatLevel = random() < 0.5 ? 0 : 1
       nextFloat = now + FLOAT_MIN_MS + random() * FLOAT_SPAN_MS
+      if (lastFloat !== null && floatLevel !== lastFloat) floatChanges += 1
+      lastFloat = floatLevel
     }
     return { D2: floatLevel }
   }
@@ -51,10 +58,14 @@ export function createPullDownSim({ pins, inputs, getValues, random = Math.rando
     return presses >= GOAL_PRESSES
   }
 
+  function progress() {
+    return { floated: floatChanges >= 2, pressedOnce: presses >= 1 }
+  }
+
   function readout() {
     const fitted = getValues().pull === 'down'
     return `Pull down ${fitted ? 'fitted' : 'removed'}, LED ${pins.get('D13') >= 0.5 ? 'on' : 'off'}. Presses: ${Math.min(presses, GOAL_PRESSES)} of ${GOAL_PRESSES}`
   }
 
-  return { levels, update, checkGoal, readout }
+  return { levels, update, checkGoal, readout, progress }
 }

@@ -29,5 +29,9 @@ export function createOhmsSim({ pins, inputs, getValues }) {
     return `Meter on ${METER_LABELS[probe]}: ${current.toFixed(1)} mA`
   }
 
-  return { levels: () => ({}), update, checkGoal, readout }
+  function progress() {
+    return { measured220: measured.has(220), measured1000: measured.has(1000), measured10000: measured.has(10000) }
+  }
+
+  return { levels: () => ({}), update, checkGoal, readout, progress }
 }

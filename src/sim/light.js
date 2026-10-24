@@ -44,5 +44,9 @@ export function createLightSim({ room }) {
     return `A0 reads ${raw}, LED ${ledOn ? 'on' : 'off'}`
   }
 
-  return { levels, output, checkGoal, readout }
+  function progress() {
+    return { turnedOn: changes >= 1 }
+  }
+
+  return { levels, output, checkGoal, readout, progress }
 }

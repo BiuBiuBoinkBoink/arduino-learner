@@ -17,6 +17,7 @@ import { createProgram } from '../runner/interpreter.js'
 import { analyzeCode } from '../runner/codeChecks.js'
 
 export const UPLOAD_MS = 1500
+export const RAN_MS = 1000
 
 // Compiles without running: null, or { message, line } for the first error.
 export function checkCode(source) {
@@ -42,6 +43,8 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   let error = null
   let sentLevels = {}
   let analysis = null
+  // Time of the last tick, for how long the board has been running.
+  let lastTick = 0
 
   function hasSim(id) {
     return Object.prototype.hasOwnProperty.call(sims, id)
@@ -92,6 +95,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   }
 
   function tick(now) {
+    lastTick = now
     if (phase === 'uploading') {
       if (now - runStart < uploadMs) return
       startedAt = now
@@ -165,6 +169,14 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     error = null
   }
 
+  // Named sub goals for lesson steps: {} unless running; ran once the board has
+  // run for RAN_MS, goal the lesson goal, plus the board's own progress().
+  function getProgress() {
+    if (phase !== 'running') return {}
+    const own = typeof sim.progress === 'function' ? sim.progress() : {}
+    return { ran: lastTick - startedAt >= RAN_MS, goal: goalMet, ...own }
+  }
+
   return {
     hasSim,
     run,
@@ -176,6 +188,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     getPhase: () => phase,
     getError: () => error,
     isGoalMet: () => goalMet,
+    getProgress,
     getReadout: () => (phase === 'running' && typeof sim.readout === 'function' ? sim.readout() : '')
   }
 }

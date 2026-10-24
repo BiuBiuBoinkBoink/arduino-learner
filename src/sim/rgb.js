@@ -24,5 +24,5 @@ export function createRgbSim({ pins }) {
     return `Now ${now.red}, ${now.green}, ${now.blue}. Target ${TARGET.name} ${TARGET.red}, ${TARGET.green}, ${TARGET.blue}`
   }
 
-  return { levels: () => ({}), update, checkGoal, readout }
+  return { levels: () => ({}), update, checkGoal, readout, progress: () => ({}) }
 }

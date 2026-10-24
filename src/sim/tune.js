@@ -24,11 +24,13 @@ export function createTuneSim() {
   let current = 0
   let starts = []
   let matched = false
+  let played = 0
 
   function output({ kind, pin, value, at }) {
     if (kind !== 'tone' || pin !== PIN) return
     current = value
     if (value === 0) return
+    played += 1
     const last = starts[starts.length - 1]
     if (last && at - last.at > PHRASE_GAP_MS) starts = []
     starts.push({ hz: value, at })
@@ -46,5 +48,9 @@ export function createTuneSim() {
     return `${now}. Target tune ${target}`
   }
 
-  return { levels: () => ({}), output, checkGoal, readout }
+  function progress() {
+    return { played: played >= 3 }
+  }
+
+  return { levels: () => ({}), output, checkGoal, readout, progress }
 }

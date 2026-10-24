@@ -103,5 +103,5 @@ export function createMonitorSim({ pins, tones, room, startedAt }) {
       `LED ${pins.get('D13') >= 0.5 ? 'on' : 'off'}, alarm ${tones.get('D8') > 0 ? 'on' : 'off'}. Day ${verdict}`
   }
 
-  return { levels, update, stop, checkGoal, readout }
+  return { levels, update, stop, checkGoal, readout, progress: () => ({}) }
 }

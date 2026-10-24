@@ -27,5 +27,9 @@ export function createPotSim({ inputs }) {
     return `A0 reads ${raw}, ${(raw * 5 / 1023).toFixed(2)} V`
   }
 
-  return { levels, checkGoal, readout }
+  function progress() {
+    return { seenLow, seenHigh }
+  }
+
+  return { levels, checkGoal, readout, progress }
 }
