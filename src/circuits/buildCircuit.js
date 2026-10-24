@@ -3,7 +3,7 @@
 // returned group belongs directly in the scene.
 import * as THREE from 'three'
 import { unoPinPosition } from '../parts/unoBoard.js'
-import { holePosition, parseHole, BREADBOARD_COLUMNS } from '../parts/breadboard.js'
+import { holePosition, parseHole, isHole, BREADBOARD_COLUMNS } from '../parts/breadboard.js'
 import { createButton } from '../parts/button.js'
 import { createLed } from '../parts/led.js'
 import { createPotentiometer } from '../parts/potentiometer.js'
@@ -86,8 +86,8 @@ export function buildCircuit(circuit, { board, breadboard }) {
       return PART_FACTORIES[part.type](part, hole)
     })
   }
-  // A wire starts at an Uno pin, or at a hole for a jumper between two strips.
-  const start = (name) => (/^\d+[a-z]$/.test(name) ? hole(name) : pin(name))
+  // A wire starts at an Uno pin, or at a hole (rails included) for a jumper.
+  const start = (name) => (isHole(name) ? hole(name) : pin(name))
   for (const wire of circuit.wires) {
     add(wire.id, () => createWire({ color: wire.color, from: start(wire.from), to: hole(wire.to) }))
   }
