@@ -48,7 +48,9 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
 `src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/sim/pins.js`,
-`src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`. The other
+`src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`,
+`src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
+`src/ui/partPress.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -62,9 +64,10 @@ src/
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
                    example ({ code, note }), specs ([{ label, value }]); optional
                    tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only);
-                   optional sketch ({ code, params, trace }, 1.2 and 1.3 now): code is a template with
+                   optional sketch ({ code, params, trace }, 1.2 to 1.5 now): code is a template with
                    {{name}} slots; params are range ({ name, label, min, max, step, value, unit? }) or
-                   choice ({ name, label, value, options: [{ value, label }] }); trace is a looping list
+                   choice ({ name, label, value, options: [{ value, label, code? }] }, an option code is the
+                   text its slot shows instead of the value); trace is a looping list
                    of { line (1 based), ms (number or a range param name) }
   scene/           renderer, camera, lights, render loop
     stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate()
@@ -77,18 +80,27 @@ src/
     led.js         createLed({ color, anode, cathode }) -> { group, setLit(on) }; red, green, yellow, blue; anode leg kinked;
                    setLit glows the lens in its own colour (emissive only), new LEDs start unlit
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
+    button.js      createButton({ legs }) -> { group, setPressed(on) }; 4 leg tactile switch, legs are four
+                   hole tops; setPressed lowers the cap 0.05 cm; group.userData.pressable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2, 1.3, 1.7 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2, 1.3, 1.4, 1.5, 1.7 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
-                   to world positions, one factory result per id, item group name = id
+                   to world positions, one factory result per id, item group name = id;
+                   buttonHoles(at) -> the four button leg holes
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
-    sims.js        sims registry: lesson id -> sim factory ('1.2' now)
+    inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), subscribe(fn); held buttons by part id
+    sims.js        sims registry: lesson id -> sim factory ('1.2', '1.4', '1.5' now)
     blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; checkGoal passes when
                    the last two rising edges of D13 were under 500 ms apart and onMs + offMs is under 500
-    runner.js      pure createSimRunner({ sims, pins, onGoal, uploadMs }): hasSim, run, tick(now), stop,
+    button.js      pure createButtonSim (1.4): internal pull up, D2 reads 0 while btn1 is held, D13 follows the
+                   press; goal is 3 full presses seen since Run
+    pullDown.js    pure createPullDownSim (1.5): btn1 to 5V, released reads 0 with pull 'down', floats (random
+                   level every 40 to 160 ms, injectable random) with 'none'; D13 copies D2; goal is 3 full
+                   presses while fitted, removing the pull down resets the count
+    runner.js      pure createSimRunner({ sims, pins, inputs, onGoal, uploadMs }): hasSim, run, tick(now), stop,
                    getPhase (idle, uploading, running), isGoalMet; UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
@@ -99,12 +111,17 @@ src/
                    radio fieldsets) and the sketch coloured per line; controls refill the slots live,
                    values reset on lesson change; the trace loops an is-active line highlight on timers;
                    lessons without a sketch show coloured example.code, no controls, no trace;
-                   returns { toolbar, getValues }: an empty slot after the lesson line, and a copy of the values
+                   returns { toolbar, getValues, subscribe }: an empty slot after the lesson line, a copy of
+                   the values, and subscribe(fn) calling fn(values) on every control change and lesson change
     runControls.js Run and Stop buttons plus status line in the code panel toolbar; hidden on lessons
                    without a sim; rAF loop calls runner.tick while not idle; stops the runner on lesson change
+    partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
+                   press and release on visible pressable circuit items, orbit off while held, pointer cursor
+                   on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
+                   "Hold to press" keyboard path below the Run row, aria-pressed follows inputs
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
-    sketch.js      pure defaultValues(params), fillSketch(code, values), stepDuration(step, values),
+    sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
                    traceStepAt(trace, values, elapsedMs)
     boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; marks 1.1 done
 test/              vitest unit tests
@@ -144,13 +161,22 @@ the current lesson, and every panel updates from it.
   LED parts carry `pin`, the Uno pin that drives them; `buildCircuit` ignores it
   for geometry and `main.js` uses it to light the LED.
   Ids are unique within a circuit.
+- A push button is `{ id: 'btn1', type: 'button', at: '12e' }`. Its four legs go
+  in columns `c` and `c + 2` of `at`, rows `e` and `f` (`12e`, `14e`, `12f`,
+  `14f`), straddling the centre channel. `at` must be in row `e` with a column of
+  at most 28. Facing legs are always joined, so column 12 top and bottom are one
+  node, same for 14; pressing joins column 12 to column 14.
+- Any part may carry `showWhen: { param, value }`. `main.js` draws it only while
+  that code panel param has that value (through the code panel `subscribe`).
+  Hidden parts are not pressable.
 - `main.js` places the Uno left and the breadboard right, 1 cm apart, centred on
   x = 0. On every lesson change it removes and disposes the old circuit group,
-  builds `circuits[lesson.id]` if there is one, and calls `invalidate()`.
+  builds `circuits[lesson.id]` if there is one, and calls `invalidate()`. A held
+  button is released first.
 
 ## Sims and goal checks
 
-- A lesson sim is made by a factory `create({ pins, getValues, startedAt })` and
+- A lesson sim is made by a factory `create({ pins, inputs, getValues, startedAt })` and
   returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
   the same clock. `getValues()` gives the live code panel param values.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
@@ -167,6 +193,9 @@ the current lesson, and every panel updates from it.
   on every LED in the current circuit whose `pin` matches, then `invalidate()`.
   A newly built circuit sets each LED from `pins.get(part.pin)`. Stop goes
   through `pins.reset()`, so it turns the LEDs off.
+- `inputs` is one shared `createInputs()` of held buttons, set by `partPress`.
+  Sims read it with `inputs.isPressed(id)`. Stop does not reset it, so a held
+  button stays held until released.
 
 ## Conventions
 
