@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nearestHole, holePosition } from '../src/parts/breadboard.js'
+import { nearestHole, holePosition, createBreadboard, HIGHLIGHT_TONES } from '../src/parts/breadboard.js'
 import { nearestPin, unoPinPosition, PITCH } from '../src/parts/unoBoard.js'
 
 describe('nearestHole', () => {
@@ -48,3 +48,33 @@ describe('nearestPin', () => {
   })
 })
 
+describe('breadboard highlights', () => {
+  const visible = (group) => group.children.filter((child) => child.name === 'highlight' && child.visible)
+
+  it('draws one see-through box per strip or rail and reuses the pool', () => {
+    const breadboard = createBreadboard()
+    breadboard.highlightPlaces([{ place: 'strip:9-top', tone: 'info' }, { place: 'rail:T+', tone: 'bad' }])
+    const shown = visible(breadboard.group)
+    expect(shown).toHaveLength(2)
+    const [strip, rail] = shown
+    expect(strip.material.transparent).toBe(true)
+    expect(strip.material.depthWrite).toBe(false)
+    expect(strip.material.opacity).toBe(HIGHLIGHT_TONES.info.opacity)
+    expect(strip.material.color.getHex()).toBe(0x2f6fd6)
+    expect(rail.material.color.getHex()).toBe(0xc0392b)
+    expect(strip.position.x).toBeCloseTo(holePosition('9c').x, 6)
+    expect(strip.position.z).toBeCloseTo(holePosition('9c').z, 6)
+    expect(rail.scale.x).toBeGreaterThan(29 * PITCH)
+
+    const before = breadboard.group.children.length
+    breadboard.highlightPlaces([{ place: 'strip:20-bottom', tone: 'hover' }])
+    expect(breadboard.group.children.length).toBe(before)
+    expect(visible(breadboard.group)).toHaveLength(1)
+    expect(visible(breadboard.group)[0].material.opacity).toBe(0.12)
+    breadboard.highlightPlaces([{ place: 'nope', tone: 'info' }, { place: 'strip:9-top', tone: 'nope' }])
+    expect(visible(breadboard.group)).toHaveLength(0)
+    breadboard.highlightPlaces([{ place: 'strip:9-top', tone: 'good' }])
+    breadboard.clearHighlights()
+    expect(visible(breadboard.group)).toHaveLength(0)
+  })
+})

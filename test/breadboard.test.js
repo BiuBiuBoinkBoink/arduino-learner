@@ -124,13 +124,20 @@ describe('createBreadboard', () => {
     expect(size.z).toBeLessThanOrEqual(6)
   })
 
-  it('has one hole mark at each of the 420 hole positions, rails included', () => {
+  it('has one hole mark at each of the 420 hole positions, rails included, in one instanced mesh', () => {
     const { group } = createBreadboard()
     const marks = group.children.filter((child) => child.name === 'hole')
-    expect(marks).toHaveLength(420)
+    expect(marks).toHaveLength(1)
+    expect(marks[0].isInstancedMesh).toBe(true)
+    expect(marks[0].count).toBe(420)
+    const matrix = new THREE.Matrix4()
+    const positions = Array.from({ length: 420 }, (_, i) => {
+      marks[0].getMatrixAt(i, matrix)
+      return new THREE.Vector3().setFromMatrixPosition(matrix)
+    })
     for (const name of ALL_HOLES) {
       const target = holePosition(name)
-      expect(marks.some((mark) => mark.position.distanceTo(target) < 1e-6), name).toBe(true)
+      expect(positions.some((position) => position.distanceTo(target) < 1e-6), name).toBe(true)
     }
   })
 
