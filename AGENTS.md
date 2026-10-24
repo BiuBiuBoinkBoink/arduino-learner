@@ -1,0 +1,81 @@
+# Robo Learn
+
+Browser course that teaches Arduino and robotics on an interactive 3D board.
+Learners wire parts on a breadboard, run code, and pass each lesson by meeting
+a goal the simulator checks. Product owner: Privasi. Curriculum: 43 lessons in
+5 levels (see "Curriculum" below).
+
+## Setup
+
+```bash
+npm install
+```
+
+Node 22. Add packages with `npm install <pkg>@latest`. Never `npm update`.
+
+## Dev server
+
+```bash
+npm run dev -- --port <port> --strictPort
+```
+
+Serves the app at `http://localhost:<port>/`. Always pass the port you were
+given so parallel jobs do not collide.
+
+## Validation
+
+Run all of these before committing. They must pass.
+
+```bash
+npm test          # vitest, tests live in test/ as *.test.js
+npm run build     # vite production build
+```
+
+There is no linter yet. Match the formatting of the file you are editing.
+
+## Stack
+
+- Vite, vanilla JavaScript ES modules. No UI framework.
+- three.js for the 3D scene. No other 3D or physics library unless a spec asks for one.
+- Vitest for tests. Put pure logic (course state, sims, kinematics, code runner)
+  in modules with no DOM or WebGL access, so it can be unit tested.
+
+## Architecture (target layout)
+
+```
+src/
+  main.js          boot: builds the scene, UI and course engine
+  course/          lessons data, state, goTo(id), progress
+  scene/           renderer, camera, lights, render loop
+  parts/           one module per procedural 3D part (board, led, resistor, wire...)
+  circuits/        per lesson circuit tables: which parts sit where on the breadboard
+  sim/             per lesson simulators, pin levels, goal checks
+  runner/          code runner for learner code (Level 2 onward)
+  ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
+test/              vitest unit tests
+```
+
+Data flows one way: lesson data -> circuit table -> scene parts; Run -> sim ->
+pin levels -> parts update -> goal check -> progress. Only `goTo(id)` changes
+the current lesson, and every panel updates from it.
+
+## Conventions
+
+- All 3D parts are built procedurally from three.js geometry. No model files.
+- Render on demand: redraw only when something changed (a dirty flag), not every frame.
+- Lesson content (text, code, circuits) is data in `src/course/` and `src/circuits/`,
+  never hard coded in UI modules.
+- Breadboard positions use a grid helper, column number plus row letter (`a` to `j`).
+- Progress and settings persist in localStorage under keys prefixed `robo-learn:`.
+  Wrap every localStorage access in try/catch.
+- All files ASCII only: no curly quotes, arrows or special symbols. Write ohm, deg C.
+- UI copy: short sentences, plain words, no emoji, no exclamation marks.
+- All content and code must be original. The project took inspiration from
+  learn-arduino-red.vercel.app; never copy its code, text, layout or visuals.
+
+## Curriculum
+
+Levels: 1 Basics (12 lessons), 2 Programming properly (8), 3 Communication (8),
+4 Robot hardware (8), 5 Beyond the Uno (7). Each level ends in a project. Every
+lesson has a goal check, so finishing means meeting the goal, not clicking Run.
+The full list with parts and goal checks lives in the Privasi curriculum doc.
