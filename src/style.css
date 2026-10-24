@@ -300,6 +300,16 @@ body {
   border-radius: 8px;
 }
 
+/* Narrow screens: the side gaps would squeeze the card, so span the stage.
+   It then sits over the side panels, so it is near opaque to stay readable. */
+@media (max-width: 900px) {
+  .tour-card {
+    left: var(--gap);
+    right: var(--gap);
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
 .tour-heading {
   margin: 0 0 4px;
   font-size: 1rem;
