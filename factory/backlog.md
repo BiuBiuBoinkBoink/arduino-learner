@@ -5,14 +5,14 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 
 ## Phase 1: Engine foundation
 
-- [ ] App shell layout: full screen three.js stage with orbit camera, lights, soft shadows and a render on demand loop, plus empty placeholder panels for lesson strip (bottom), info panel (left), code panel (right)
-- [ ] Course engine: lessons data module, central state, goTo(id) that syncs every panel and the URL hash, lesson strip with numbered cards, prev and next buttons, progress bar from completed lessons saved in localStorage
-- [ ] Info panel with Overview, Pinout, Example and Specs tabs rendered from the current lesson data, keyboard accessible tabs
-- [ ] Procedural Arduino Uno board model with clickable zones (digital pins, analog pins, power pins, USB and power jack, chip, reset button) and hover labels, used by lesson 1.1 Meet the Uno, which completes when all zones are opened
-- [ ] Breadboard and parts system: breadboard model with a column plus row grid helper, per lesson circuit tables that build parts at grid positions, LED and resistor parts, and wires as arched tubes from board pins to breadboard holes
-- [ ] Code panel: shows the lesson sketch with syntax colouring, fills {{param}} slots from param controls (range sliders and choices built from lesson data), and highlights the active line from a timed trace
-- [ ] Sim framework: Run and Stop buttons, fake upload step, per lesson sim registry with update(now) and stop(), shared pin levels, and a goal check API that marks a lesson done only when its goal passes
-- [ ] Lesson 1.2 Blink end to end: LED glow driven by the sim, on and off sliders, goal check passes when the LED blinks with a period under 500 ms
+- [x] App shell layout: full screen three.js stage with orbit camera, lights, soft shadows and a render on demand loop, plus empty placeholder panels for lesson strip (bottom), info panel (left), code panel (right) → 001-app-shell-layout
+- [x] Course engine: lessons data module, central state, goTo(id) that syncs every panel and the URL hash, lesson strip with numbered cards, prev and next buttons, progress bar from completed lessons saved in localStorage → 002-course-engine
+- [x] Info panel with Overview, Pinout, Example and Specs tabs rendered from the current lesson data, keyboard accessible tabs → 003-info-panel-tabs
+- [x] Procedural Arduino Uno board model with clickable zones (digital pins, analog pins, power pins, USB and power jack, chip, reset button) and hover labels, used by lesson 1.1 Meet the Uno, which completes when all zones are opened → 004-uno-board-model
+- [x] Breadboard and parts system: breadboard model with a column plus row grid helper, per lesson circuit tables that build parts at grid positions, LED and resistor parts, and wires as arched tubes from board pins to breadboard holes → 005-breadboard-parts
+- [x] Code panel: shows the lesson sketch with syntax colouring, fills {{param}} slots from param controls (range sliders and choices built from lesson data), and highlights the active line from a timed trace → 006-code-panel
+- [x] Sim framework: Run and Stop buttons, fake upload step, per lesson sim registry with update(now) and stop(), shared pin levels, and a goal check API that marks a lesson done only when its goal passes → 007-sim-framework
+- [x] Lesson 1.2 Blink end to end: LED glow driven by the sim, on and off sliders, goal check passes when the LED blinks with a period under 500 ms → 008-blink-end-to-end
 
 ## Phase 2: Level 1 lessons
 
