@@ -1,6 +1,7 @@
 // Web Worker that runs a learner sketch. Messages in: { type: 'start', source },
 // { type: 'stop' }, { type: 'inputs', levels }, { type: 'serial', text }.
-// Messages out: { type: 'error', message, line } when the code does not parse
+// Messages out: { type: 'started' } once a sketch is running, so the client
+// knows the worker is alive; { type: 'error', message, line } when the code does not parse
 // or stops on a runtime error, and { type: 'batch', ...changes } after each
 // TICK_MS slice of virtual time (only when something changed). The virtual
 // clock follows real time from the start message.
@@ -39,6 +40,7 @@ self.onmessage = ({ data }) => {
       return
     }
     startedAt = performance.now()
+    self.postMessage({ type: 'started' })
     timer = setInterval(step, TICK_MS)
     step()
   } else if (data.type === 'stop') {

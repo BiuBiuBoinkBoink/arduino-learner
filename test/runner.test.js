@@ -165,6 +165,24 @@ describe('createSimRunner', () => {
     expect(pins.get('D2')).toBe(0)
   })
 
+  it('falls back to the last values of a batch without events', () => {
+    const { runner, seen, pins, tones, values } = setup()
+    runner.run({ lessonId: '1.2', getValues: values, source: SKETCH, now: 0 })
+    runner.tick(1000)
+    runner.receive({ pins: { D13: 1 }, tones: { D8: 262 }, servos: { D9: 45 }, millis: 40 })
+    expect(pins.get('D13')).toBe(1)
+    expect(tones.get('D8')).toBe(262)
+    expect(seen.outputs.map((event) => [event.kind, event.pin, event.at])).toEqual([['pin', 'D13', 1040], ['tone', 'D8', 1040], ['servo', 'D9', 1040]])
+  })
+
+  it('keeps a null line for an error that is not about the code', () => {
+    const { runner, values } = setup()
+    runner.run({ lessonId: '1.2', getValues: values, source: SKETCH, now: 0 })
+    runner.tick(1000)
+    runner.fail({ message: 'The code runner could not start', line: null })
+    expect(runner.getError()).toEqual({ message: 'The code runner could not start', line: null })
+  })
+
   it('reads out the board while running, else nothing', () => {
     const { runner, values } = setup({ readout: () => 'A0 reads 512' })
     expect(runner.getReadout()).toBe('')

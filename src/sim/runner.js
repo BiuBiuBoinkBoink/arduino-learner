@@ -115,10 +115,12 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     }
   }
 
-  // Applies a batch from the code runner: { events, serial, error }.
+  // Applies a batch from the code runner: { events, serial, error }. A batch
+  // without events (a worker from before events existed, still open in a tab)
+  // falls back to its last value per pin, so outputs still reach the parts.
   function receive(batch) {
     if (phase !== 'running') return
-    for (const [ms, kind, pin, value] of batch.events || []) {
+    for (const [ms, kind, pin, value] of batch.events || eventsFromLastValues(batch)) {
       if (kind === 'input') {
         // Seen by the board only; the stores hold the sketch's outputs.
       } else if (kind === 'pin') pins.set(pin, value)
@@ -130,10 +132,20 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     if (batch.error) fail(batch.error)
   }
 
-  // A runtime error stops the run and keeps the pins as they were.
+  function eventsFromLastValues(batch) {
+    const at = batch.millis || 0
+    return [
+      ...Object.entries(batch.pins || {}).map(([pin, value]) => [at, 'pin', pin, value]),
+      ...Object.entries(batch.tones || {}).map(([pin, value]) => [at, 'tone', pin, value]),
+      ...Object.entries(batch.servos || {}).map(([pin, value]) => [at, 'servo', pin, value])
+    ]
+  }
+
+  // A runtime error stops the run and keeps the pins as they were. An error
+  // that is not about a line of code (the runner could not start) has line null.
   function fail(codeError) {
-    if (phase !== 'running') return
-    error = { message: codeError.message, line: codeError.line || 1 }
+    if (phase !== 'running' && phase !== 'uploading') return
+    error = { message: codeError.message, line: codeError.line || null }
     halt()
     phase = 'error'
   }

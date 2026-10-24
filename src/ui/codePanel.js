@@ -144,7 +144,7 @@ export function createCodePanel(panel, course) {
   }
 
   function setError(error) {
-    errorAt = error ? error.line - 1 : -1
+    errorAt = error && error.line ? error.line - 1 : -1
     lines.forEach((line, i) => line.classList.toggle('has-error', i === errorAt))
     errorLine.hidden = !error
     errorLine.textContent = error ? error.message : ''
