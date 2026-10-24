@@ -2,6 +2,16 @@
 // overview paragraphs, pinout rows, an example snippet and key specs.
 // Optional sketch: code panel template with {{name}} param slots, the params
 // that fill them and a timed trace of { line, ms } steps. Later jobs add levels.
+
+// Level titles by level number, shown in the top bar and the course map.
+export const levels = [
+  { id: 1, title: 'Basics' },
+  { id: 2, title: 'Programming properly' },
+  { id: 3, title: 'Communication' },
+  { id: 4, title: 'Robot hardware' },
+  { id: 5, title: 'Beyond the Uno' }
+]
+
 export const lessons = [
   {
     id: '1.1',
