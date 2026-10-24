@@ -181,3 +181,9 @@ Add one line per finished phase: date, phase, commit hash, test count, what
 the final screenshot shows, anything not verified.
 
 - 2026-10-25: plan written.
+- 2026-10-25: phase 1 layout shell, last code commit b3930b4, 475 tests. Final screenshot at 1440 x 900 on
+  1.2: top bar (Robo Learn, Level 1 Basics / 1.2 Blink, Prev, Next, Course map), guide with the Run
+  card and Goal box, the Run bar and Top/3D/Reset buttons over the Uno and breadboard, and the open
+  code panel with On time and Off time sliders. No console errors. Not verified: the 450 ms tween
+  was not watched frame by frame (the browser pane only ran frames while visible; top, 3D, orbit
+  and reset were each checked in screenshots), and reduced motion was not emulated.

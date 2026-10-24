@@ -17,13 +17,13 @@ npm install
 npm run dev -- --port 7100 --strictPort
 ```
 
-Open http://localhost:7100/ and you should see the Uno and breadboard with the lesson strip
-along the bottom. Go to `#1.1` for the board tour or `#1.2` for Blink.
+Open http://localhost:7100/ and you should see the top bar, the lesson guide on the left, the
+Uno and breadboard in the middle and the code panel on the right. Go to `#1.1` for the board tour or `#1.2` for Blink.
 
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 244 tests at the moment
+npm test        # vitest, 475 tests at the moment
 npm run build   # production build
 ```
 
@@ -180,6 +180,13 @@ readout. The remaining Phase 3 items are the Level 2 lessons, which are on hold.
 **Editor layout** (owner request, `feature/editor-layout`): the Serial Monitor now sits under the
 code editor in the right hand panel, and a Full screen button at the top right of the editor opens
 it to fill the window with bigger code (Escape closes it).
+
+**Lesson overhaul phase 1, layout shell** (`feature/lesson-overhaul`, not merged): the floating
+panels and lesson strip are replaced by a grid. A top bar holds the breadcrumb, a Done pill, Prev,
+Next and a Course map popover. The guide on the left shows the lesson as a step card with a Goal
+box and a Reference drawer for the info tabs. The workbench in the middle has the Run bar, camera
+view buttons (Top, 3D, Reset) and a Controls dock over the 3D view, and the code panel on the right
+folds to a rail. How lessons pass has not changed.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.

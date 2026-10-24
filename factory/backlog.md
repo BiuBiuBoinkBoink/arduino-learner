@@ -42,7 +42,7 @@ Full plan in `factory/handoff/overhaul/` (start with `00-plan.md`). Work on
 the `feature/lesson-overhaul` branch only; no merge into `main` and no pull
 request until the owner says so.
 
-- [ ] Overhaul phase 1, layout shell: top bar, course map, step guide with Reference drawer, collapsible code panel, run bar, view buttons and controls dock on the workbench -> 01-layout-shell.md
+- [x] Overhaul phase 1, layout shell: top bar, course map, step guide with Reference drawer, collapsible code panel, run bar, view buttons and controls dock on the workbench -> 01-layout-shell.md -> feature/lesson-overhaul
 - [ ] Overhaul phase 2, milestone engine: lesson steps, checks, per step progress, board progress names, lesson 1.2 as steps -> 02-milestone-engine.md
 - [ ] Overhaul phase 3, netlist and footprints: power rails, part footprints, connection checker with mistake messages, step rules -> 03-netlist-footprints.md
 - [ ] Overhaul phase 4, placement: workbench build, parts tray, ghost and snap placement, wires, keyboard path, edit mode, run lock -> 04-placement.md

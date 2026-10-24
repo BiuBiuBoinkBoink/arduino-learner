@@ -64,8 +64,10 @@ Never force push, rewrite pushed history or skip hooks. If a merge conflicts or
 ## Architecture (target layout)
 
 Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
-`src/ui/panels.js`, `src/style.css`, `src/course/lessons.js`, `src/course/state.js`,
-`src/course/hash.js`, `src/ui/lessonStrip.js`, `src/ui/infoPanel.js`,
+`src/app/scene.js`, `src/app/circuitView.js`, `src/app/storage.js`, `src/ui/layout.js`, `src/ui/topBar.js`,
+`src/ui/courseMap.js`, `src/ui/guidePanel.js`, `src/ui/viewControls.js`, `src/scene/cameraMath.js`,
+`src/style.css`, `src/course/lessons.js`, `src/course/state.js`, `src/course/goalText.js`, `src/course/steps.js`,
+`src/course/progress.js`, `src/course/hash.js`, `src/ui/infoPanel.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
 `src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/sim/pins.js`,
@@ -80,12 +82,36 @@ folders are the target for later jobs.
 
 ```
 src/
-  main.js          boot: builds the scene, adds the Uno board and breadboard to it, UI and course engine;
-                   swaps the circuit group on every lesson change; lights circuit LEDs from pin levels
-  style.css        full viewport layout: stage behind, panels on the edges
+  main.js          boot: composes the layout, scene, course engine, stores, runner and UI; on every lesson
+                   change shows the lesson circuit through the circuit view, then points the per lesson
+                   controls (hold button, knob, meter, room, sound, servo centring) at its parts, and opens
+                   the code panel by default when the lesson has a sketch
+  style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
+                   --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
+                   and #code-panel; #stage fills the workbench (position absolute) and the workbench
+                   overlays (#run-bar, #view-controls, #controls-dock, .tour-card) float over it; a
+                   container query stacks the run bar under the view buttons on a workbench under 640 px
+  app/             composition helpers for main.js
+    scene.js       createScene(stageEl) -> { stage, board, breadboard, frameBox() }: the Uno left and the
+                   breadboard right, 1 cm apart, centred on x = 0; frameBox() is the box around both as
+                   plain { min, max } objects
+    circuitView.js createCircuitView({ stage, board, breadboard, pins, servos, tones, getValues }) ->
+                   { show(table | null), items(), table(), relight(name?), showParts(values) }: show removes
+                   and disposes the old circuit group, builds the table, lights its LEDs and applies
+                   showWhen, returning the new items; LEDs follow pins, the servo horn servos and the
+                   buzzer ring tones
+    storage.js     getStorage(): localStorage, or an in memory stand in when it is blocked
   course/          lessons data, state, goTo(id), progress; 1.1 to 1.12 then the Level 1 project P1
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
-    lessons.js     lesson objects: id, level, title, summary, plus info tab content:
+    goalText.js    pure splitGoal(paragraphs) -> { intro, goal }: goal is the text after 'Goal: ' in the first
+                   paragraph that has it; every other text stays in intro (goal null when there is none)
+    steps.js       pure stepsFor(lesson) -> step[]: lesson.steps when given, else one generated step
+                   { id: 'goal', kind: 'run', title: 'Goal', body: [goal], check: { type: 'legacy' } }, or for a
+                   lesson with a tour kind 'explore', title 'Tour the board'
+    progress.js    pure lessonStatus(lessons, completed, id) -> 'done' | 'next' | '' (next is the first lesson in
+                   course order that is not done)
+    lessons.js     levels ([{ id, title }], 1 Basics to 5 Beyond the Uno); lesson objects: id, level,
+                   title, summary, plus info tab content:
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
                    example ({ code, note }), specs ([{ label, value }]); optional
                    tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only);
@@ -96,8 +122,13 @@ src/
                    breadboard (1.3 ohms, 1.5 pull), so it stays live after the code is edited; trace is a looping list
                    of { line (1 based), ms (number or a range param name) }
   scene/           renderer, camera, lights, render loop
-    stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate() and
-                   setDaylight(level), which scales the lights for a room light level (0.8 is the normal look)
+    stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate(),
+                   setDaylight(level), which scales the lights for a room light level (0.8 is the normal look),
+                   setView(kind, box, { animate }) -> Promise, which tweens the camera to a 'top' or '3d' view
+                   over 450 ms (jumps under reduced motion; a new call cancels a running one), and getView()
+                   -> 'top' | '3d' | 'custom' (custom on first load and once the learner orbits by hand)
+    cameraMath.js  pure easeInOut(t), lerpVec(a, b, t), viewFor(kind, box, { fov, aspect }) -> { position,
+                   target }: top looks straight down, 3d from +z at 45 deg, both fitting the box with 10% margin
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
     unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones;
@@ -205,11 +236,29 @@ src/
                    setInputs(levels), sendSerial(text) }; main thread client for the worker; a worker that
                    cannot load or does not send started within START_TIMEOUT_MS (4 s) reports START_FAILED
                    with line null, so Run never fails silently
-  ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
-    panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
-    infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
+  ui/              layout, top bar, course map, guide, info tabs, code panel, params, workbench controls
+    layout.js      createLayout(app) -> { topBar, guide, workbench, stageEl, runBar, viewControls, dock, codePanel,
+                   setCodeOpen(on), isCodeOpen(), subscribeCode(fn) }: builds header#top-bar, aside#guide-panel,
+                   main#workbench (with #stage, #run-bar, #view-controls and #controls-dock inside) and
+                   aside#code-panel; setCodeOpen toggles is-closed on the code panel
+    topBar.js      createTopBar(container, course, { levels, onOpenMap }) -> { mapButton }: Robo Learn, the
+                   'Level 1 Basics / 1.2 Blink' breadcrumb, a Done pill on completed lessons, Prev and Next,
+                   and the Course map button
+    courseMap.js   createCourseMap({ container, course, levels, button }) -> { open, close, isOpen }: #course-map
+                   dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
+                   per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
+                   Escape closes and refocuses the button, a click outside closes; lessons are never locked
+    guidePanel.js  createGuidePanel(container, course) -> { referenceBody }: lesson header, an ol.guide-steps of
+                   step cards from stepsFor (kind label, title, intro paragraphs, Goal box, a success box with a
+                   Next lesson button once done) and a closed details.guide-reference hosting the info tabs
+    viewControls.js createViewControls({ container, stage, getFrameBox }) -> { setView(kind, opts) }: Top view,
+                   3D view and Reset view buttons; Top and 3D follow stage.getView() with aria-pressed
+    infoPanel.js   createInfoPanel(panel, course, { heading = true }): lesson heading (left out with heading
+                   false, as in the guide's Reference drawer) plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
-    codePanel.js   Code heading, lesson line, param controls (range sliders with value text, choice
+    codePanel.js   createCodePanel(panel, course, { setOpen }): a Code header with a chevron (Hide code) and a
+                   vertical Code rail (Show code) shown only while closed, both calling setOpen; while closed
+                   everything but the rail is hidden; param controls (range sliders with value text, choice
                    radio fieldsets) and the sketch editor: a transparent textarea (#code-input) over the
                    coloured code, a Reset code button and an error line; controls refill the slots until the
                    learner edits the text, then switch off (except params with circuit: true) until Reset;
@@ -217,39 +266,40 @@ src/
                    lessons without a sketch show coloured example.code read only; a Full screen button at
                    the top right of the editor (Escape or the button closes) moves the workspace (editor,
                    error line, serial slot) to the body to fill the window over a backdrop; returns
-                   { toolbar, serialSlot, getValues, subscribe, getSource, isEdited, setError }
+                   { serialSlot, getValues, subscribe, getSource, isEdited, setError }
     runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
                    { noticeError }: Run sends getSource() and shows a compile or runtime error as
                    'Stopped. Line N: ...' plus onError(error) for the code panel; Stop button and status
                    line; hidden on lessons without a sim; rAF loop calls runner.tick while running; stops
-                   the runner on lesson change; .run-readout line shows runner.getReadout()
+                   the runner on lesson change; .run-readout line shows runner.getReadout(); main.js puts it
+                   in #run-bar, a floating bar at the top left of the workbench
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
-                   "Hold to press" keyboard path below the Run row, aria-pressed follows inputs
+                   "Hold to press" keyboard path in the Controls dock, aria-pressed follows inputs
     partTurn.js    createPartTurn({ stage, getItems, inputs }) -> { setValue(id, v), release() }: vertical drag on
                    visible turnable circuit items (200 px for the full range), orbit off while turning, ns-resize
                    cursor on hover; createKnobSlider({ container, partTurn, inputs }) -> { setTarget(id) }, the
-                   "Knob" range input (0 to 1023) below the Run row, following the knob both ways
+                   "Knob" range input (0 to 1023) in the Controls dock, following the knob both ways
     roomControls.js createRoomControls({ container, room }) -> { setSensors({ light, temp }) }: "Room light"
-                   (0 to 100 %) and "Room temperature" (0 to 40 deg C) sliders below the Run row, each shown
+                   (0 to 100 %) and "Room temperature" (0 to 40 deg C) sliders in the Controls dock, each shown
                    only when the circuit has an ldr or tmp36, following the room both ways
     sound.js       createSound({ container, tones, storage }) -> { setPin(name) }: Web Audio square wave following
-                   the tone on the buzzer pin; "Sound on" / "Sound off" toggle below the Run row on buzzer
+                   the tone on the buzzer pin; "Sound on" / "Sound off" toggle in the Controls dock on buzzer
                    lessons, saved under robo-learn:sound (default on)
     serialMonitor.js usesSerial(lesson) (sketch or example contains Serial.begin);
                    createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; #serial-panel sits
                    in the code panel serialSlot under the editor; main.js sends lines to the running sketch
-                   through the code runner: #serial-panel above the
-                   lesson strip with Clear, a scrolling non live role="log" output and a Send form
+                   through the code runner: Clear, a scrolling non live role="log" output and a Send form
     multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
-                   select below the Run row and click to probe a visible part of a target (a pointer up within
+                   select in the Controls dock and click to probe a visible part of a target (a pointer up within
                    5 px of its down); both write inputs.setProbe(id); hidden with no targets
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
                    traceStepAt(trace, values, elapsedMs)
-    boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; marks 1.1 done
+    boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; the card sits
+                   inside the workbench below the view buttons; marks 1.1 done
 test/              vitest unit tests
 ```
 
@@ -323,7 +373,7 @@ the current lesson, and every panel updates from it.
 - Any part may carry `showWhen: { param, value }`. `main.js` draws it only while
   that code panel param has that value (through the code panel `subscribe`).
   Hidden parts are not pressable.
-- `main.js` places the Uno left and the breadboard right, 1 cm apart, centred on
+- `src/app/scene.js` places the Uno left and the breadboard right, 1 cm apart, centred on
   x = 0. On every lesson change it removes and disposes the old circuit group,
   builds `circuits[lesson.id]` if there is one, and calls `invalidate()`. A held
   button is released first.
@@ -375,7 +425,7 @@ the current lesson, and every panel updates from it.
 - `test/lessonGoals.test.js` runs every lesson sketch through the runtime, its
   board and the runner, and checks that each goal fails at the defaults and passes
   after the learner's action. Keep it passing when a lesson changes.
-- `main.js` subscribes once to `pins`. On a change it calls `setBrightness(level)`
+- The circuit view (`src/app/circuitView.js`) subscribes once to `pins`. On a change it calls `setBrightness(level)`
   on every LED in the current circuit whose `pin` matches, then `invalidate()`.
   A newly built circuit sets each LED from `pins.get(part.pin)`. Stop goes
   through `pins.reset()`, so it turns the LEDs off.

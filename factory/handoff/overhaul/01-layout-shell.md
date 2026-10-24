@@ -374,12 +374,12 @@ stays as it is (it follows the pointer).
 
 ## Acceptance criteria
 
-- [ ] No `#lesson-strip`, `#info-panel` element or their CSS remains.
-- [ ] Every lesson passes exactly as before (lessonGoals test unchanged and passing).
-- [ ] Every control from before is reachable, in its new place.
-- [ ] Camera view buttons work and respect reduced motion.
-- [ ] The code panel opens and closes, and defaults by lesson.
-- [ ] main.js is split as described and is under 200 lines.
+- [x] No `#lesson-strip`, `#info-panel` element or their CSS remains.
+- [x] Every lesson passes exactly as before (lessonGoals test unchanged and passing).
+- [x] Every control from before is reachable, in its new place.
+- [x] Camera view buttons work and respect reduced motion.
+- [x] The code panel opens and closes, and defaults by lesson.
+- [x] main.js is split as described and is under 200 lines.
 
 ## AGENTS.md updates
 
@@ -392,4 +392,20 @@ layout: stage behind, panels on the edges") with the grid description.
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+- `stage.getView()` starts as `'custom'`: the first load camera is not a framed view, so neither
+  Top view nor 3D view shows pressed until one is used.
+- The 3D view fits the box half width and half depth to the horizontal and vertical field of view
+  (the same fit formula as the top view), then places the camera at 45 deg on the +z side.
+- `circuitView` also returns `showParts(values)`, so main.js can re-apply `showWhen` on a code
+  panel change. The localStorage helper moved to `src/app/storage.js` to keep main.js short
+  (185 lines).
+- The run bar uses a two column grid (buttons spanning both rows, status and readout stacked on the
+  right), so `runControls.js` keeps its DOM and class names unchanged.
+- At 1024 x 700 the workbench is only about 424 px wide, which squeezed the run bar to about
+  160 px. A container query on `#workbench` (under 640 px) moves the run bar below the view
+  buttons at full width and the tour card below it. At 1440 x 900 the run bar stays beside them.
+- Hiding the code panel moves focus to the Code rail, and showing it moves focus to the chevron,
+  so keyboard users do not lose their place.
+- The guide step card for 1.1 shows its step body ("Click each part of the Uno...") in the Goal box,
+  since 1.1 has no goal sentence.
+- `createInfoPanel` with `heading: false` does not add the `h2` to the DOM at all.
