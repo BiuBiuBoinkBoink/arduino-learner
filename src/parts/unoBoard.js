@@ -9,7 +9,7 @@ export const UNO_ZONE_IDS = ['digital', 'analog', 'power', 'usb-power', 'chip', 
 const WIDTH = 6.86
 const DEPTH = 5.33
 const PCB_THICKNESS = 0.16
-const PITCH = 0.254
+export const PITCH = 0.254
 const HEADER_HEIGHT = 0.85
 
 // Board layout positions are given in cm from the bottom left corner of the
@@ -52,18 +52,54 @@ function createPcb() {
   return mesh
 }
 
+// Female headers in Uno R3 order: centre in board layout cm, pin names left to right.
+const HEADERS = {
+  digitalHigh: {
+    centerX: 3.0,
+    centerY: 5.08,
+    pins: ['SCL', 'SDA', 'AREF', 'GND', 'D13', 'D12', 'D11', 'D10', 'D9', 'D8']
+  },
+  digitalLow: { centerX: 5.47, centerY: 5.08, pins: ['D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0'] },
+  power: {
+    centerX: 3.62,
+    centerY: 0.25,
+    pins: ['NC', 'IOREF', 'RESET', '3.3V', '5V', 'GND.2', 'GND.3', 'VIN']
+  },
+  analog: { centerX: 5.71, centerY: 0.25, pins: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5'] }
+}
+
+export const UNO_PIN_NAMES = Object.values(HEADERS).flatMap((header) => header.pins)
+
+// Centre of the top of hole i in a header, in board local coordinates.
+function holePosition(header, i) {
+  const length = header.pins.length * PITCH
+  return new THREE.Vector3(
+    toX(header.centerX) - length / 2 + PITCH * (i + 0.5),
+    PCB_THICKNESS + HEADER_HEIGHT + 0.002,
+    toZ(header.centerY)
+  )
+}
+
+export function unoPinPosition(name) {
+  for (const header of Object.values(HEADERS)) {
+    const i = header.pins.indexOf(name)
+    if (i !== -1) return holePosition(header, i)
+  }
+  throw new Error(`Unknown Uno pin: ${name}`)
+}
+
 // Female header strip with one hole per position, along x.
-function addHeader(zone, positions, centerX, centerY) {
+function addHeader(zone, header) {
   const body = material({ color: 0x2b2b2b, roughness: 0.8 })
   const hole = material({ color: 0x050505, roughness: 1 })
-  const length = positions * PITCH
-  const x = toX(centerX)
-  const z = toZ(centerY)
+  const length = header.pins.length * PITCH
+  const x = toX(header.centerX)
+  const z = toZ(header.centerY)
   zone.add(box(length, HEADER_HEIGHT, PITCH, body, x, PCB_THICKNESS + HEADER_HEIGHT / 2, z))
   const holeGeometry = new THREE.BoxGeometry(0.1, 0.004, 0.1)
-  for (let i = 0; i < positions; i++) {
+  for (let i = 0; i < header.pins.length; i++) {
     const mesh = new THREE.Mesh(holeGeometry, hole)
-    mesh.position.set(x - length / 2 + PITCH * (i + 0.5), PCB_THICKNESS + HEADER_HEIGHT + 0.002, z)
+    mesh.position.copy(holePosition(header, i))
     zone.add(mesh)
   }
 }
@@ -77,20 +113,20 @@ function createZone(id) {
 
 function buildDigital() {
   const zone = createZone('digital')
-  addHeader(zone, 10, 3.0, 5.08)
-  addHeader(zone, 8, 5.47, 5.08)
+  addHeader(zone, HEADERS.digitalHigh)
+  addHeader(zone, HEADERS.digitalLow)
   return zone
 }
 
 function buildPower() {
   const zone = createZone('power')
-  addHeader(zone, 8, 3.62, 0.25)
+  addHeader(zone, HEADERS.power)
   return zone
 }
 
 function buildAnalog() {
   const zone = createZone('analog')
-  addHeader(zone, 6, 5.71, 0.25)
+  addHeader(zone, HEADERS.analog)
   return zone
 }
 
