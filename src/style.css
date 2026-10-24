@@ -2,8 +2,60 @@
   font-family: system-ui, sans-serif;
   color: #1d2330;
   background: #f4f1ea;
+  --strip-height: clamp(72px, 12vh, 120px);
+  --side-width: clamp(220px, 22vw, 360px);
+  --gap: 12px;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#stage canvas {
+  display: block;
+}
+
+#info-panel,
+#code-panel,
+#lesson-strip {
+  position: fixed;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(29, 35, 48, 0.18);
+  border-radius: 8px;
+}
+
+#info-panel,
+#code-panel {
+  top: var(--gap);
+  bottom: calc(var(--strip-height) + var(--gap) * 2);
+  width: var(--side-width);
+}
+
+#info-panel {
+  left: var(--gap);
+}
+
+#code-panel {
+  right: var(--gap);
+}
+
+#lesson-strip {
+  left: var(--gap);
+  right: var(--gap);
+  bottom: var(--gap);
+  height: var(--strip-height);
 }

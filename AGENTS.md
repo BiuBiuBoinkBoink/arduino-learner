@@ -42,16 +42,23 @@ There is no linter yet. Match the formatting of the file you are editing.
 
 ## Architecture (target layout)
 
+Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
+`src/ui/panels.js`, `src/style.css`. The other folders are the target for later jobs.
+
 ```
 src/
   main.js          boot: builds the scene, UI and course engine
+  style.css        full viewport layout: stage behind, panels on the edges
   course/          lessons data, state, goTo(id), progress
   scene/           renderer, camera, lights, render loop
+    stage.js       renderer, camera, orbit controls, lights, ground; returns invalidate()
+    renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
   sim/             per lesson simulators, pin levels, goal checks
   runner/          code runner for learner code (Level 2 onward)
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
+    panels.js      empty shells: #info-panel (left), #code-panel (right), #lesson-strip (bottom)
 test/              vitest unit tests
 ```
 
@@ -63,6 +70,8 @@ the current lesson, and every panel updates from it.
 
 - All 3D parts are built procedurally from three.js geometry. No model files.
 - Render on demand: redraw only when something changed (a dirty flag), not every frame.
+- Any scene change (add, move or remove a part) must call the stage `invalidate()` to redraw.
+  Soft shadows use `PCFShadowMap` plus `shadow.radius`, because `PCFSoftShadowMap` is removed in three 0.186.
 - Lesson content (text, code, circuits) is data in `src/course/` and `src/circuits/`,
   never hard coded in UI modules.
 - Breadboard positions use a grid helper, column number plus row letter (`a` to `j`).
