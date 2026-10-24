@@ -74,7 +74,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
-`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`. The other
+`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`, `src/runner/interpreter.js`, `src/runner/session.js`,
+`src/runner/worker.js`, `src/runner/codeRunner.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -184,6 +185,17 @@ src/
                    Return, Empty; expressions Number, String, Char, Bool, Ident, Assign, Conditional, Binary,
                    Unary, Update, Call, Member, Index, Cast, Sequence, InitList; types { name, const } with
                    enum names and LIBRARY_CLASSES (Servo); every node has line; errors throw CodeError
+    interpreter.js pure createProgram(source, hw) -> { advance(untilMs), millis(), error }: generator based, virtual
+                   clock (delay waits, STATEMENT_MS per statement), C int rules (truncating division, wrap on
+                   store), Arduino built-ins, Serial, Servo and String methods; runtime CodeErrors stop it;
+                   pinName(n) maps 0 to 13 -> D0 to D13 and 14 to 19 -> A0 to A5
+    session.js     pure createSession(source, { random }) -> { advance(untilMs) -> batch, setInputs(levels),
+                   sendSerial(text) }; batch { pins (0 to 1), tones (Hz), servos (deg), serial, millis, error };
+                   unset input pins read HIGH with INPUT_PULLUP, else LOW
+    worker.js      Web Worker: start, stop, inputs, serial messages in; batch and error messages out; follows
+                   real time every 16 ms
+    codeRunner.js  createCodeRunner({ onBatch, onError }) -> { start(source), stop(), setInputs(levels),
+                   sendSerial(text) }; main thread client for the worker
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;

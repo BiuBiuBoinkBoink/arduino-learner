@@ -29,12 +29,12 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 
 - [x] Serial Monitor panel with scrolling output, a text input that sends lines to the running sketch, and a clear button → feature/serial-monitor
 - [x] Code runner parser: tokenise and parse an Arduino C subset (setup and loop, int float bool long, const, arrays, if else, for, while, switch, functions, enum) into an AST, with clear error messages and line numbers, fully unit tested → feature/code-parser
-- [ ] Code runner runtime: interpret the AST in a Web Worker against a virtual clock with digitalWrite, digitalRead, pinMode, analogRead, analogWrite, delay, millis, Serial print and read, tone, and Servo, posting pin changes to the sim, fully unit tested
+- [x] Code runner runtime: interpret the AST in a Web Worker against a virtual clock with digitalWrite, digitalRead, pinMode, analogRead, analogWrite, delay, millis, Serial print and read, tone, and Servo, posting pin changes to the sim, fully unit tested → feature/code-runtime
 - [ ] Editable code panel: learners edit the sketch, Run sends it through the code runner instead of the per lesson sim, errors show inline on the right line, and a reset button restores the lesson code
 - [ ] Code checks for goals: goal checks can inspect the learner's code (for example count delay() calls) and measure timing (for example button response under 50 ms)
-- [ ] Level 2 lessons 2.1 Serial Monitor, 2.2 Serial commands, 2.3 Variables and functions and 2.4 Arrays and loops with their goal checks
-- [ ] Bouncy button sim option and Level 2 lessons 2.5 millis() not delay(), 2.6 Debouncing, 2.7 State machines and 2.8 Using libraries
-- [ ] Level 2 project lesson Traffic light with crossing, passing only with the full cycle in order, the crossing served next cycle, and zero delay() calls
+- [ ] (On hold: no new lessons for now) Level 2 lessons 2.1 Serial Monitor, 2.2 Serial commands, 2.3 Variables and functions and 2.4 Arrays and loops with their goal checks
+- [ ] (On hold: no new lessons for now) Bouncy button sim option and Level 2 lessons 2.5 millis() not delay(), 2.6 Debouncing, 2.7 State machines and 2.8 Using libraries
+- [ ] (On hold: no new lessons for now) Level 2 project lesson Traffic light with crossing, passing only with the full cycle in order, the crossing served next cycle, and zero delay() calls
 
 ## Phase 4 onward (not queued yet)
 

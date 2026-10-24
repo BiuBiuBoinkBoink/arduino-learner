@@ -76,6 +76,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 016 | Level 1 project P1 Room monitor: photoresistor, TMP36, night light and alarm buzzer over a 24 s sim day |
 | 017 | Serial Monitor panel with scrolling output, Clear and Send, fed by the 1.6 and 1.10 sims |
 | 018 | Code runner lexer and parser: Arduino C subset to an AST, errors with line numbers |
+| 019 | Code runner runtime: interpreter on a virtual clock, Arduino built-ins, Serial, tone and Servo, in a Web Worker |
 
 ### Where we stopped
 
@@ -153,7 +154,16 @@ sketch starts Serial. The 1.6 and 1.10 sims now print what their sketches print.
 **Job 018 is built** on `feature/code-parser`, from
 [factory/handoff/018-code-parser-spec.md](factory/handoff/018-code-parser-spec.md): `src/runner/lexer.js`
 and `src/runner/parser.js` turn an Arduino C subset into an AST, with errors like
-`Line 2: expected ';' after the statement`. Every lesson sketch parses. Nothing runs the AST yet.
+`Line 2: expected ';' after the statement`. Every lesson sketch parses.
+
+**Job 019 is built** on `feature/code-runtime`, from
+[factory/handoff/019-code-runtime-spec.md](factory/handoff/019-code-runtime-spec.md): an interpreter
+that runs the AST on a virtual clock with the Arduino built-ins, Serial, tone and Servo, a
+session that holds pin state, and a Web Worker with a main thread client. Every lesson sketch
+runs without errors. It is not wired to the code panel yet (job 020).
+
+**New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
+are on hold.
 
 ## How to continue
 
