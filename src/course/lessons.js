@@ -57,7 +57,8 @@ void loop() {
     summary: 'Turn an LED on and off on a timer with your first sketch.',
     overview: [
       'An LED lights when current flows from its long leg, the anode, to its short leg, the cathode.',
-      'The sketch sets pin 13 as an output, then switches it HIGH and LOW with a pause in between. The Uno also has a small LED wired to pin 13 on the board.'
+      'The sketch sets pin 13 as an output, then switches it HIGH and LOW with a pause in between. The Uno also has a small LED wired to pin 13 on the board.',
+      'Goal: set the on and off times so one full blink takes less than 500 ms, then press Run.'
     ],
     pinout: [
       { pin: 'D13', use: 'Output to the LED anode through a 220 ohm resistor.' },

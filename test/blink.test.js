@@ -13,9 +13,41 @@ describe('createBlinkSim', () => {
     expect(levels).toEqual([1, 1, 0, 0, 1])
   })
 
-  it('has no goal check', () => {
-    const sim = createBlinkSim({ pins: createPins(), getValues: () => ({ onMs: 300, offMs: 200 }), startedAt: 0 })
-    expect(sim.checkGoal).toBeUndefined()
+  // Runs the sim from startedAt 0 to endMs in 10 ms ticks, checking the goal after each tick.
+  function goalAfter(values, endMs) {
+    const sim = createBlinkSim({ pins: createPins(), getValues: () => values, startedAt: 0 })
+    let met = false
+    for (let now = 0; now <= endMs; now += 10) {
+      sim.update(now)
+      met = sim.checkGoal()
+    }
+    return met
+  }
+
+  it('goal is false before two rising edges', () => {
+    expect(goalAfter({ onMs: 200, offMs: 250 }, 440)).toBe(false)
+  })
+
+  it('goal is false with 500 and 500 after many cycles', () => {
+    expect(goalAfter({ onMs: 500, offMs: 500 }, 10000)).toBe(false)
+  })
+
+  it('goal is true with 200 and 250 after the second rising edge', () => {
+    expect(goalAfter({ onMs: 200, offMs: 250 }, 450)).toBe(true)
+  })
+
+  it('goal is false when the values sum to 500 or more', () => {
+    expect(goalAfter({ onMs: 250, offMs: 250 }, 10000)).toBe(false)
+  })
+
+  it('goal is false when the values drop under 500 but the last edges were 500 or more apart', () => {
+    const pins = createPins()
+    let values = { onMs: 500, offMs: 500 }
+    const sim = createBlinkSim({ pins, getValues: () => values, startedAt: 0 })
+    sim.update(0)
+    sim.update(1000)
+    values = { onMs: 200, offMs: 250 }
+    expect(sim.checkGoal()).toBe(false)
   })
 
   it('stop leaves D13 low', () => {

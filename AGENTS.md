@@ -54,7 +54,7 @@ folders are the target for later jobs.
 ```
 src/
   main.js          boot: builds the scene, adds the Uno board and breadboard to it, UI and course engine;
-                   swaps the circuit group on every lesson change
+                   swaps the circuit group on every lesson change; lights circuit LEDs from pin levels
   style.css        full viewport layout: stage behind, panels on the edges
   course/          lessons data, state, goTo(id), progress
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
@@ -74,7 +74,8 @@ src/
                    PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top
     breadboard.js  createBreadboard() -> { group }, half size, 30 columns, no rails; BREADBOARD_COLUMNS,
                    BREADBOARD_ROWS, parseHole('12e'), holePosition(hole) local Vector3, holeStrip(hole)
-    led.js         createLed({ color, anode, cathode }) -> { group }; red, green, yellow, blue; anode leg kinked
+    led.js         createLed({ color, anode, cathode }) -> { group, setLit(on) }; red, green, yellow, blue; anode leg kinked;
+                   setLit glows the lens in its own colour (emissive only), new LEDs start unlit
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
@@ -85,7 +86,8 @@ src/
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
     sims.js        sims registry: lesson id -> sim factory ('1.2' now)
-    blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; no goal yet
+    blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; checkGoal passes when
+                   the last two rising edges of D13 were under 500 ms apart and onMs + offMs is under 500
     runner.js      pure createSimRunner({ sims, pins, onGoal, uploadMs }): hasSim, run, tick(now), stop,
                    getPhase (idle, uploading, running), isGoalMet; UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
@@ -130,7 +132,7 @@ the current lesson, and every panel updates from it.
   {
     parts: [
       { id: 'r1', type: 'resistor', ohms: 220, from: '5c', to: '9c' },
-      { id: 'led1', type: 'led', color: 'red', anode: '9e', cathode: '10e' }
+      { id: 'led1', type: 'led', color: 'red', pin: 'D13', anode: '9e', cathode: '10e' }
     ],
     wires: [
       { id: 'w1', color: 'yellow', from: 'D13', to: '5a' }
@@ -139,6 +141,8 @@ the current lesson, and every panel updates from it.
   ```
 
   Part positions are holes. Wire `from` is an Uno pin name, `to` a hole.
+  LED parts carry `pin`, the Uno pin that drives them; `buildCircuit` ignores it
+  for geometry and `main.js` uses it to light the LED.
   Ids are unique within a circuit.
 - `main.js` places the Uno left and the breadboard right, 1 cm apart, centred on
   x = 0. On every lesson change it removes and disposes the old circuit group,
@@ -159,6 +163,10 @@ the current lesson, and every panel updates from it.
   per run when `checkGoal()` first returns true. A sim without `checkGoal` never
   completes its lesson. The runner never calls `markComplete` itself; `main.js`
   passes `onGoal: (id) => course.markComplete(id)`.
+- `main.js` subscribes once to `pins`. On a change it calls `setLit(level === 1)`
+  on every LED in the current circuit whose `pin` matches, then `invalidate()`.
+  A newly built circuit sets each LED from `pins.get(part.pin)`. Stop goes
+  through `pins.reset()`, so it turns the LEDs off.
 
 ## Conventions
 

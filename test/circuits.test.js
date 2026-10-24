@@ -77,6 +77,15 @@ describe('circuit tables', () => {
         expect(Math.abs(anode.column - cathode.column)).toBe(1)
       })
 
+      it(`gives every LED the pin ${SIGNAL_PINS[id]} that drives it`, () => {
+        const leds = circuit.parts.filter((part) => part.type === 'led')
+        expect(leds.length).toBeGreaterThan(0)
+        for (const led of leds) {
+          expect(led.pin).toBe(SIGNAL_PINS[id])
+          expect(UNO_PIN_NAMES).toContain(led.pin)
+        }
+      })
+
       it('builds an item per id with wires ending at the pin and hole', () => {
         const boards = placedBoards()
         const { group, items } = buildCircuit(circuit, boards)

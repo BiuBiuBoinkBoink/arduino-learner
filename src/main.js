@@ -75,8 +75,12 @@ window.addEventListener('hashchange', () => {
   resetHash()
 })
 
+// One shared set of pin levels for the sims and the circuit parts they drive.
+const pins = createPins()
+
 // Swap the lesson circuit on every lesson change; lessons without one show the empty breadboard.
 let circuit = null
+let circuitLeds = []
 let circuitLessonId = null
 function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
@@ -89,9 +93,14 @@ function showCircuit({ lesson }) {
       object.material.dispose()
     })
     circuit = null
+    circuitLeds = []
   }
   if (circuits[lesson.id]) {
     circuit = buildCircuit(circuits[lesson.id], { board, breadboard })
+    circuitLeds = circuits[lesson.id].parts
+      .filter((part) => part.type === 'led')
+      .map((part) => ({ pin: part.pin, led: circuit.items[part.id] }))
+    for (const { pin, led } of circuitLeds) led.setLit(pins.get(pin) === 1)
     stage.scene.add(circuit.group)
   }
   stage.invalidate()
@@ -99,9 +108,16 @@ function showCircuit({ lesson }) {
 showCircuit(course.getState())
 course.subscribe(showCircuit)
 
+// Light each circuit LED from the level of the Uno pin that drives it.
+pins.subscribe((name, level) => {
+  const leds = circuitLeds.filter(({ pin }) => pin === name)
+  if (leds.length === 0) return
+  for (const { led } of leds) led.setLit(level === 1)
+  stage.invalidate()
+})
+
 createInfoPanel(panels.info, course)
-// One shared set of pin levels and one runner; only a sim goal marks a lesson done.
-const pins = createPins()
+// One runner over the shared pin levels; only a sim goal marks a lesson done.
 const runner = createSimRunner({ sims, pins, onGoal: (id) => course.markComplete(id) })
 const { toolbar, getValues } = createCodePanel(panels.code, course)
 createRunControls({ container: toolbar, course, runner, getValues })

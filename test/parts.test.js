@@ -96,6 +96,22 @@ describe('createLed', () => {
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
   })
 
+  it('starts unlit, setLit(true) glows the lens and setLit(false) turns it off', () => {
+    const { group, setLit } = createLed({ color: 'red', anode, cathode })
+    expect(typeof setLit).toBe('function')
+    const lensMeshes = meshesOf(group).filter((mesh) => mesh.material.transparent)
+    expect(lensMeshes).toHaveLength(3)
+    const black = new THREE.Color(0x000000)
+    for (const mesh of lensMeshes) expect(mesh.material.emissive.equals(black)).toBe(true)
+    setLit(true)
+    for (const mesh of lensMeshes) {
+      expect(mesh.material.emissive.equals(black)).toBe(false)
+      expect(mesh.material.emissiveIntensity).toBeGreaterThan(0)
+    }
+    setLit(false)
+    for (const mesh of lensMeshes) expect(mesh.material.emissive.equals(black)).toBe(true)
+  })
+
   it('supports four colours and throws for others', () => {
     for (const color of ['red', 'green', 'yellow', 'blue']) {
       expect(() => createLed({ color, anode, cathode })).not.toThrow()
