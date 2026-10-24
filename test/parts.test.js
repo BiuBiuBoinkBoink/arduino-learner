@@ -6,6 +6,7 @@ import { createPotentiometer } from '../src/parts/potentiometer.js'
 import { createRgbLed } from '../src/parts/rgbLed.js'
 import { createLdr } from '../src/parts/ldr.js'
 import { createTmp36 } from '../src/parts/tmp36.js'
+import { createBuzzer } from '../src/parts/buzzer.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
 
@@ -357,5 +358,34 @@ describe('createTmp36', () => {
     const { group } = createTmp36({ legs })
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
     expect(() => createTmp36({ legs: legs.slice(0, 2) })).toThrow()
+  })
+})
+
+describe('createBuzzer', () => {
+  const legs = [new THREE.Vector3(1, 0.852, 0.3), new THREE.Vector3(1.762, 0.852, 0.3)]
+
+  it('reaches down to its two leg points and stands above them', () => {
+    const { group } = createBuzzer({ legs })
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.02)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 0.4)
+    expect(box.min.x).toBeLessThan(legs[0].x)
+    expect(box.max.x).toBeGreaterThan(legs[1].x)
+  })
+
+  it('shows the sound ring only while playing', () => {
+    const { group, setPlaying } = createBuzzer({ legs })
+    const ring = group.getObjectByName('sound-ring')
+    expect(ring.visible).toBe(false)
+    setPlaying(true)
+    expect(ring.visible).toBe(true)
+    setPlaying(false)
+    expect(ring.visible).toBe(false)
+  })
+
+  it('casts shadows from every mesh and needs two legs', () => {
+    const { group } = createBuzzer({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(() => createBuzzer({ legs: legs.slice(0, 1) })).toThrow()
   })
 })

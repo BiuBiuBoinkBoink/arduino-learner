@@ -8,6 +8,7 @@ import { createOhmsSim } from './ohms.js'
 import { createRgbSim } from './rgb.js'
 import { createLightSim } from './light.js'
 import { createTempSim } from './temp.js'
+import { createTuneSim } from './tune.js'
 
 export const sims = {
   '1.2': createBlinkSim,
@@ -18,5 +19,6 @@ export const sims = {
   '1.7': createFadeSim,
   '1.8': createRgbSim,
   '1.9': createLightSim,
-  '1.10': createTempSim
+  '1.10': createTempSim,
+  '1.11': createTuneSim
 }

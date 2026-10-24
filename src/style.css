@@ -430,6 +430,15 @@ body {
   display: none;
 }
 
+/* Sound toggle: buzzer audio on or off, below the Run row. */
+.sound-toggle {
+  margin: 8px 0 0;
+}
+
+.sound-toggle[hidden] {
+  display: none;
+}
+
 /* Knob slider: a code panel range control below the Run row. */
 .knob-slider {
   margin: 10px 0 0;
