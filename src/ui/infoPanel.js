@@ -10,7 +10,8 @@ const TABS = [
   { key: 'specs', label: 'Specs', fill: fillSpecs }
 ]
 
-export function createInfoPanel(panel, course) {
+// With heading false the lesson heading is left out (the guide panel shows it).
+export function createInfoPanel(panel, course, { heading: withHeading = true } = {}) {
   const heading = document.createElement('h2')
   heading.className = 'panel-heading'
 
@@ -39,7 +40,8 @@ export function createInfoPanel(panel, course) {
     return { tab, button, body }
   })
 
-  panel.append(heading, tablist, ...items.map((item) => item.body))
+  if (withHeading) panel.append(heading)
+  panel.append(tablist, ...items.map((item) => item.body))
 
   let selected = 0
 
