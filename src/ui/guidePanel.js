@@ -190,7 +190,9 @@ export function createGuidePanel(container, { course, flow, tracker }) {
         if (check.type === 'predict') button.classList.add('is-picked')
         else button.classList.add(i === check.answer ? 'is-right' : 'is-wrong')
       }
-      if (readOnly || entry.passed) button.disabled = true
+      // A passed current step keeps its buttons focusable, so a pass never drops focus.
+      if (readOnly) button.disabled = true
+      else if (entry.passed) button.setAttribute('aria-disabled', 'true')
       else button.addEventListener('click', () => flow.answer(step.id, i))
       options.append(button)
     })

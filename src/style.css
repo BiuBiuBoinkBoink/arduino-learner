@@ -425,11 +425,12 @@ button.guide-step-row:hover {
   cursor: pointer;
 }
 
-.guide-option:hover:not(:disabled) {
+.guide-option:hover:not(:disabled):not([aria-disabled='true']) {
   border-color: var(--muted);
 }
 
-.guide-option:disabled {
+.guide-option:disabled,
+.guide-option[aria-disabled='true'] {
   cursor: default;
 }
 
