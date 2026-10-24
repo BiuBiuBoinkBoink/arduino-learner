@@ -36,6 +36,22 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 - [ ] (On hold: no new lessons for now) Bouncy button sim option and Level 2 lessons 2.5 millis() not delay(), 2.6 Debouncing, 2.7 State machines and 2.8 Using libraries
 - [ ] (On hold: no new lessons for now) Level 2 project lesson Traffic light with crossing, passing only with the full cycle in order, the crossing served next cycle, and zero delay() calls
 
+## Lesson overhaul (branch feature/lesson-overhaul, do not merge yet)
+
+Full plan in `factory/handoff/overhaul/` (start with `00-plan.md`). Work on
+the `feature/lesson-overhaul` branch only; no merge into `main` and no pull
+request until the owner says so.
+
+- [ ] Overhaul phase 1, layout shell: top bar, course map, step guide with Reference drawer, collapsible code panel, run bar, view buttons and controls dock on the workbench -> 01-layout-shell.md
+- [ ] Overhaul phase 2, milestone engine: lesson steps, checks, per step progress, board progress names, lesson 1.2 as steps -> 02-milestone-engine.md
+- [ ] Overhaul phase 3, netlist and footprints: power rails, part footprints, connection checker with mistake messages, step rules -> 03-netlist-footprints.md
+- [ ] Overhaul phase 4, placement: workbench build, parts tray, ghost and snap placement, wires, keyboard path, edit mode, run lock -> 04-placement.md
+- [ ] Overhaul phase 5, build steps and hints: circuit checks, mistakes in 3D, hint ladder with show me and do it for me, 1.2 built by hand -> 05-build-steps-hints.md
+- [ ] Overhaul phase 6, lessons converted: every lesson as milestones with carry over, breadboard steps in 1.1 -> 06-lessons-converted.md
+- [ ] Overhaul phase 7, narrow screens: medium and compact layouts, bottom sheet, touch placement -> 07-narrow-screens.md
+- [ ] Overhaul phase 8, explain tools: x-ray, current trace, scope, connections, part cards, voltage, slow motion, what if -> 08-explain-tools.md
+- [ ] Overhaul phase 9, help chat: Ask tab, tutor server, tool calls, privacy rules -> 09-help-chat.md
+
 ## Phase 4 onward (not queued yet)
 
 - Robot world: floor, walls, line tracks, 2WD chassis, differential drive kinematics
