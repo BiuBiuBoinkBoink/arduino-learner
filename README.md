@@ -75,6 +75,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 015 | SG90 style servo with a turning horn, lesson 1.12 Servo basics with a 45, 90 and 135 deg goal |
 | 016 | Level 1 project P1 Room monitor: photoresistor, TMP36, night light and alarm buzzer over a 24 s sim day |
 | 017 | Serial Monitor panel with scrolling output, Clear and Send, fed by the 1.6 and 1.10 sims |
+| 018 | Code runner lexer and parser: Arduino C subset to an AST, errors with line numbers |
 
 ### Where we stopped
 
@@ -148,6 +149,11 @@ on in the hottest hours only. Circuit wires can now be hole to hole jumpers.
 [factory/handoff/017-serial-monitor-spec.md](factory/handoff/017-serial-monitor-spec.md): a shared
 serial port and a Serial Monitor panel (scrolling output, Clear, Send) shown on lessons whose
 sketch starts Serial. The 1.6 and 1.10 sims now print what their sketches print.
+
+**Job 018 is built** on `feature/code-parser`, from
+[factory/handoff/018-code-parser-spec.md](factory/handoff/018-code-parser-spec.md): `src/runner/lexer.js`
+and `src/runner/parser.js` turn an Arduino C subset into an AST, with errors like
+`Line 2: expected ';' after the statement`. Every lesson sketch parses. Nothing runs the AST yet.
 
 ## How to continue
 
