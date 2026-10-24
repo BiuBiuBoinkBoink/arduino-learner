@@ -23,7 +23,7 @@ along the bottom. Go to `#1.1` for the board tour or `#1.2` for Blink.
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 186 tests at the moment
+npm test        # vitest, 194 tests at the moment
 npm run build   # production build
 ```
 
@@ -54,7 +54,7 @@ The rules people trip on most:
 
 ## Where the project is
 
-Phase 1 (engine foundation) is 7 of 8 jobs done. Everything below is merged into `main`.
+Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008 is on its own branch.
 
 | Job | What it added |
 | --- | --- |
@@ -65,28 +65,32 @@ Phase 1 (engine foundation) is 7 of 8 jobs done. Everything below is merged into
 | 005 | Breadboard with a column plus row grid, LED, resistor and arched wires, per lesson circuits for 1.2, 1.3 and 1.7 |
 | 006 | Code panel with syntax colouring, sliders and choices that fill `{{param}}` slots, looping line highlight |
 | 007 | Run and Stop with a fake upload, shared pin levels, per lesson sim registry, goal check API |
+| 008 | Lesson 1.2 end to end: LED glows from pin levels, goal passes when a blink takes under 500 ms |
 
 ### Where we stopped
 
-**Job 008, Lesson 1.2 Blink end to end, is half started.** Its spec is written but no code
-was built. The run was paused before the builder started. It is the first unticked item
-in the backlog.
+**Phase 1 is done.** Job 008, Lesson 1.2 Blink end to end, was built by hand on the
+`feature/blink-end-to-end` branch: the LED glows from the D13 pin level, and 1.2 completes
+when one full blink takes under 500 ms. Its spec is
+[factory/handoff/008-blink-end-to-end-spec.md](factory/handoff/008-blink-end-to-end-spec.md).
 
-- **What exists:** the 1.2 sliders (`onMs`, `offMs`) and the blink sim in `src/sim/blink.js`,
-  which already drives pin D13 when you press Run.
-- **What is missing:** nothing lights the LED, nothing reacts to pin changes, and there is
-  no goal check, so 1.2 can never be completed yet.
-- **The spec:** [factory/handoff/008-blink-end-to-end-spec.md](factory/handoff/008-blink-end-to-end-spec.md)
-  has the full plan and acceptance criteria. In short:
-  - Add `setLit(on)` to `createLed` in `src/parts/led.js`. It makes the lens glow in the LED's own colour.
-  - Give LED parts in `src/circuits/circuits.js` a `pin` field (D13 for 1.2, D9 for 1.3 and 1.7).
-  - In `src/main.js`, subscribe to `pins` and light the matching LEDs, then call `stage.invalidate()`.
-  - Add `checkGoal()` to the blink sim. It passes when two rising edges on D13 are under 500 ms apart
-    and `onMs + offMs` is under 500. The defaults (500 + 500) must not pass.
-  - Add a goal hint paragraph to the 1.2 overview, plus tests and AGENTS.md updates.
+**Next is job 009, the first Phase 2 item:** a push button you can press in the 3D scene,
+plus lessons 1.4 Button input and 1.5 Pull up vs pull down with a floating pin effect.
+The spec is ready, nothing is built yet:
+[factory/handoff/009-button-input-spec.md](factory/handoff/009-button-input-spec.md). In short:
 
-Build it by hand from that spec, or run `/factory next`. The factory writes a fresh spec,
-and you can compare it with the handoff one. After job 008, Phase 2 builds the rest of Level 1.
+- A procedural push button part (`src/parts/button.js`) that straddles the breadboard
+  centre channel, with `setPressed(on)` moving its cap.
+- A pure `inputs` store for pressed parts, passed into every sim by the runner.
+- `src/ui/partPress.js`: raycast press and release on the 3D button, with camera orbit
+  paused while it is held, plus a "Hold to press" button for keyboard users.
+- Circuits, sketches and sims for 1.4 and 1.5. In 1.5 a choice removes the 10 kohm pull
+  down resistor and the input floats, so the LED flickers.
+- Goals: three clean presses while running (1.5 only counts them with the resistor fitted).
+  These goals are an assumption; check them against the curriculum doc.
+
+Build it by hand from that spec, or run `/factory next`, which writes its own spec you can
+compare with the handoff one.
 
 ## How to continue
 
@@ -185,8 +189,8 @@ The full lesson list with parts and goal checks is in Kian's curriculum doc. Ask
 
 ## Roadmap
 
-- **Phase 1, engine foundation:** job 008 left (spec ready in `factory/handoff/`).
-- **Phase 2, Level 1 lessons:** interaction (button, knob), multimeter, RGB, light and temperature, buzzer, servo, room monitor project.
+- **Phase 1, engine foundation:** done.
+- **Phase 2, Level 1 lessons:** job 009 spec ready in `factory/handoff/`. Interaction (button, knob), multimeter, RGB, light and temperature, buzzer, servo, room monitor project.
 - **Phase 3, code runner and Level 2:** Serial Monitor, a parser and runtime for an Arduino C subset, editable code, code based goal checks, Level 2 lessons.
 - **Phase 4 onward, not queued yet:** robot world with 2WD kinematics and sensors, Level 4 and the RC car, then Levels 3 and 5, translations (English, BM, Chinese).
 
