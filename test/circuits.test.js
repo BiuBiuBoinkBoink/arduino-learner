@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { circuits } from '../src/circuits/circuits.js'
-import { buildCircuit, buttonHoles } from '../src/circuits/buildCircuit.js'
+import { buildCircuit, buttonHoles, potHoles } from '../src/circuits/buildCircuit.js'
 import { lessons } from '../src/course/lessons.js'
 import { createUnoBoard, unoPinPosition, UNO_PIN_NAMES } from '../src/parts/unoBoard.js'
 import { createBreadboard, holePosition, holeStrip, parseHole } from '../src/parts/breadboard.js'
@@ -19,6 +19,7 @@ function placedBoards() {
 
 function partHoles(part) {
   if (part.type === 'button') return buttonHoles(part.at)
+  if (part.type === 'potentiometer') return potHoles(part.at)
   return part.type === 'led' ? [part.anode, part.cathode] : [part.from, part.to]
 }
 
@@ -41,10 +42,15 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2, 1.3, 1.4, 1.5 and 1.7', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.7', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.2', '1.3', '1.4', '1.5', '1.7'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.2', '1.3', '1.4', '1.5', '1.6', '1.7'])
+  })
+
+  it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
+    expect(potHoles('12e')).toEqual(['12e', '13e', '14e'])
+    expect(potHoles('28f')).toEqual(['28f', '29f', '30f'])
   })
 
   it('expands a button at 12e to legs at 12e, 14e, 12f and 14f', () => {
@@ -99,7 +105,7 @@ describe('circuit tables', () => {
         expect(Math.abs(anode.column - cathode.column)).toBe(1)
       })
 
-      it(`gives every LED the pin ${SIGNAL_PINS[id]} that drives it`, () => {
+      if (SIGNAL_PINS[id]) it(`gives every LED the pin ${SIGNAL_PINS[id]} that drives it`, () => {
         const leds = circuit.parts.filter((part) => part.type === 'led')
         expect(leds.length).toBeGreaterThan(0)
         for (const led of leds) {
@@ -185,6 +191,37 @@ describe('circuit tables', () => {
       })
     })
   }
+
+  describe('lesson 1.6 potentiometer circuit', () => {
+    const circuit = circuits['1.6']
+    const pot = circuit.parts.find((part) => part.id === 'pot1')
+
+    it('wires 5V, A0 and GND.2 to the three leg strips, one net per strip', () => {
+      expect(pot.type).toBe('potentiometer')
+      expect(pot.at).toBe('12e')
+      const [outer, wiper, other] = potHoles(pot.at).map(holeStrip)
+      const stripOf = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+      expect(stripOf('5V')).toBe(outer)
+      expect(stripOf('A0')).toBe(wiper)
+      expect(stripOf('GND.2')).toBe(other)
+      expect(circuit.wires).toHaveLength(3)
+      expect(new Set(circuit.wires.map((wire) => holeStrip(wire.to))).size).toBe(3)
+    })
+
+    it('builds a turnable potentiometer item', () => {
+      const { items } = buildCircuit(circuit, placedBoards())
+      expect(items.pot1.group.userData.turnable).toBe(true)
+      expect(typeof items.pot1.setValue).toBe('function')
+    })
+  })
+
+  it('throws naming the item for a potentiometer past column 28', () => {
+    const boards = placedBoards()
+    const column = { parts: [{ id: 'p9', type: 'potentiometer', at: '29e' }], wires: [] }
+    expect(() => buildCircuit(column, boards)).toThrow('p9')
+    const ok = { parts: [{ id: 'p8', type: 'potentiometer', at: '28e' }], wires: [] }
+    expect(() => buildCircuit(ok, boards)).not.toThrow()
+  })
 
   it('throws naming the item for a button not in row e or past column 28', () => {
     const boards = placedBoards()

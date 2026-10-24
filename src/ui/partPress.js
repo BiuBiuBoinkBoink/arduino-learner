@@ -143,8 +143,9 @@ export function createHoldButton({ container, partPress, inputs }) {
   button.addEventListener('contextmenu', (event) => event.preventDefault())
 
   // aria-pressed follows the input itself, so a 3D press shows here too.
+  // Knob values share the listeners and arrive as numbers; only presses count.
   inputs.subscribe((id, on) => {
-    if (id === target) button.setAttribute('aria-pressed', String(on))
+    if (id === target && typeof on === 'boolean') button.setAttribute('aria-pressed', String(on))
   })
 
   function setTarget(id) {

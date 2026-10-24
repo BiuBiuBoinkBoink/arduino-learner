@@ -11,6 +11,7 @@ import { createCodePanel } from './ui/codePanel.js'
 import { createBoardTour } from './ui/boardTour.js'
 import { createRunControls } from './ui/runControls.js'
 import { createPartPress, createHoldButton } from './ui/partPress.js'
+import { createPartTurn, createKnobSlider } from './ui/partTurn.js'
 import { createUnoBoard } from './parts/unoBoard.js'
 import { createBreadboard } from './parts/breadboard.js'
 import { circuits } from './circuits/circuits.js'
@@ -88,6 +89,8 @@ const runControls = document.createElement('div')
 toolbar.append(runControls)
 const partPress = createPartPress({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
 const holdButton = createHoldButton({ container: toolbar, partPress, inputs })
+const partTurn = createPartTurn({ stage, getItems: () => (circuit ? circuit.items : null), inputs })
+const knobSlider = createKnobSlider({ container: toolbar, partTurn, inputs })
 
 // Parts with showWhen are drawn only while that code panel param has that value.
 function showParts(values) {
@@ -107,6 +110,7 @@ function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
   circuitLessonId = lesson.id
   partPress.release()
+  partTurn.release()
   if (circuit) {
     stage.scene.remove(circuit.group)
     circuit.group.traverse((object) => {
@@ -122,23 +126,27 @@ function showCircuit({ lesson }) {
     circuitLeds = circuits[lesson.id].parts
       .filter((part) => part.type === 'led')
       .map((part) => ({ pin: part.pin, led: circuit.items[part.id] }))
-    for (const { pin, led } of circuitLeds) led.setLit(pins.get(pin) === 1)
+    for (const { pin, led } of circuitLeds) led.setBrightness(pins.get(pin))
     stage.scene.add(circuit.group)
     showParts(getValues())
   }
   const button = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'button') : null
   holdButton.setTarget(button ? button.id : null)
+  // Every new circuit starts with its knob in the middle.
+  const pot = circuit ? circuits[lesson.id].parts.find((part) => part.type === 'potentiometer') : null
+  if (pot) partTurn.setValue(pot.id, 0.5)
+  knobSlider.setTarget(pot ? pot.id : null)
   stage.invalidate()
 }
 showCircuit(course.getState())
 course.subscribe(showCircuit)
 subscribeValues(showParts)
 
-// Light each circuit LED from the level of the Uno pin that drives it.
+// Light each circuit LED from the level of the Uno pin that drives it (0 to 1, PWM duty).
 pins.subscribe((name, level) => {
   const leds = circuitLeds.filter(({ pin }) => pin === name)
   if (leds.length === 0) return
-  for (const { led } of leds) led.setLit(level === 1)
+  for (const { led } of leds) led.setBrightness(level)
   stage.invalidate()
 })
 

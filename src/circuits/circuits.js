@@ -56,5 +56,14 @@ export const circuits = {
       ...buttonLed.wires
     ]
   },
+  // Potentiometer outer legs to 5V and GND.2, the wiper (middle leg) to A0.
+  '1.6': {
+    parts: [{ id: 'pot1', type: 'potentiometer', at: '12e' }],
+    wires: [
+      { id: 'w1', color: 'red', from: '5V', to: '12a' },
+      { id: 'w2', color: 'green', from: 'A0', to: '13a' },
+      { id: 'w3', color: 'black', from: 'GND.2', to: '14a' }
+    ]
+  },
   '1.7': ledCircuit('D9')
 }

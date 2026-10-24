@@ -381,6 +381,28 @@ body {
   border-color: #2f6fd6;
 }
 
+/* Sim readout: a stand in for the Serial Monitor under the status line. */
+.run-readout {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.run-readout[hidden] {
+  display: none;
+}
+
+/* Knob slider: a code panel range control below the Run row. */
+.knob-slider {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+
+.knob-slider[hidden] {
+  display: none;
+}
+
 /* Sketch block: the .info-code look on an opaque background, so the token
    colours keep at least 4.5:1 contrast whatever the stage shows behind. */
 .code-sketch {

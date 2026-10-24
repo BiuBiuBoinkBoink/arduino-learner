@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { createButton } from '../src/parts/button.js'
 import { createLed } from '../src/parts/led.js'
+import { createPotentiometer } from '../src/parts/potentiometer.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
 
@@ -113,6 +114,24 @@ describe('createLed', () => {
     for (const mesh of lensMeshes) expect(mesh.material.emissive.equals(black)).toBe(true)
   })
 
+  it('setBrightness(0.5) gives half the full glow and 0 turns it off', () => {
+    const { group, setLit, setBrightness } = createLed({ color: 'green', anode, cathode })
+    const lens = meshesOf(group).find((mesh) => mesh.material.transparent).material
+    const black = new THREE.Color(0x000000)
+    setLit(true)
+    const full = lens.emissiveIntensity
+    const fullColor = lens.emissive.clone()
+    setBrightness(0.5)
+    expect(lens.emissiveIntensity).toBeCloseTo(full / 2, 6)
+    expect(lens.emissive.equals(fullColor)).toBe(true)
+    setBrightness(1)
+    expect(lens.emissiveIntensity).toBeCloseTo(full, 6)
+    setBrightness(0)
+    expect(lens.emissive.equals(black)).toBe(true)
+    setLit(true)
+    expect(lens.emissiveIntensity).toBeCloseTo(full, 6)
+  })
+
   it('supports four colours and throws for others', () => {
     for (const color of ['red', 'green', 'yellow', 'blue']) {
       expect(() => createLed({ color, anode, cathode })).not.toThrow()
@@ -194,5 +213,66 @@ describe('createButton', () => {
     const { group } = createButton({ legs })
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
     expect(group.userData.pressable).toBe(true)
+  })
+})
+
+describe('createPotentiometer', () => {
+  const legs = [
+    new THREE.Vector3(1, 0.852, 0.3),
+    new THREE.Vector3(1.254, 0.852, 0.3),
+    new THREE.Vector3(1.508, 0.852, 0.3)
+  ]
+
+  // Direction the knob pointer faces seen from above, in degrees clockwise
+  // from straight ahead (-z); clockwise from above takes -z towards +x.
+  function pointerAngle(group) {
+    group.updateMatrixWorld(true)
+    const centre = group.getObjectByName('knob').getWorldPosition(new THREE.Vector3())
+    const tip = group.getObjectByName('pointer').getWorldPosition(new THREE.Vector3()).sub(centre)
+    return THREE.MathUtils.radToDeg(Math.atan2(tip.x, -tip.z))
+  }
+
+  it('reaches down to its three leg points and stands above them', () => {
+    const { group } = createPotentiometer({ legs })
+    group.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.03)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 0.6)
+    const size = box.getSize(new THREE.Vector3())
+    expect(size.x).toBeGreaterThan(0.8)
+    expect(size.x).toBeLessThan(1.3)
+    // Every leg point lies on the bottom face of some mesh.
+    const boxes = meshesOf(group).map((mesh) => new THREE.Box3().setFromObject(mesh))
+    for (const leg of legs) {
+      const reached = boxes.some((b) => Math.abs(b.min.y - leg.y) < 0.03 &&
+        Math.abs((b.min.x + b.max.x) / 2 - leg.x) < 0.03 &&
+        Math.abs((b.min.z + b.max.z) / 2 - leg.z) < 0.03)
+      expect(reached).toBe(true)
+    }
+  })
+
+  it('starts straight ahead and turns 135 degrees each way, clockwise as the value rises', () => {
+    const { group, setValue } = createPotentiometer({ legs })
+    expect(pointerAngle(group)).toBeCloseTo(0, 4)
+    setValue(0)
+    expect(pointerAngle(group)).toBeCloseTo(-135, 4)
+    setValue(0.5)
+    expect(pointerAngle(group)).toBeCloseTo(0, 4)
+    setValue(1)
+    expect(pointerAngle(group)).toBeCloseTo(135, 4)
+  })
+
+  it('clamps values to 0 to 1', () => {
+    const { group, setValue } = createPotentiometer({ legs })
+    setValue(5)
+    expect(pointerAngle(group)).toBeCloseTo(135, 4)
+    setValue(-2)
+    expect(pointerAngle(group)).toBeCloseTo(-135, 4)
+  })
+
+  it('casts shadows from every mesh and is tagged turnable', () => {
+    const { group } = createPotentiometer({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(group.userData.turnable).toBe(true)
   })
 })
