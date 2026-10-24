@@ -74,7 +74,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
-`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`. The other
+`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -177,6 +177,13 @@ src/
                    getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
                    else ''); UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
+    lexer.js       pure lex(source) -> tokens { type, value, line, column } (number, string, char, ident, keyword,
+                   op, include, eof); CodeError(message, line, column) with message 'Line N: ...'
+    parser.js      pure parse(source) -> Program { includes, body } AST; top level VarDecl, Function, Prototype,
+                   Enum; statements Block, VarDecl, ExprStmt, If, While, DoWhile, For, Switch, Break, Continue,
+                   Return, Empty; expressions Number, String, Char, Bool, Ident, Assign, Conditional, Binary,
+                   Unary, Update, Call, Member, Index, Cast, Sequence, InitList; types { name, const } with
+                   enum names and LIBRARY_CLASSES (Servo); every node has line; errors throw CodeError
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
