@@ -85,7 +85,7 @@ room.subscribe((name, value) => {
   if (name === 'light') stage.setDaylight(value)
 })
 
-const topBar = createTopBar(layout.topBar, course, { levels, onOpenMap: () => toggleMap() })
+const topBar = createTopBar(layout.topBar, course, { levels, onOpenMap: () => toggleMap(), flow })
 const courseMap = createCourseMap({ container: layout.topBar, course, levels, button: topBar.mapButton })
 function toggleMap() {
   if (courseMap.isOpen()) courseMap.close()

@@ -1,6 +1,7 @@
-// Top bar: brand, level and lesson breadcrumb, a Done pill, Prev and Next,
-// and the Course map button (the course map keeps its aria-expanded in sync).
-export function createTopBar(container, course, { levels, onOpenMap }) {
+// Top bar: brand, level and lesson breadcrumb, step progress (one segment per
+// lesson step and 'Step 2 of 3' or 'Done', from the lesson flow), Prev and
+// Next, and the Course map button (the course map keeps its aria-expanded in sync).
+export function createTopBar(container, course, { levels, onOpenMap, flow }) {
   const brand = document.createElement('span')
   brand.className = 'top-brand'
   brand.textContent = 'Robo Learn'
@@ -11,10 +12,16 @@ export function createTopBar(container, course, { levels, onOpenMap }) {
   const lessonText = document.createElement('strong')
   crumb.append(levelText, ' / ', lessonText)
 
-  const pill = document.createElement('span')
-  pill.className = 'top-pill'
-  pill.textContent = 'Done'
-  pill.hidden = true
+  const progress = document.createElement('div')
+  progress.className = 'top-steps'
+  progress.setAttribute('role', 'group')
+  const segments = document.createElement('span')
+  segments.className = 'top-segments'
+  segments.setAttribute('aria-hidden', 'true')
+  const stepText = document.createElement('span')
+  stepText.className = 'top-step-text'
+  stepText.setAttribute('aria-hidden', 'true')
+  progress.append(segments, stepText)
 
   const prevBtn = button('Prev', 'Previous lesson', () => course.prev())
   const nextBtn = button('Next', 'Next lesson', () => course.next())
@@ -25,19 +32,32 @@ export function createTopBar(container, course, { levels, onOpenMap }) {
   mapButton.setAttribute('aria-expanded', 'false')
   nav.append(prevBtn, nextBtn, mapButton)
 
-  container.append(brand, crumb, pill, nav)
+  container.append(brand, crumb, progress, nav)
 
-  function render({ lesson, index, completed, total }) {
+  function render({ lesson, index, total }) {
     const level = levels.find((item) => item.id === lesson.level)
     levelText.textContent = 'Level ' + lesson.level + (level ? ' ' + level.title : '')
     lessonText.textContent = lesson.id + ' ' + lesson.title
-    pill.hidden = !completed.includes(lesson.id)
     prevBtn.disabled = index === 0
     nextBtn.disabled = index === total - 1
   }
 
+  function renderSteps(view) {
+    segments.replaceChildren(...view.steps.map((entry) => {
+      const segment = document.createElement('span')
+      const state = entry.passed ? 'done' : entry.status === 'current' ? 'current' : 'locked'
+      segment.className = 'top-segment is-' + state
+      return segment
+    }))
+    const label = view.lessonDone ? 'Lesson done' : 'Step ' + (view.index + 1) + ' of ' + view.steps.length
+    stepText.textContent = view.lessonDone ? 'Done' : label
+    progress.setAttribute('aria-label', label)
+  }
+
   render(course.getState())
   course.subscribe(render)
+  renderSteps(flow.getView())
+  flow.subscribe(renderSteps)
   return { mapButton }
 }
 

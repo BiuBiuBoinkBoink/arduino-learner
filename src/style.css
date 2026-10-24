@@ -70,19 +70,39 @@ body {
   text-overflow: ellipsis;
 }
 
-.top-pill {
+/* Step progress: one segment per lesson step, then 'Step 2 of 3' or 'Done'. */
+.top-steps {
   flex: none;
-  padding: 2px 10px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--good);
-  background: var(--good-soft);
-  border: 1px solid var(--good);
-  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.top-pill[hidden] {
-  display: none;
+.top-segments {
+  display: flex;
+  gap: 3px;
+}
+
+.top-segment {
+  width: 28px;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.top-segment.is-done {
+  background: var(--good);
+}
+
+.top-segment.is-current {
+  background: var(--accent);
+}
+
+.top-step-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .top-nav {
