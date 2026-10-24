@@ -72,7 +72,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`,
 `src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
-`src/sim/fade.js`. The other
+`src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -120,8 +120,13 @@ src/
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
-                   subscribe(fn); held buttons and knob values (0 to 1, 0.5 when never set) by part id
-    sims.js        sims registry: lesson id -> sim factory ('1.2', '1.4', '1.5', '1.6', '1.7' now)
+                   getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
+                   never set) by part id, and the meter probe target id (null when unset, never notified)
+    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.7' now)
+    ohm.js         pure LED_SUPPLY_V (5), LED_FORWARD_V (2), ledCurrentMa(ohms) = 3 / R in mA,
+                   ledBrightness(ohms) relative to 220 ohm, clamped to 0 to 1
+    ohms.js        pure createOhmsSim (1.3): D9 HIGH; readout 'Meter on <label>: <mA> mA' for the probe in
+                   METER_LABELS (led, resistor); goal is a probed reading with each of 220, 1000 and 10000 ohm
     blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; checkGoal passes when
                    the last two rising edges of D13 were under 500 ms apart and onMs + offMs is under 500
     button.js      pure createButtonSim (1.4): internal pull up, D2 reads 0 while btn1 is held, D13 follows the
@@ -159,6 +164,9 @@ src/
                    visible turnable circuit items (200 px for the full range), orbit off while turning, ns-resize
                    cursor on hover; createKnobSlider({ container, partTurn, inputs }) -> { setTarget(id) }, the
                    "Knob" range input (0 to 1023) below the Run row, following the knob both ways
+    multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
+                   select below the Run row and click to probe a visible part of a target (a pointer up within
+                   5 px of its down); both write inputs.setProbe(id); hidden with no targets
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
@@ -211,6 +219,12 @@ the current lesson, and every panel updates from it.
   `14e`); the middle leg is the wiper. `at` must have a column of at most 28.
   `main.js` sets its knob to 0.5 whenever it builds a circuit with one, and shows
   the Knob slider only on those lessons.
+- An LED may carry `ohmsParam`, the code panel param holding its series
+  resistor in ohms. `main.js` then lights it at the pin level times
+  `ledBrightness(ohms)`, and re-lights LEDs on every param change.
+- A circuit may list `meter: [{ id, label, parts }]`, the multimeter targets.
+  Clicking any listed part probes its target id; `main.js` passes the list to
+  `multimeter.setTargets` on every circuit build.
 - Any part may carry `showWhen: { param, value }`. `main.js` draws it only while
   that code panel param has that value (through the code panel `subscribe`).
   Hidden parts are not pressable.
