@@ -155,6 +155,7 @@ void loop() {
           name: 'ohms',
           label: 'Resistor',
           type: 'choice',
+          circuit: true,
           value: 220,
           options: [
             { value: 220, label: '220 ohm' },
@@ -283,6 +284,7 @@ void loop() {
           name: 'pull',
           label: 'Pull down resistor',
           type: 'choice',
+          circuit: true,
           value: 'down',
           options: [
             { value: 'down', label: 'Fitted', code: 'external 10 kohm pull down' },

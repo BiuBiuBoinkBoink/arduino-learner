@@ -1,5 +1,7 @@
 // Run controls: Run and Stop buttons plus a status line for lessons with a sim.
-// Drives the sim runner with a requestAnimationFrame loop while it is not idle,
+// Run sends the code panel's sketch; code that does not compile or stops on an
+// error shows its message here and its line in the code panel (onError).
+// Drives the sim runner with a requestAnimationFrame loop while it is running,
 // and shows the sim readout line under the status while it runs.
 const STATUS_IDLE = 'Press Run to upload the sketch.'
 const STATUS_UPLOADING = 'Uploading sketch...'
@@ -7,7 +9,7 @@ const STATUS_RUNNING = 'Running.'
 const STATUS_STOPPED = 'Stopped.'
 const STATUS_GOAL = 'Goal met. Lesson done.'
 
-export function createRunControls({ container, course, runner, getValues }) {
+export function createRunControls({ container, course, runner, getValues, getSource, onError }) {
   const row = document.createElement('div')
   row.className = 'run-controls'
   const runButton = document.createElement('button')
@@ -53,9 +55,19 @@ export function createRunControls({ container, course, runner, getValues }) {
     readout.hidden = text === ''
   }
 
+  function showError() {
+    const error = runner.getError()
+    onError(error)
+    showIdle(`Stopped. ${error.message}`)
+  }
+
   function loop() {
     frame = null
     if (runner.getPhase() === 'idle') return
+    if (runner.getPhase() === 'error') {
+      showError()
+      return
+    }
     runner.tick(performance.now())
     const phase = runner.getPhase()
     if (phase === 'running' && shownPhase !== 'running') {
@@ -67,7 +79,8 @@ export function createRunControls({ container, course, runner, getValues }) {
       status.textContent = STATUS_GOAL
     }
     showReadout(runner.getReadout())
-    if (phase !== 'idle') frame = requestAnimationFrame(loop)
+    if (phase === 'uploading' || phase === 'running') frame = requestAnimationFrame(loop)
+    else if (phase === 'error') showError()
   }
 
   function stopLoop() {
@@ -76,7 +89,11 @@ export function createRunControls({ container, course, runner, getValues }) {
   }
 
   runButton.addEventListener('click', () => {
-    if (!runner.run({ lessonId, getValues, now: performance.now() })) return
+    onError(null)
+    if (!runner.run({ lessonId, getValues, source: getSource(), now: performance.now() })) {
+      if (runner.getPhase() === 'error') showError()
+      return
+    }
     runButton.disabled = true
     stopButton.disabled = false
     status.textContent = STATUS_UPLOADING
@@ -92,6 +109,11 @@ export function createRunControls({ container, course, runner, getValues }) {
     showIdle(STATUS_STOPPED)
   })
 
+  // A runtime error can arrive between frames, while the loop is waiting.
+  function noticeError() {
+    if (runner.getPhase() === 'error' && frame === null) showError()
+  }
+
   // Only a lesson change resets the row; markComplete notifies with the same lesson.
   function render({ lesson }) {
     if (lesson.id === lessonId) return
@@ -104,4 +126,5 @@ export function createRunControls({ container, course, runner, getValues }) {
 
   render(course.getState())
   course.subscribe(render)
+  return { noticeError }
 }

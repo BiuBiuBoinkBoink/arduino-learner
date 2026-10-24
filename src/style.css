@@ -530,6 +530,114 @@ body {
   display: none;
 }
 
+/* Sketch editor: a transparent textarea over the coloured code, the same
+   font and line height so the caret sits on the coloured text. */
+.code-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 6px;
+  font-size: 0.85rem;
+}
+
+.code-editor-bar[hidden] {
+  display: none;
+}
+
+.code-editor-label {
+  font-weight: 600;
+}
+
+.code-reset {
+  padding: 2px 12px;
+}
+
+.code-editor {
+  overflow-x: auto;
+  border-radius: 6px;
+}
+
+.code-editor-inner {
+  position: relative;
+  min-width: 100%;
+  width: max-content;
+}
+
+.code-editor .code-sketch {
+  overflow: visible;
+}
+
+.code-input {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: transparent;
+  caret-color: #1d2330;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-input::selection {
+  background: rgba(47, 111, 214, 0.3);
+}
+
+.code-input:focus-visible {
+  outline: 2px solid #2f6fd6;
+  outline-offset: 2px;
+}
+
+.code-input[hidden] {
+  display: none;
+}
+
+.code-line.has-error {
+  background: #fde2e1;
+  box-shadow: inset 3px 0 0 #c62f2a;
+}
+
+.code-error {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #8c1d18;
+  background: #fde2e1;
+  border-radius: 6px;
+}
+
+.code-error[hidden] {
+  display: none;
+}
+
+.code-edited-note {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.code-edited-note[hidden] {
+  display: none;
+}
+
+.code-param input:disabled + label,
+.code-param fieldset:disabled,
+.code-param input:disabled {
+  opacity: 0.5;
+}
+
 /* Sketch block: the .info-code look on an opaque background, so the token
    colours keep at least 4.5:1 contrast whatever the stage shows behind. */
 .code-sketch {
