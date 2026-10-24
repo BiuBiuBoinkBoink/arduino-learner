@@ -91,7 +91,7 @@ function toggleMap() {
   if (courseMap.isOpen()) courseMap.close()
   else courseMap.open()
 }
-const guide = createGuidePanel(layout.guide, course)
+const guide = createGuidePanel(layout.guide, { course, flow, tracker })
 createInfoPanel(guide.referenceBody, course, { heading: false })
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
