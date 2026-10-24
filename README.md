@@ -66,10 +66,27 @@ Phase 1 (engine foundation) is 7 of 8 jobs done. Everything below is merged into
 | 006 | Code panel with syntax colouring, sliders and choices that fill `{{param}}` slots, looping line highlight |
 | 007 | Run and Stop with a fake upload, shared pin levels, per lesson sim registry, goal check API |
 
-**Next up is job 008: Lesson 1.2 Blink end to end.** The blink sim already drives pin D13,
-but nothing lights the LED yet and there is no goal check. That job adds the LED glow,
-wires pin changes to the LED, and adds a goal that passes when the LED blinks with a
-period under 500 ms. After that, Phase 2 builds the rest of Level 1.
+### Where we stopped
+
+**Job 008, Lesson 1.2 Blink end to end, is half started.** Its spec is written but no code
+was built. The run was paused before the builder started. It is the first unticked item
+in the backlog.
+
+- **What exists:** the 1.2 sliders (`onMs`, `offMs`) and the blink sim in `src/sim/blink.js`,
+  which already drives pin D13 when you press Run.
+- **What is missing:** nothing lights the LED, nothing reacts to pin changes, and there is
+  no goal check, so 1.2 can never be completed yet.
+- **The spec:** [factory/handoff/008-blink-end-to-end-spec.md](factory/handoff/008-blink-end-to-end-spec.md)
+  has the full plan and acceptance criteria. In short:
+  - Add `setLit(on)` to `createLed` in `src/parts/led.js`. It makes the lens glow in the LED's own colour.
+  - Give LED parts in `src/circuits/circuits.js` a `pin` field (D13 for 1.2, D9 for 1.3 and 1.7).
+  - In `src/main.js`, subscribe to `pins` and light the matching LEDs, then call `stage.invalidate()`.
+  - Add `checkGoal()` to the blink sim. It passes when two rising edges on D13 are under 500 ms apart
+    and `onMs + offMs` is under 500. The defaults (500 + 500) must not pass.
+  - Add a goal hint paragraph to the 1.2 overview, plus tests and AGENTS.md updates.
+
+Build it by hand from that spec, or run `/factory next`. The factory writes a fresh spec,
+and you can compare it with the handoff one. After job 008, Phase 2 builds the rest of Level 1.
 
 ## How to continue
 
@@ -94,23 +111,65 @@ A backlog line is a one line brief, not a full spec. Before you start, write dow
 
 Kian built phase 1 with a Claude Code workflow called the factory. For each backlog item it
 writes a spec, builds it, runs four reviewers (security, UX, UI, code) in parallel, then an
-approver decides whether it merges.
+approver decides whether it merges. Jobs 001 to 007 all went through it. Six passed review
+first time; job 004 needed one fix round for the phone layout.
 
-To use it you need Claude Code plus Kian's factory skill and agent files
-(`skills/factory/SKILL.md` and `agents/*.md`). They are not in this repo yet, so ask Kian
-for them and put them in your own `~/.claude/` folder. Then, from the repo folder:
+The factory is included in this repo, so Claude Code loads it automatically when you open
+the project folder:
 
-```text
-/factory next
-```
+| Path | What it is |
+| --- | --- |
+| `.claude/skills/factory/SKILL.md` | The orchestrator: the loop, job files, ports, merge rules and commands |
+| `.claude/skills/factory/template/` | A starter `backlog.md` and `dashboard.html` (a live board of jobs) |
+| `.claude/agents/spec-writer.md` | Turns a backlog line into `spec.md` with acceptance criteria |
+| `.claude/agents/builder.md` | Builds the spec on the job branch, tests it, writes `build.md` |
+| `.claude/agents/reviewer-security.md` | Security review |
+| `.claude/agents/reviewer-ux.md` | Flows, states, copy, accessibility, checked in a real browser |
+| `.claude/agents/reviewer-ui.md` | Visual consistency, checked with screenshots |
+| `.claude/agents/reviewer-code.md` | Correctness, simplicity, conventions, runs the tests |
+| `.claude/agents/approver.md` | Final gate: APPROVE merges to `main`, ESCALATE hands it to a human |
 
-That takes the first unticked backlog item and runs the full loop. Notes:
+**One time setup:**
 
-- The UX and UI reviewers need `agent-browser`: `npm install -g agent-browser@latest`, then `agent-browser install`.
-- Each job runs in its own git worktree next to the repo (`../<repo>-factory/<job-id>`).
-- Specs, reviews and decisions go in `factory/jobs/`, which is gitignored and stays on your machine.
-- On Windows, give dev servers ports in the 7000s (see the Windows note above).
-- Reviewers sometimes leave a dev server running. If a worktree folder will not delete, find the process on that port and stop it.
+1. Install Claude Code and open it in the repo folder.
+2. Install the browser tool the UX and UI reviewers use:
+   `npm install -g agent-browser@latest`, then `agent-browser install`.
+3. Make sure `npm install`, `npm test` and `npm run build` all work on your machine first.
+
+**Commands** (run from the repo folder, on a clean `main`):
+
+| Command | What it does |
+| --- | --- |
+| `/factory next` | Takes the first unticked backlog item and runs spec, build, review and approve |
+| `/factory <feature>` | Runs the loop for a one line feature that is not in the backlog |
+| `/factory approve <job-id>` | Merges a job that is waiting for a human |
+| `/factory rework <job-id> <note>` | Sends a waiting job back to the builder with your note |
+
+A job goes spec, build, then four reviews in parallel. If any reviewer asks for changes,
+the builder fixes them and all four review again, up to 3 rounds. Then the approver
+merges it into `main` or hands it to you. The factory never pushes, so run `git push`
+yourself after a merge.
+
+**Things we learned running it:**
+
+- **Ports on Windows:** the skill gives dev servers ports `5100 + 10n`. On Windows those can
+  sit in a reserved range and fail with `EACCES`. We ran with `7100 + 10n` instead (job 008 gets
+  7180, 7181, 7182). Check your reserved ranges with the `netsh` command above.
+- **Worktrees:** each job runs in its own git worktree next to the repo, at
+  `../<repo-folder>-factory/<job-id>`. Your main checkout stays untouched until the merge.
+- **Job files stay local:** specs, builds, reviews and decisions go in `factory/jobs/`, which is
+  gitignored. Job numbers count up from whatever is in your local `factory/jobs/`, so a fresh
+  clone starts at 001 again. That is fine: the branch is deleted after each merge.
+- **Leftover dev servers:** reviewers sometimes leave a dev server running. If a worktree folder
+  will not delete, find the process on that port (`netstat -ano | findstr :7171`) and stop it.
+- **Phone layout:** UX and UI reviewers keep noting the 390 px panel overlap. It predates every
+  job and is not a blocker. It needs its own backlog item.
+- **One job at a time per person:** jobs can run in parallel (one Claude session each), but two
+  people must never claim the same backlog item. Pull `main` before `/factory next`.
+
+**Dashboard (optional):** copy `.claude/skills/factory/template/dashboard.html` into `factory/`,
+run `python -m http.server 8000` from the `factory/` folder, and open
+http://localhost:8000/dashboard.html to watch jobs move through the stages.
 
 ## Curriculum
 
@@ -126,7 +185,7 @@ The full lesson list with parts and goal checks is in Kian's curriculum doc. Ask
 
 ## Roadmap
 
-- **Phase 1, engine foundation:** job 008 left.
+- **Phase 1, engine foundation:** job 008 left (spec ready in `factory/handoff/`).
 - **Phase 2, Level 1 lessons:** interaction (button, knob), multimeter, RGB, light and temperature, buzzer, servo, room monitor project.
 - **Phase 3, code runner and Level 2:** Serial Monitor, a parser and runtime for an Arduino C subset, editable code, code based goal checks, Level 2 lessons.
 - **Phase 4 onward, not queued yet:** robot world with 2WD kinematics and sensors, Level 4 and the RC car, then Levels 3 and 5, translations (English, BM, Chinese).
