@@ -20,7 +20,7 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 - [x] Potentiometer part with drag to turn, and lessons 1.6 Potentiometer and 1.7 PWM fade with LED brightness from analogWrite values → feature/potentiometer
 - [x] Sim multimeter that reads current through a selected part, and lesson 1.3 Resistors and Ohm's law with a resistor choice of 220 ohm, 1k and 10k → feature/multimeter
 - [x] RGB LED part and lesson 1.8 Colour mixing with a target colour match goal → feature/rgb-led
-- [ ] Room environment controls for light level and temperature, LDR and TMP36 parts, and lessons 1.9 Light sensor and 1.10 Temperature
+- [x] Room environment controls for light level and temperature, LDR and TMP36 parts, and lessons 1.9 Light sensor and 1.10 Temperature → feature/room-sensors
 - [ ] Piezo buzzer part with Web Audio square wave sound, a sound on/off setting, and lesson 1.11 Sound with a 3 note tune goal
 - [ ] Servo part with an animated horn and lesson 1.12 Servo basics with a 3 target angle goal
 - [ ] Level 1 project lesson Room monitor combining LDR, TMP36, buzzer and LED, checked across a sim day and night cycle
