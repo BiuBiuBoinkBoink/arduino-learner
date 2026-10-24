@@ -43,7 +43,10 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
   // One pass: lesson switch, migration, latching, storing a pass and the lesson done.
   function step() {
     const { lesson, completed } = course.getState()
+    // A new lesson starts from an idle context, so the old lesson's run
+    // progress never counts for it.
     if (lesson.id !== lessonId) {
+      if (lessonId !== null) ctx = IDLE_CTX
       lessonId = lesson.id
       opened = new Set()
     }

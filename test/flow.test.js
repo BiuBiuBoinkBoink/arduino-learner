@@ -213,6 +213,18 @@ describe('createFlow', () => {
     expect(course.getState().completed).toEqual(['a'])
   })
 
+  it('forgets the old lesson run progress on a lesson change', () => {
+    const { flow, course, tracker } = setup()
+    course.goTo('b')
+    flow.update(running({ goal: true }))
+    course.goTo('a')
+    flow.answer('legs', 1)
+    flow.next()
+    flow.answer('guess', 1)
+    expect(tracker.get('a').latched).toEqual({})
+    expect(flow.getView().passedNow).toBe(false)
+  })
+
   it('restores step progress from storage', () => {
     const first = setup()
     first.flow.answer('legs', 1)

@@ -11,7 +11,7 @@
 // the same textarea moves along, so the text, caret and highlights stay.
 // The panel does not own its open state: the chevron in the header calls
 // setOpen(false) and the Code rail (shown only while closed) calls setOpen(true).
-// Returns { serialSlot, getValues, subscribe, getSource, isEdited, setError }:
+// Returns { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError }:
 // an empty slot under the editor for the Serial Monitor, a copy of the param
 // values, subscribe(fn) calling fn(values) on every control change and lesson
 // change, the code to run, and setError({ line, message } | null).
@@ -135,6 +135,8 @@ export function createCodePanel(panel, course, { setOpen }) {
   let editable = false
   let full = false
   const listeners = new Set()
+  // Called with the source on every edit of the sketch text.
+  const inputListeners = new Set()
   const paramInputs = []
 
   function notify() {
@@ -203,6 +205,7 @@ export function createCodePanel(panel, course, { setOpen }) {
     setError(null)
     renderCode(input.value)
     setEdited(input.value !== filled())
+    inputListeners.forEach((fn) => fn(input.value))
   })
 
   // Full screen moves the workspace to the body, above every panel, and back to
@@ -360,10 +363,16 @@ export function createCodePanel(panel, course, { setOpen }) {
     return () => listeners.delete(fn)
   }
 
+  function onInput(fn) {
+    inputListeners.add(fn)
+    return () => inputListeners.delete(fn)
+  }
+
   return {
     serialSlot,
     getValues: () => ({ ...values }),
     subscribe,
+    onInput,
     getSource: () => input.value,
     isEdited: () => edited,
     setError

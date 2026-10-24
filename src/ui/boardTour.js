@@ -1,6 +1,7 @@
 // Board tour for lessons with a tour field: hover labels and clickable zones on
 // the board, plus a tour card with a checklist as the keyboard path. Zone names
 // and text come from the lesson data. Opened zones live in memory only.
+// onComplete(lessonId) runs once when every zone of the lesson is opened.
 import * as THREE from 'three'
 import { createTour } from '../sim/tour.js'
 
@@ -9,7 +10,7 @@ const HIGHLIGHT = new THREE.Color(0x2f6fd6)
 const HIGHLIGHT_INTENSITY = 0.45
 const NO_GLOW = new THREE.Color(0x000000)
 
-export function createBoardTour({ stage, board, course, container }) {
+export function createBoardTour({ stage, board, course, container, onComplete }) {
   const canvas = stage.renderer.domElement
   const zoneObjects = Object.values(board.zones)
   const raycaster = new THREE.Raycaster()
@@ -117,7 +118,7 @@ export function createBoardTour({ stage, board, course, container }) {
   function open(zoneId) {
     const { lesson, state } = active
     state.last = zoneId
-    if (state.tour.open(zoneId)) course.markComplete(lesson.id)
+    if (state.tour.open(zoneId)) onComplete(lesson.id)
     renderCard()
   }
 

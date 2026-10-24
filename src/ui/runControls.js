@@ -3,13 +3,16 @@
 // error shows its message here and its line in the code panel (onError).
 // Drives the sim runner with a requestAnimationFrame loop while it is running,
 // and shows the sim readout line under the status while it runs.
+// getLock() returns null or why Run is locked (shown as the status, Run
+// disabled); refreshLock() re-checks it. onFrame() runs after every loop frame,
+// on Stop and on an error, so the lesson steps can follow the run.
 const STATUS_IDLE = 'Press Run to upload the sketch.'
 const STATUS_UPLOADING = 'Uploading sketch...'
 const STATUS_RUNNING = 'Running.'
 const STATUS_STOPPED = 'Stopped.'
 const STATUS_GOAL = 'Goal met. Lesson done.'
 
-export function createRunControls({ container, course, runner, getValues, getSource, onError }) {
+export function createRunControls({ container, course, runner, getValues, getSource, onError, getLock = () => null, onFrame = () => {} }) {
   const row = document.createElement('div')
   row.className = 'run-controls'
   const runButton = document.createElement('button')
@@ -38,6 +41,8 @@ export function createRunControls({ container, course, runner, getValues, getSou
   let shownPhase = 'idle'
   let shownGoal = false
   let shownReadout = ''
+  // The status shows the run lock text while it is true.
+  let lockShown = false
 
   function showIdle(text) {
     runButton.disabled = false
@@ -45,7 +50,23 @@ export function createRunControls({ container, course, runner, getValues, getSou
     status.textContent = text
     shownPhase = 'idle'
     shownGoal = false
+    lockShown = false
     showReadout('')
+    refreshLock()
+  }
+
+  // While idle, a lock disables Run and shows why; lifting it restores the idle text.
+  function refreshLock() {
+    if (shownPhase !== 'idle') return
+    const lock = getLock()
+    runButton.disabled = Boolean(lock)
+    if (lock) {
+      status.textContent = lock
+      lockShown = true
+    } else if (lockShown) {
+      status.textContent = STATUS_IDLE
+      lockShown = false
+    }
   }
 
   function showReadout(text) {
@@ -59,6 +80,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
     const error = runner.getError()
     onError(error)
     showIdle(`Stopped. ${error.message}`)
+    onFrame()
   }
 
   function loop() {
@@ -81,6 +103,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
     showReadout(runner.getReadout())
     if (phase === 'uploading' || phase === 'running') frame = requestAnimationFrame(loop)
     else if (phase === 'error') showError()
+    onFrame()
   }
 
   function stopLoop() {
@@ -89,6 +112,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
   }
 
   runButton.addEventListener('click', () => {
+    if (getLock()) return
     onError(null)
     if (!runner.run({ lessonId, getValues, source: getSource(), now: performance.now() })) {
       if (runner.getPhase() === 'error') showError()
@@ -107,6 +131,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
     runner.stop()
     stopLoop()
     showIdle(STATUS_STOPPED)
+    onFrame()
   })
 
   // A runtime error can arrive between frames, while the loop is waiting.
@@ -126,5 +151,5 @@ export function createRunControls({ container, course, runner, getValues, getSou
 
   render(course.getState())
   course.subscribe(render)
-  return { noticeError }
+  return { noticeError, refreshLock }
 }

@@ -1,6 +1,10 @@
 import './style.css'
 import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
+import { createStepTracker } from './course/stepTracker.js'
+import { createFlow } from './course/flow.js'
+import { stepsFor, hasGeneratedSteps, CODE_OPEN_KINDS } from './course/steps.js'
+import { evaluate } from './course/checks.js'
 import { idFromHash, hashForId } from './course/hash.js'
 import { createScene } from './app/scene.js'
 import { createCircuitView } from './app/circuitView.js'
@@ -27,12 +31,15 @@ import { circuits } from './circuits/circuits.js'
 import { createPins } from './sim/pins.js'
 import { createInputs } from './sim/inputs.js'
 import { sims } from './sim/sims.js'
-import { createSimRunner } from './sim/runner.js'
+import { createSimRunner, checkCode } from './sim/runner.js'
 
 const layout = createLayout(document.querySelector('#app'))
 const { stage, board, breadboard, frameBox } = createScene(layout.stageEl)
 
 const course = createCourse({ lessons, storage: getStorage() })
+// Lesson steps: per step progress and the flow that checks the current step.
+const tracker = createStepTracker({ storage: getStorage(), lessons, stepsFor })
+const flow = createFlow({ course, tracker, stepsFor, evaluate })
 
 // URL hash sync: lesson changes push the hash, hashchange calls goTo.
 // Unknown or missing hashes are replaced with the current lesson, no history entry.
@@ -90,15 +97,18 @@ createInfoPanel(guide.referenceBody, course, { heading: false })
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
 const codePanel = createCodePanel(layout.codePanel, course, { setOpen: layout.setCodeOpen })
 const { getValues, subscribe: subscribeValues } = codePanel
-// The code panel opens by default on lessons with a sketch.
-let codeLessonId = null
-function defaultCodeOpen({ lesson }) {
-  if (lesson.id === codeLessonId) return
-  codeLessonId = lesson.id
-  layout.setCodeOpen(Boolean(lesson.sketch))
+// The code panel opens by default on predict, run and code steps and closes on
+// the others; the learner's own open or close sticks until the step changes.
+let codeStepKey = null
+function defaultCodeOpen(view) {
+  const entry = view.steps[view.index]
+  const key = view.lesson.id + ':' + view.index
+  if (!entry || key === codeStepKey) return
+  codeStepKey = key
+  layout.setCodeOpen(CODE_OPEN_KINDS.includes(entry.step.kind))
 }
-defaultCodeOpen(course.getState())
-course.subscribe(defaultCodeOpen)
+defaultCodeOpen(flow.getView())
+flow.subscribe(defaultCodeOpen)
 
 // The Serial Monitor sits under the sketch editor, and moves with it to full screen.
 const serialMonitor = createSerialMonitor({
@@ -167,19 +177,69 @@ subscribeValues((values) => {
   view.relight()
 })
 
-// One runner over the shared pin levels and inputs; only a sim goal marks a lesson done.
-const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal: (id) => course.markComplete(id) })
+// One runner over the shared pin levels and inputs. A sim goal marks a lesson
+// with a generated step done; a lesson with its own steps is done when the
+// flow has seen every step pass.
+function onGoal(id) {
+  const lesson = lessons.find((item) => item.id === id)
+  if (lesson && hasGeneratedSteps(lesson)) course.markComplete(id)
+}
+const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal })
+
+// Everything a step check looks at. The compile result is cached by source.
+const toursDone = new Set()
+let checkedSource = null
+let checkedError = null
+function currentContext() {
+  const source = codePanel.getSource()
+  if (source !== checkedSource) {
+    checkedSource = source
+    checkedError = checkCode(source)
+  }
+  const { lesson } = course.getState()
+  return {
+    lessonId: lesson.id,
+    sim: { phase: runner.getPhase(), progress: runner.getProgress() },
+    code: { error: checkedError },
+    tour: { complete: toursDone.has(lesson.id) }
+  }
+}
+function updateFlow() {
+  flow.update(currentContext())
+}
+
 const run = createRunControls({
   container: layout.runBar,
   course,
   runner,
   getValues,
   getSource: codePanel.getSource,
-  onError: codePanel.setError
+  onError: codePanel.setError,
+  getLock: () => flow.runLock(),
+  onFrame: updateFlow
 })
+flow.subscribe(() => run.refreshLock())
+course.subscribe(updateFlow)
+// Code edits and control changes re-check the code steps, 300 ms after the last one.
+let editTimer = null
+function updateFlowSoon() {
+  clearTimeout(editTimer)
+  editTimer = setTimeout(updateFlow, 300)
+}
+subscribeValues(updateFlowSoon)
+codePanel.onInput(updateFlowSoon)
 // A slider move while running swaps in the refilled sketch at once; edited
 // code waits for the next Run, like a real upload.
 subscribeValues(() => {
   if (runner.getPhase() === 'running' && !codePanel.isEdited()) runner.reload(codePanel.getSource(), performance.now())
 })
-createBoardTour({ stage, board, course, container: layout.workbench })
+// A finished tour counts for the step checks, and still marks 1.1 done while
+// its step is the generated one.
+function onTourComplete(id) {
+  toursDone.add(id)
+  const lesson = lessons.find((item) => item.id === id)
+  if (lesson && hasGeneratedSteps(lesson)) course.markComplete(id)
+  updateFlow()
+}
+createBoardTour({ stage, board, course, container: layout.workbench, onComplete: onTourComplete })
+updateFlow()
