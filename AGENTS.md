@@ -45,29 +45,34 @@ There is no linter yet. Match the formatting of the file you are editing.
 Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/panels.js`, `src/style.css`, `src/course/lessons.js`, `src/course/state.js`,
 `src/course/hash.js`, `src/ui/lessonStrip.js`, `src/ui/infoPanel.js`,
-`src/ui/codePanel.js`, `src/ui/tabKeys.js`. The other folders are the target for later jobs.
+`src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
+`src/ui/boardTour.js`. The other folders are the target for later jobs.
 
 ```
 src/
-  main.js          boot: builds the scene, UI and course engine
+  main.js          boot: builds the scene, adds the Uno board to it, UI and course engine
   style.css        full viewport layout: stage behind, panels on the edges
   course/          lessons data, state, goTo(id), progress
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
     lessons.js     lesson objects: id, level, title, summary, plus info tab content:
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
-                   example ({ code, note }), specs ([{ label, value }])
+                   example ({ code, note }), specs ([{ label, value }]); optional
+                   tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only)
   scene/           renderer, camera, lights, render loop
-    stage.js       renderer, camera, orbit controls, lights, ground; returns invalidate()
+    stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate()
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
+    unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
   sim/             per lesson simulators, pin levels, goal checks
+    tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
   runner/          code runner for learner code (Level 2 onward)
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
+    boardTour.js   board hover labels, zone clicks and tour card checklist for lessons with a tour; marks 1.1 done
 test/              vitest unit tests
 ```
 

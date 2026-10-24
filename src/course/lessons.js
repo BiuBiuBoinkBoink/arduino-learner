@@ -39,6 +39,14 @@ void loop() {
       { label: 'SRAM', value: '2 KB' },
       { label: 'Digital pins', value: '14, 6 with PWM' },
       { label: 'Analog inputs', value: '6' }
+    ],
+    tour: [
+      { zone: 'digital', label: 'Digital pins', text: 'Pins D0 to D13 read or send on and off signals. Pins marked ~ can also output PWM.' },
+      { zone: 'analog', label: 'Analog pins', text: 'Pins A0 to A5 measure a voltage from 0 to 5 V. Sensors like a potentiometer connect here.' },
+      { zone: 'power', label: 'Power pins', text: 'These pins give 5V, 3.3V and GND to your circuit. VIN carries the raw supply from the jack.' },
+      { zone: 'usb-power', label: 'USB and power jack', text: 'The USB port powers the board and loads your sketch. The barrel jack takes 7 to 12 V when no computer is attached.' },
+      { zone: 'chip', label: 'ATmega328P chip', text: 'This chip is the brain of the board. It stores your sketch and runs it at 16 MHz.' },
+      { zone: 'reset', label: 'Reset button', text: 'Press it to restart your sketch from the top. The board runs setup again, then loop.' }
     ]
   },
   {

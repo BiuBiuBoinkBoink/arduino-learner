@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { lessons } from '../src/course/lessons.js'
+import { UNO_ZONE_IDS } from '../src/parts/unoBoard.js'
 
 function isAscii(text) {
   return [...text].every((ch) => ch.charCodeAt(0) < 128)
@@ -53,4 +54,22 @@ describe('lesson content', () => {
       })
     })
   }
+})
+
+describe('lesson 1.1 board tour', () => {
+  const lesson = lessons.find((item) => item.id === '1.1')
+
+  it('has one tour entry per board zone, in order', () => {
+    expect(lesson.tour.map((entry) => entry.zone)).toEqual(UNO_ZONE_IDS)
+  })
+
+  it('has a non empty ASCII label and text for each entry', () => {
+    for (const entry of lesson.tour) {
+      expect(nonEmpty(entry.label)).toBe(true)
+      expect(nonEmpty(entry.text)).toBe(true)
+      expect(isAscii(entry.label)).toBe(true)
+      expect(isAscii(entry.text)).toBe(true)
+      expect(entry.text.includes('!')).toBe(false)
+    }
+  })
 })
