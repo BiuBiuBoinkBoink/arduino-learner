@@ -47,7 +47,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/course/hash.js`, `src/ui/lessonStrip.js`, `src/ui/infoPanel.js`,
 `src/ui/codePanel.js`, `src/ui/tabKeys.js`, `src/ui/highlight.js`, `src/ui/sketch.js`, `src/parts/unoBoard.js`, `src/sim/tour.js`,
 `src/ui/boardTour.js`, `src/parts/breadboard.js`, `src/parts/led.js`, `src/parts/resistor.js`,
-`src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`. The other
+`src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/sim/pins.js`,
+`src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -82,6 +83,11 @@ src/
                    to world positions, one factory result per id, item group name = id
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
+    pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
+    sims.js        sims registry: lesson id -> sim factory ('1.2' now)
+    blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; no goal yet
+    runner.js      pure createSimRunner({ sims, pins, onGoal, uploadMs }): hasSim, run, tick(now), stop,
+                   getPhase (idle, uploading, running), isGoalMet; UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
@@ -90,7 +96,10 @@ src/
     codePanel.js   Code heading, lesson line, param controls (range sliders with value text, choice
                    radio fieldsets) and the sketch coloured per line; controls refill the slots live,
                    values reset on lesson change; the trace loops an is-active line highlight on timers;
-                   lessons without a sketch show coloured example.code, no controls, no trace
+                   lessons without a sketch show coloured example.code, no controls, no trace;
+                   returns { toolbar, getValues }: an empty slot after the lesson line, and a copy of the values
+    runControls.js Run and Stop buttons plus status line in the code panel toolbar; hidden on lessons
+                   without a sim; rAF loop calls runner.tick while not idle; stops the runner on lesson change
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), fillSketch(code, values), stepDuration(step, values),
@@ -134,6 +143,22 @@ the current lesson, and every panel updates from it.
 - `main.js` places the Uno left and the breadboard right, 1 cm apart, centred on
   x = 0. On every lesson change it removes and disposes the old circuit group,
   builds `circuits[lesson.id]` if there is one, and calls `invalidate()`.
+
+## Sims and goal checks
+
+- A lesson sim is made by a factory `create({ pins, getValues, startedAt })` and
+  returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
+  the same clock. `getValues()` gives the live code panel param values.
+- `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
+  have no Run controls.
+- Pin levels live in one shared `createPins()`: `0` is LOW, `1` is HIGH, unset
+  pins read `0`. Stop resets every pin to `0`.
+- Run starts a fake upload of `UPLOAD_MS` (1500 ms), then the runner creates the
+  sim and calls `update(now)` every tick.
+- A lesson is marked done only by `onGoal(lessonId)`, which the runner calls once
+  per run when `checkGoal()` first returns true. A sim without `checkGoal` never
+  completes its lesson. The runner never calls `markComplete` itself; `main.js`
+  passes `onGoal: (id) => course.markComplete(id)`.
 
 ## Conventions
 

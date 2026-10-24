@@ -1,6 +1,8 @@
 // Code panel: heading, lesson line, param controls and the coloured sketch.
 // Lessons with a sketch get controls that fill its {{name}} slots and a trace
 // that loops a line highlight; other lessons show their example code.
+// Returns { toolbar, getValues }: an empty slot after the lesson line for the
+// run controls, and a copy of the current param values.
 import { tokenize } from './highlight.js'
 import { defaultValues, fillSketch, stepDuration } from './sketch.js'
 
@@ -10,13 +12,14 @@ export function createCodePanel(panel, course) {
   heading.textContent = 'Code'
   const lessonLine = document.createElement('p')
   lessonLine.className = 'panel-text'
+  const toolbar = document.createElement('div')
   const controls = document.createElement('div')
   controls.className = 'code-params'
   const pre = document.createElement('pre')
   pre.className = 'info-code code-sketch'
   const code = document.createElement('code')
   pre.append(code)
-  panel.append(heading, lessonLine, controls, pre)
+  panel.append(heading, lessonLine, toolbar, controls, pre)
 
   let lessonId = null
   let source = ''
@@ -136,6 +139,8 @@ export function createCodePanel(panel, course) {
 
   render(course.getState())
   course.subscribe(render)
+
+  return { toolbar, getValues: () => ({ ...values }) }
 }
 
 // Splits tokens into one span per source line; each non plain token gets a
