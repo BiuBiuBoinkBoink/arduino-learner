@@ -89,8 +89,18 @@ when one full blink takes under 500 ms. Its spec is
 - Goals: three clean presses while running (1.5 only counts them with the resistor fitted).
   These goals are an assumption; check them against the curriculum doc.
 
-**Next is the second Phase 2 item:** the potentiometer part with drag to turn, and lessons
-1.6 Potentiometer and 1.7 PWM fade. No spec yet.
+**Next is job 010, the second Phase 2 item:** a potentiometer you turn by dragging its knob,
+analog pin levels and LED brightness, plus lessons 1.6 Potentiometer and 1.7 PWM fade.
+The spec is ready, nothing is built yet:
+[factory/handoff/010-potentiometer-spec.md](factory/handoff/010-potentiometer-spec.md). In short:
+
+- A procedural potentiometer part (`src/parts/potentiometer.js`) whose knob turns over 270 degrees.
+- `src/ui/partTurn.js`: drag up or down on the knob to turn it, orbit paused while turning,
+  plus a "Knob" slider for keyboard users.
+- Pin levels from 0 to 1 for analog inputs and PWM duty, and LED `setBrightness`.
+- A readout line under the run status that stands in for the Serial Monitor.
+- 1.6 passes when A0 has read near both ends; 1.7 passes on one full fade taking 1 to 3 s.
+  These goals are an assumption; check them against the curriculum doc.
 
 ## How to continue
 
@@ -191,7 +201,7 @@ The full lesson list with parts and goal checks is in Kian's curriculum doc. Ask
 ## Roadmap
 
 - **Phase 1, engine foundation:** done.
-- **Phase 2, Level 1 lessons:** job 009 (button, 1.4, 1.5) built. Interaction (button, knob), multimeter, RGB, light and temperature, buzzer, servo, room monitor project.
+- **Phase 2, Level 1 lessons:** job 009 (button, 1.4, 1.5) built, job 010 spec ready in `factory/handoff/`. Interaction (button, knob), multimeter, RGB, light and temperature, buzzer, servo, room monitor project.
 - **Phase 3, code runner and Level 2:** Serial Monitor, a parser and runtime for an Arduino C subset, editable code, code based goal checks, Level 2 lessons.
 - **Phase 4 onward, not queued yet:** robot world with 2WD kinematics and sensors, Level 4 and the RC car, then Levels 3 and 5, translations (English, BM, Chinese).
 
