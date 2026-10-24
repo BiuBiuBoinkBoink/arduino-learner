@@ -79,5 +79,22 @@ export const circuits = {
       { id: 'w3', color: 'black', from: 'GND.2', to: '14a' }
     ]
   },
-  '1.7': ledCircuit('D9')
+  '1.7': ledCircuit('D9'),
+  // Common cathode RGB LED: red 14, cathode 15 to GND, green 16, blue 17. Each
+  // colour pin reaches its leg through a 220 ohm resistor; green comes up from
+  // the bottom half across the channel.
+  '1.8': {
+    parts: [
+      { id: 'rgb1', type: 'rgbLed', at: '14e', pins: { red: 'D9', green: 'D10', blue: 'D11' } },
+      { id: 'r1', type: 'resistor', ohms: 220, from: '8c', to: '14c' },
+      { id: 'r2', type: 'resistor', ohms: 220, from: '16d', to: '16g' },
+      { id: 'r3', type: 'resistor', ohms: 220, from: '23c', to: '17c' }
+    ],
+    wires: [
+      { id: 'w1', color: 'red', from: 'D9', to: '8a' },
+      { id: 'w2', color: 'green', from: 'D10', to: '16j' },
+      { id: 'w3', color: 'blue', from: 'D11', to: '23a' },
+      { id: 'w4', color: 'black', from: 'GND', to: '15a' }
+    ]
+  }
 }

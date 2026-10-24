@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { circuits } from '../src/circuits/circuits.js'
-import { buildCircuit, buttonHoles, potHoles } from '../src/circuits/buildCircuit.js'
+import { buildCircuit, buttonHoles, potHoles, rgbHoles } from '../src/circuits/buildCircuit.js'
 import { lessons } from '../src/course/lessons.js'
 import { createUnoBoard, unoPinPosition, UNO_PIN_NAMES } from '../src/parts/unoBoard.js'
 import { createBreadboard, holePosition, holeStrip, parseHole } from '../src/parts/breadboard.js'
@@ -20,6 +20,7 @@ function placedBoards() {
 function partHoles(part) {
   if (part.type === 'button') return buttonHoles(part.at)
   if (part.type === 'potentiometer') return potHoles(part.at)
+  if (part.type === 'rgbLed') return rgbHoles(part.at)
   return part.type === 'led' ? [part.anode, part.cathode] : [part.from, part.to]
 }
 
@@ -42,10 +43,10 @@ function nodeOf(circuit) {
 }
 
 describe('circuit tables', () => {
-  it('are keyed by lesson ids, only 1.2 to 1.7', () => {
+  it('are keyed by lesson ids, only 1.2 to 1.8', () => {
     const ids = lessons.map((lesson) => lesson.id)
     for (const key of Object.keys(circuits)) expect(ids).toContain(key)
-    expect(Object.keys(circuits).sort()).toEqual(['1.2', '1.3', '1.4', '1.5', '1.6', '1.7'])
+    expect(Object.keys(circuits).sort()).toEqual(['1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8'])
   })
 
   it('expands a potentiometer at 12e to legs at 12e, 13e and 14e', () => {
@@ -220,6 +221,43 @@ describe('circuit tables', () => {
       const ids = circuit.parts.map((part) => part.id)
       for (const target of circuit.meter) for (const part of target.parts) expect(ids).toContain(part)
     })
+  })
+
+  describe('lesson 1.8 RGB LED circuit', () => {
+    const circuit = circuits['1.8']
+    const rgb = circuit.parts.find((part) => part.type === 'rgbLed')
+    const wireTo = (pin) => holeStrip(circuit.wires.find((wire) => wire.from === pin).to)
+
+    it('expands an RGB LED at 14e to red, cathode, green and blue legs', () => {
+      expect(rgbHoles('14e')).toEqual(['14e', '15e', '16e', '17e'])
+      expect(rgb.at).toBe('14e')
+      expect(rgb.pins).toEqual({ red: 'D9', green: 'D10', blue: 'D11' })
+    })
+
+    it('reaches each colour leg from its pin through one 220 ohm resistor, cathode to GND', () => {
+      const [red, cathode, green, blue] = rgbHoles(rgb.at).map(holeStrip)
+      const resistors = circuit.parts.filter((part) => part.type === 'resistor')
+      expect(resistors).toHaveLength(3)
+      const joins = (a, b) => resistors.some((r) => {
+        const ends = [holeStrip(r.from), holeStrip(r.to)]
+        return r.ohms === 220 && ends.includes(a) && ends.includes(b)
+      })
+      expect(joins(wireTo('D9'), red)).toBe(true)
+      expect(joins(wireTo('D10'), green)).toBe(true)
+      expect(joins(wireTo('D11'), blue)).toBe(true)
+      expect(wireTo('GND')).toBe(cathode)
+      for (const r of resistors) expect(holeStrip(r.from)).not.toBe(holeStrip(r.to))
+    })
+
+    it('builds an RGB LED item with setColor', () => {
+      const { items } = buildCircuit(circuit, placedBoards())
+      expect(typeof items.rgb1.setColor).toBe('function')
+    })
+  })
+
+  it('throws naming the item for an RGB LED past column 27', () => {
+    const boards = placedBoards()
+    expect(() => buildCircuit({ parts: [{ id: 'q1', type: 'rgbLed', at: '28e' }], wires: [] }, boards)).toThrow('q1')
   })
 
   describe('lesson 1.6 potentiometer circuit', () => {

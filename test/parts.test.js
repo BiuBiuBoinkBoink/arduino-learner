@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { createButton } from '../src/parts/button.js'
 import { createLed } from '../src/parts/led.js'
 import { createPotentiometer } from '../src/parts/potentiometer.js'
+import { createRgbLed } from '../src/parts/rgbLed.js'
 import { createResistor, resistorBands } from '../src/parts/resistor.js'
 import { WIRE_COLORS, wireCurve, createWire } from '../src/parts/wire.js'
 
@@ -274,5 +275,44 @@ describe('createPotentiometer', () => {
     const { group } = createPotentiometer({ legs })
     for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
     expect(group.userData.turnable).toBe(true)
+  })
+})
+
+describe('createRgbLed', () => {
+  const legs = [0, 1, 2, 3].map((i) => new THREE.Vector3(1 + i * 0.254, 0.852, 0.3))
+
+  function lens(group) {
+    return meshesOf(group).find((mesh) => mesh.material.transparent).material
+  }
+
+  it('reaches down to its four leg points and stands above them', () => {
+    const { group } = createRgbLed({ legs })
+    const box = new THREE.Box3().setFromObject(group)
+    expect(Math.abs(box.min.y - legs[0].y)).toBeLessThan(0.02)
+    expect(box.max.y).toBeGreaterThan(legs[0].y + 0.8)
+    expect(box.min.x).toBeLessThan(legs[0].x)
+    expect(box.max.x).toBeGreaterThan(legs[3].x)
+  })
+
+  it('starts dark and glows in the mix of its channels', () => {
+    const { group, setColor } = createRgbLed({ legs })
+    const material = lens(group)
+    expect(material.emissive.getHex()).toBe(0x000000)
+    // Channel levels read as sRGB, so 255, 128, 0 is orange.
+    setColor(1, 128 / 255, 0)
+    expect(material.emissive.getHexString()).toBe('ff8000')
+    expect(material.color.getHexString()).toBe('ff8000')
+    const full = material.emissiveIntensity
+    setColor(0.5, 64 / 255, 0)
+    expect(material.emissive.getHexString()).toBe('ff8000')
+    expect(material.emissiveIntensity).toBeCloseTo(full / 2, 6)
+    setColor(0, 0, 0)
+    expect(material.emissive.getHex()).toBe(0x000000)
+  })
+
+  it('casts shadows from every mesh and needs four legs', () => {
+    const { group } = createRgbLed({ legs })
+    for (const mesh of meshesOf(group)) expect(mesh.castShadow).toBe(true)
+    expect(() => createRgbLed({ legs: legs.slice(0, 3) })).toThrow()
   })
 })
