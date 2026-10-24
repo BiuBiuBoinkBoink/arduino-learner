@@ -23,7 +23,7 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 - [x] Room environment controls for light level and temperature, LDR and TMP36 parts, and lessons 1.9 Light sensor and 1.10 Temperature → feature/room-sensors
 - [x] Piezo buzzer part with Web Audio square wave sound, a sound on/off setting, and lesson 1.11 Sound with a 3 note tune goal → feature/buzzer
 - [x] Servo part with an animated horn and lesson 1.12 Servo basics with a 3 target angle goal → feature/servo
-- [ ] Level 1 project lesson Room monitor combining LDR, TMP36, buzzer and LED, checked across a sim day and night cycle
+- [x] Level 1 project lesson Room monitor combining LDR, TMP36, buzzer and LED, checked across a sim day and night cycle → feature/room-monitor
 
 ## Phase 3: Code runner and Level 2
 

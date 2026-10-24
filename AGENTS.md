@@ -74,7 +74,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
-`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`. The other
+`src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -82,13 +82,13 @@ src/
   main.js          boot: builds the scene, adds the Uno board and breadboard to it, UI and course engine;
                    swaps the circuit group on every lesson change; lights circuit LEDs from pin levels
   style.css        full viewport layout: stage behind, panels on the edges
-  course/          lessons data, state, goTo(id), progress
+  course/          lessons data, state, goTo(id), progress; 1.1 to 1.12 then the Level 1 project P1
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
     lessons.js     lesson objects: id, level, title, summary, plus info tab content:
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
                    example ({ code, note }), specs ([{ label, value }]); optional
                    tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only);
-                   optional sketch ({ code, params, trace }, 1.2 to 1.7 now): code is a template with
+                   optional sketch ({ code, params, trace }, 1.2 to 1.12 and P1 now): code is a template with
                    {{name}} slots; params are range ({ name, label, min, max, step, value, unit? }) or
                    choice ({ name, label, value, options: [{ value, label, code? }] }, an option code is the
                    text its slot shows instead of the value); trace is a looping list
@@ -124,7 +124,7 @@ src/
                    group.userData.turnable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2 to 1.12 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2 to 1.12 and P1 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
                    to world positions, one factory result per id, item group name = id;
                    buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes;
@@ -135,7 +135,10 @@ src/
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
-    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.12' now)
+    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.12' and 'P1' now)
+    monitor.js     pure createMonitorSim (P1): DAY_MS 24 s day drives room light (lightAt) and temperature
+                   (tempAt); A0 divider, A1 TMP36, D13 on under darkLevel, 880 Hz on D8 at or above alarmC;
+                   goal is one whole day with the LED and alarm right in every checked band
     sweep.js       pure createSweepSim (1.12): arm moves to the live angle param at 0.6 deg per ms on D9 in
                    servos; stop holds it; goal is resting at each of TARGETS 45, 90, 135 while commanded
     tune.js        pure createTuneSim (1.11): NOTES C to B, note1 to note3 params (Hz, read as each note starts)
@@ -238,7 +241,8 @@ the current lesson, and every panel updates from it.
   }
   ```
 
-  Part positions are holes. Wire `from` is an Uno pin name, `to` a hole.
+  Part positions are holes. Wire `from` is an Uno pin name, or a hole for a
+  jumper between two strips; `to` is a hole.
   LED parts carry `pin`, the Uno pin that drives them; `buildCircuit` ignores it
   for geometry and `main.js` uses it to light the LED.
   Ids are unique within a circuit.
@@ -266,6 +270,8 @@ the current lesson, and every panel updates from it.
 - A servo is `{ id, type: 'servo', at: '12h', pin: 'D9' }`. Its cable ends use
   the same three holes as a potentiometer (GND, 5V, signal), and its body lies
   on the breadboard to the right. `main.js` centres it at 90 deg on every build.
+- A circuit with `roomDriven: true` has its sim set the room (the P1 sim day),
+  so `main.js` hides the room sliders for it.
 - An LED may carry `ohmsParam`, the code panel param holding its series
   resistor in ohms. `main.js` then lights it at the pin level times
   `ledBrightness(ohms)`, and re-lights LEDs on every param change.
