@@ -26,7 +26,7 @@ function partHoles(part) {
 // The pin that drives each lesson's LED.
 const SIGNAL_PINS = { '1.2': 'D13', '1.3': 'D9', '1.4': 'D13', '1.5': 'D13', '1.7': 'D9' }
 // Lessons built from the plain pin, resistor, LED, GND circuit.
-const LED_ONLY = ['1.2', '1.3', '1.7']
+const LED_ONLY = ['1.2', '1.7']
 
 // Electrical node of a hole: its strip, with a button's facing legs joined
 // across the channel, so column c top and bottom are one node.
@@ -191,6 +191,36 @@ describe('circuit tables', () => {
       })
     })
   }
+
+  describe('lesson 1.3 resistor choice circuit', () => {
+    const circuit = circuits['1.3']
+    const resistors = circuit.parts.filter((part) => part.type === 'resistor')
+    const led = circuit.parts.find((part) => part.type === 'led')
+
+    it('has a 220 ohm, 1 kohm and 10 kohm resistor in the same holes, one per ohms choice', () => {
+      expect(resistors.map((part) => part.ohms)).toEqual([220, 1000, 10000])
+      for (const part of resistors) {
+        expect([part.from, part.to]).toEqual(['5c', '9c'])
+        expect(part.showWhen).toEqual({ param: 'ohms', value: part.ohms })
+      }
+      const choice = lessons.find((lesson) => lesson.id === '1.3').sketch.params.find((param) => param.name === 'ohms')
+      expect(choice.options.map((option) => option.value)).toEqual([220, 1000, 10000])
+    })
+
+    it('wires D9 through the resistor to a red LED on D9 that dims with ohms', () => {
+      expect(led.pin).toBe('D9')
+      expect(led.ohmsParam).toBe('ohms')
+      expect(holeStrip(circuit.wires.find((wire) => wire.from === 'D9').to)).toBe(holeStrip('5c'))
+      expect(holeStrip(led.anode)).toBe(holeStrip('9c'))
+      expect(holeStrip(circuit.wires.find((wire) => wire.from === 'GND').to)).toBe(holeStrip(led.cathode))
+    })
+
+    it('lists meter targets whose parts exist', () => {
+      expect(circuit.meter.map((target) => target.id)).toEqual(['led', 'resistor'])
+      const ids = circuit.parts.map((part) => part.id)
+      for (const target of circuit.meter) for (const part of target.parts) expect(ids).toContain(part)
+    })
+  })
 
   describe('lesson 1.6 potentiometer circuit', () => {
     const circuit = circuits['1.6']

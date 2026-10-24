@@ -119,8 +119,8 @@ void loop() {
     summary: 'Pick a resistor that keeps the LED current in a safe range.',
     overview: [
       "Ohm's law says current equals voltage divided by resistance, I = V / R.",
-      'The resistor drops whatever voltage the LED does not use. With a 5 V pin and a 2 V LED, the resistor sees 3 V. A 220 ohm resistor then lets about 14 mA flow.',
-      'A bigger resistor means less current and a dimmer LED. Too small a resistor can damage the LED or the pin.'
+      'The resistor drops whatever voltage the LED does not use. With a 5 V pin and a 2 V LED, the resistor sees 3 V. A 220 ohm resistor then lets about 14 mA flow. A bigger resistor means less current and a dimmer LED.',
+      'Goal: press Run, then measure the LED current with each of the three resistors. Click the LED or the resistor, or pick one in Meter on.'
     ],
     pinout: [
       { pin: 'D9', use: 'Output to the resistor, then to the LED anode.' },
