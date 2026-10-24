@@ -142,3 +142,24 @@ export function bendLegs(type, from, to) {
   if (span === null || span < spec.minSpan || span > spec.maxSpan) return null
   return [from, to]
 }
+
+// True when legs are what footprint or bendLegs could give for the type, in
+// any orientation: the check for a learner's placed part.
+export function legsValid(type, legs) {
+  const spec = PART_TYPES[type]
+  if (!spec || !Array.isArray(legs) || legs.length === 0 || !legs.every(isHole)) return false
+  if (spec.shape === 'bend') return legs.length === 2 && bendLegs(type, legs[0], legs[1]) !== null
+  return orientationOf(type, legs) !== null
+}
+
+// The anchor and orientation that give a fixed shape part these legs, or null.
+export function orientationOf(type, legs) {
+  if (!Array.isArray(legs)) return null
+  for (const anchor of legs) {
+    for (let orientation = 0; orientation < orientationCount(type); orientation++) {
+      const other = footprint(type, anchor, orientation)
+      if (other && other.length === legs.length && other.every((hole, i) => hole === legs[i])) return { anchor, orientation }
+    }
+  }
+  return null
+}
