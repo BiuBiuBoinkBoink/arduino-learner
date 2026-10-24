@@ -789,5 +789,91 @@ void loop() {
       { label: 'Pulse rate', value: '50 Hz, every 20 ms' },
       { label: 'Stall current', value: 'up to about 650 mA' }
     ]
+  },
+  {
+    id: 'P1',
+    level: 1,
+    title: 'Project: Room monitor',
+    summary: 'Combine a light sensor, a temperature sensor, an LED and a buzzer into a room monitor.',
+    overview: [
+      'This project puts Level 1 together. A photoresistor tells day from night, a TMP36 reads the air, a night light shows when it is dark and a buzzer warns when the room gets too hot.',
+      'The sim runs a whole day in 24 seconds, one second per hour. The room gets light and warm by day, then dark and cool at night, and the scene dims with it.',
+      'Goal: set the dark level and the alarm temperature, press Run and pass one whole day. The LED must stay on at night and off by day, and the alarm must sound in the hottest hours, above 32 deg C, and stay quiet below 28 deg C.'
+    ],
+    pinout: [
+      { pin: 'A0', use: 'Photoresistor divider middle, with 10 kohm to GND.' },
+      { pin: 'A1', use: 'TMP36 output, the middle leg.' },
+      { pin: '5V', use: 'Free leg of the photoresistor.' },
+      { pin: '3.3V', use: 'TMP36 supply, the left leg.' },
+      { pin: 'D13', use: 'Night light LED through a 220 ohm resistor.' },
+      { pin: 'D8', use: 'Buzzer positive leg.' },
+      { pin: 'GND', use: 'LED cathode, and the buzzer through a jumper.' }
+    ],
+    example: {
+      code: `const int ledPin = 13;
+const int buzzerPin = 8;
+const int darkLevel = 150;
+const float alarmC = 30;
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  int light = analogRead(A0);
+  float volts = analogRead(A1) * 5.0 / 1023.0;
+  float tempC = (volts - 0.5) * 100.0;
+  digitalWrite(ledPin, light < darkLevel ? HIGH : LOW);
+  if (tempC >= alarmC) {
+    tone(buzzerPin, 880);
+  } else {
+    noTone(buzzerPin);
+  }
+  delay(100);
+}`,
+      note: 'One loop reads both sensors, then sets the night light and the alarm from two thresholds.'
+    },
+    sketch: {
+      code: `const int ledPin = 13;
+const int buzzerPin = 8;
+const int darkLevel = {{darkLevel}};
+const float alarmC = {{alarmC}};
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  int light = analogRead(A0);
+  float volts = analogRead(A1) * 5.0 / 1023.0;
+  float tempC = (volts - 0.5) * 100.0;
+  digitalWrite(ledPin, light < darkLevel ? HIGH : LOW);
+  if (tempC >= alarmC) {
+    tone(buzzerPin, 880);
+  } else {
+    noTone(buzzerPin);
+  }
+  delay(100);
+}`,
+      params: [
+        { name: 'darkLevel', label: 'Dark level', type: 'range', min: 50, max: 500, step: 25, value: 300 },
+        { name: 'alarmC', label: 'Alarm temperature', type: 'range', min: 20, max: 40, step: 1, value: 35, unit: 'deg C' }
+      ],
+      trace: [
+        { line: 11, ms: 200 },
+        { line: 12, ms: 200 },
+        { line: 13, ms: 200 },
+        { line: 14, ms: 200 },
+        { line: 15, ms: 200 },
+        { line: 20, ms: 200 }
+      ]
+    },
+    specs: [
+      { label: 'Sim day', value: '24 s, one second per hour' },
+      { label: 'Room light', value: '5 percent at night to 95 percent at noon' },
+      { label: 'Room temperature', value: '18 deg C at 3 am to 34 deg C at 3 pm' },
+      { label: 'Alarm tone', value: '880 Hz' },
+      { label: 'TMP36 supply', value: '3.3 V, output scale unchanged' }
+    ]
   }
 ]

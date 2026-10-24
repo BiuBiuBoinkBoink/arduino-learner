@@ -10,6 +10,7 @@ import { createLightSim } from './light.js'
 import { createTempSim } from './temp.js'
 import { createTuneSim } from './tune.js'
 import { createSweepSim } from './sweep.js'
+import { createMonitorSim } from './monitor.js'
 
 export const sims = {
   '1.2': createBlinkSim,
@@ -22,5 +23,6 @@ export const sims = {
   '1.9': createLightSim,
   '1.10': createTempSim,
   '1.11': createTuneSim,
-  '1.12': createSweepSim
+  '1.12': createSweepSim,
+  P1: createMonitorSim
 }

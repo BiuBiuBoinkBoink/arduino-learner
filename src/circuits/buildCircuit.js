@@ -86,8 +86,10 @@ export function buildCircuit(circuit, { board, breadboard }) {
       return PART_FACTORIES[part.type](part, hole)
     })
   }
+  // A wire starts at an Uno pin, or at a hole for a jumper between two strips.
+  const start = (name) => (/^\d+[a-z]$/.test(name) ? hole(name) : pin(name))
   for (const wire of circuit.wires) {
-    add(wire.id, () => createWire({ color: wire.color, from: pin(wire.from), to: hole(wire.to) }))
+    add(wire.id, () => createWire({ color: wire.color, from: start(wire.from), to: hole(wire.to) }))
   }
   return { group, items }
 }
