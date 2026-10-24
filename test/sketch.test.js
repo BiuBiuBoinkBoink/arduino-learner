@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultValues, fillSketch, stepDuration, traceStepAt } from '../src/ui/sketch.js'
+import { defaultValues, fillSketch, slotValues, stepDuration, traceStepAt } from '../src/ui/sketch.js'
 
 describe('defaultValues', () => {
   it('maps each param name to its default value', () => {
@@ -9,6 +9,17 @@ describe('defaultValues', () => {
     ]
     expect(defaultValues(params)).toEqual({ onMs: 500, ohms: 220 })
     expect(defaultValues([])).toEqual({})
+  })
+})
+
+describe('slotValues', () => {
+  it('uses the chosen option code text and keeps other values', () => {
+    const params = [
+      { name: 'pull', type: 'choice', value: 'down', options: [{ value: 'down', label: 'Fitted', code: 'pulled down' }, { value: 'none', label: 'Removed' }] },
+      { name: 'ms', type: 'range', min: 0, max: 10, step: 1, value: 5 }
+    ]
+    expect(slotValues(params, { pull: 'down', ms: 5 })).toEqual({ pull: 'pulled down', ms: 5 })
+    expect(slotValues(params, { pull: 'none', ms: 3 })).toEqual({ pull: 'none', ms: 3 })
   })
 })
 

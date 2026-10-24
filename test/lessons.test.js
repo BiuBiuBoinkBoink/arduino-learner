@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { lessons } from '../src/course/lessons.js'
 import { UNO_ZONE_IDS } from '../src/parts/unoBoard.js'
+import { fillSketch, slotValues } from '../src/ui/sketch.js'
 
 function isAscii(text) {
   return [...text].every((ch) => ch.charCodeAt(0) < 128)
@@ -126,7 +127,8 @@ describe('lesson sketches', () => {
           code,
           ...params.map((param) => param.label),
           ...params.filter((param) => param.unit !== undefined).map((param) => param.unit),
-          ...params.flatMap((param) => (param.options || []).map((option) => option.label))
+          ...params.flatMap((param) => (param.options || []).map((option) => option.label)),
+          ...params.flatMap((param) => (param.options || []).filter((option) => option.code !== undefined).map((option) => option.code))
         ]
         for (const text of texts) {
           expect(nonEmpty(text)).toBe(true)
@@ -136,11 +138,39 @@ describe('lesson sketches', () => {
     })
   }
 
-  it('gives 1.2 and 1.3 a sketch with a non empty trace', () => {
-    for (const id of ['1.2', '1.3']) {
+  it('gives 1.2 to 1.5 a sketch with a non empty trace', () => {
+    for (const id of ['1.2', '1.3', '1.4', '1.5']) {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.sketch).toBeTruthy()
       expect(lesson.sketch.trace.length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('lesson 1.5 pull choice', () => {
+  const lesson = lessons.find((item) => item.id === '1.5')
+
+  it('fills the pinMode comment from the chosen option', () => {
+    const [pull] = lesson.sketch.params
+    expect(pull.name).toBe('pull')
+    expect(pull.value).toBe('down')
+    expect(pull.options.map((option) => [option.value, option.label])).toEqual([['down', 'Fitted'], ['none', 'Removed']])
+    expect(fillSketch(lesson.sketch.code, slotValues(lesson.sketch.params, { pull: 'down' })))
+      .toContain('// external 10 kohm pull down')
+    expect(fillSketch(lesson.sketch.code, slotValues(lesson.sketch.params, { pull: 'none' })))
+      .toContain('// nothing on the pin, it floats')
+  })
+})
+
+describe('button lesson overviews', () => {
+  it('give 1.4 and 1.5 three ASCII paragraphs with no exclamation marks', () => {
+    for (const id of ['1.4', '1.5']) {
+      const lesson = lessons.find((item) => item.id === id)
+      expect(lesson.overview).toHaveLength(3)
+      for (const text of lesson.overview) {
+        expect(isAscii(text)).toBe(true)
+        expect(text.includes('!')).toBe(false)
+      }
     }
   })
 })

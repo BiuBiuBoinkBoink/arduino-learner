@@ -186,7 +186,8 @@ void loop() {
     summary: 'Read a push button and light an LED while it is pressed.',
     overview: [
       'A push button joins two wires while you hold it down. The Uno reads the pin as HIGH or LOW.',
-      'This sketch uses the internal pull up resistor, so the pin reads HIGH when the button is up and LOW when it is pressed.'
+      'This sketch uses the internal pull up resistor, so the pin reads HIGH when the button is up and LOW when it is pressed.',
+      'Goal: press Run, then press and release the button three times while the sketch runs. Hold the button on the breadboard with the mouse, or use Hold to press.'
     ],
     pinout: [
       { pin: 'D2', use: 'Button input, other side of the button goes to GND.' },
@@ -208,6 +209,25 @@ void loop() {
 }`,
       note: 'With the pull up on, a pressed button reads LOW, so the sketch turns the LED on when it sees LOW.'
     },
+    sketch: {
+      code: `const int buttonPin = 2;
+const int ledPin = 13;
+
+void setup() {
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  bool pressed = digitalRead(buttonPin) == LOW;
+  digitalWrite(ledPin, pressed ? HIGH : LOW);
+}`,
+      params: [],
+      trace: [
+        { line: 10, ms: 400 },
+        { line: 11, ms: 400 }
+      ]
+    },
     specs: [
       { label: 'Button type', value: '4 leg tactile switch' },
       { label: 'Internal pull up', value: '20 to 50 kohm' },
@@ -223,7 +243,8 @@ void loop() {
     summary: 'Stop a floating input by tying it high or low with a resistor.',
     overview: [
       'An input pin with nothing connected floats. It picks up noise and reads random values.',
-      'A pull down resistor ties the pin to GND, so it reads LOW until the button connects it to 5 V. A pull up ties it to 5 V, so it reads HIGH until the button connects it to GND.'
+      'A pull down resistor ties the pin to GND, so it reads LOW until the button connects it to 5 V. A pull up ties it to 5 V, so it reads HIGH until the button connects it to GND.',
+      'Goal: remove the resistor and press Run to see the pin float. Then fit it again and press the button three times while the sketch runs.'
     ],
     pinout: [
       { pin: 'D2', use: 'Input with a 10 kohm pull down resistor to GND.' },
@@ -244,6 +265,34 @@ void loop() {
   digitalWrite(ledPin, digitalRead(buttonPin));
 }`,
       note: 'With a pull down the pin reads HIGH only while the button is pressed, so the LED copies the button.'
+    },
+    sketch: {
+      code: `const int buttonPin = 2;
+const int ledPin = 13;
+
+void setup() {
+  pinMode(buttonPin, INPUT); // {{pull}}
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(ledPin, digitalRead(buttonPin));
+}`,
+      params: [
+        {
+          name: 'pull',
+          label: 'Pull down resistor',
+          type: 'choice',
+          value: 'down',
+          options: [
+            { value: 'down', label: 'Fitted', code: 'external 10 kohm pull down' },
+            { value: 'none', label: 'Removed', code: 'nothing on the pin, it floats' }
+          ]
+        }
+      ],
+      trace: [
+        { line: 10, ms: 400 }
+      ]
     },
     specs: [
       { label: 'External pull down', value: '10 kohm' },
