@@ -92,7 +92,8 @@ src/
                    optional sketch ({ code, params, trace }, 1.2 to 1.12 and P1 now): code is a template with
                    {{name}} slots; params are range ({ name, label, min, max, step, value, unit? }) or
                    choice ({ name, label, value, options: [{ value, label, code? }] }, an option code is the
-                   text its slot shows instead of the value); trace is a looping list
+                   text its slot shows instead of the value); a param with circuit: true is a part on the
+                   breadboard (1.3 ohms, 1.5 pull), so it stays live after the code is edited; trace is a looping list
                    of { line (1 based), ms (number or a range param name) }
   scene/           renderer, camera, lights, render loop
     stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate() and
@@ -136,47 +137,44 @@ src/
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
-    sims.js        sims registry: lesson id -> sim factory ('1.2' to '1.12' and 'P1' now)
-    monitor.js     pure createMonitorSim (P1): DAY_MS 24 s day drives room light (lightAt) and temperature
-                   (tempAt); A0 divider, A1 TMP36, D13 on under darkLevel, 880 Hz on D8 at or above alarmC;
-                   goal is one whole day with the LED and alarm right in every checked band
-    sweep.js       pure createSweepSim (1.12): arm moves to the live angle param at 0.6 deg per ms on D9 in
-                   servos; stop holds it; goal is resting at each of TARGETS 45, 90, 135 while commanded
-    tune.js        pure createTuneSim (1.11): NOTES C to B, note1 to note3 params (Hz, read as each note starts)
-                   on D8 in tones for 300 ms every 350 ms, then 1000 ms silent; goal is one loop playing
-                   TARGET E D C in order
+    sims.js        sims registry: lesson id -> board factory ('1.2' to '1.12' and 'P1' now); a board is the
+                   circuit around the sketch plus the goal (see "Sims and goal checks")
+    monitor.js     pure createMonitorSim (P1) board: DAY_MS 24 s day sets the room (lightAt, tempAt) and feeds A0
+                   (divider) and A1 (TMP36); goal is one whole day with D13 and the D8 tone right in every
+                   checked band, a mistake counting once it lasts REACT_MS (300)
+    sweep.js       pure createSweepSim (1.12) board: servo events on D9 command the arm, which moves at 0.6 deg
+                   per ms in servos; goal is resting at each of TARGETS 45, 90, 135 while commanded
+    tune.js        pure createTuneSim (1.11) board: NOTES C to B; goal is three D8 tone starts in a row playing
+                   TARGET E D C, each within 600 ms of the last
     room.js        pure createRoom(): getLight (0 to 1, default 0.8), getTempC (0 to 40, default 22), setLight,
                    setTempC, reset, subscribe(fn) with (name, value), name 'light' or 'tempC'
-    light.js       pure createLightSim (1.9): ldrOhms(light) 1 Mohm dark to 1 kohm bright (log), dividerLevel(light)
-                   with 10 kohm to GND on A0; D13 on while raw < darkLevel (live); goal is the LED turning on
-                   and off again since Run
-    temp.js        pure createTempSim (1.10): tmp36Level(tempC) = (0.5 + T / 100) / 5 on A0, rawToC(raw), prints
-                   '<deg C> deg C' every second; goal is
-                   the reading (nearest degree) at or below 15 and at or above 30 deg C since Run
-    rgb.js         pure createRgbSim (1.8): red, green, blue params (live) on D9, D10, D11 as value / 255; readout
-                   'Now r, g, b. Target orange 255, 128, 0'; goal is every channel within 25 of TARGET since Run
+    light.js       pure createLightSim (1.9) board: ldrOhms(light) 1 Mohm dark to 1 kohm bright (log),
+                   dividerLevel(light) with 10 kohm to GND on A0; goal is D13 turning on and off again
+    temp.js        pure createTempSim (1.10) board: tmp36Level(tempC) = (0.5 + T / 100) / 5 on A0, rawToC(raw);
+                   goal is the reading (nearest degree) at or below 15 and at or above 30 deg C since Run
+    rgb.js         pure createRgbSim (1.8) board: reads D9, D10, D11 duty as 0 to 255; readout 'Now r, g, b.
+                   Target orange 255, 128, 0'; goal is every channel within 25 of TARGET at once
     ohm.js         pure LED_SUPPLY_V (5), LED_FORWARD_V (2), ledCurrentMa(ohms) = 3 / R in mA,
                    ledBrightness(ohms) relative to 220 ohm, clamped to 0 to 1
-    ohms.js        pure createOhmsSim (1.3): D9 HIGH; readout 'Meter on <label>: <mA> mA' for the probe in
-                   METER_LABELS (led, resistor); goal is a probed reading with each of 220, 1000 and 10000 ohm
-    blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; checkGoal passes when
-                   the last two rising edges of D13 were under 500 ms apart and onMs + offMs is under 500
-    button.js      pure createButtonSim (1.4): internal pull up, D2 reads 0 while btn1 is held, D13 follows the
-                   press; goal is 3 full presses seen since Run
-    pullDown.js    pure createPullDownSim (1.5): btn1 to 5V, released reads 0 with pull 'down', floats (random
-                   level every 40 to 160 ms, injectable random) with 'none'; D13 copies D2; goal is 3 full
-                   presses while fitted, removing the pull down resets the count
-    pot.js         pure createPotSim (1.6): A0 follows the pot1 knob, prints volts every 200 ms; readout 'A0 reads <raw>, <volts> V'; goal is
-                   A0 read at or below 100 and at or above 920 since Run, any order
-    fade.js        pure createFadeSim (1.7): analogWrite value 0 to 255 then 255 to 0, one step every stepMs (live),
-                   D9 level value / 255; readout 'analogWrite(9, <value>), duty <percent>%'; goal is one full
-                   fade (512 steps) seen taking 1000 to 3000 ms with the current stepMs also in range
+    ohms.js        pure createOhmsSim (1.3) board: current is D9 level times ledCurrentMa(ohms circuit param);
+                   readout 'Meter on <label>: <mA> mA'; goal is a probed current with each of 220, 1000, 10000
+    blink.js       pure createBlinkSim (1.2) board: goal is the last two rising edges of D13 under 500 ms apart
+                   on the sketch clock; reload forgets the last edge
+    button.js      pure createButtonSim (1.4) board: btn1 held drives D2 LOW, released leaves it undriven (the
+                   sketch pull up reads HIGH); goal is 3 full presses, each with D13 on while held
+    pullDown.js    pure createPullDownSim (1.5) board: held drives D2 HIGH, released LOW with pull 'down', a random
+                   level every 40 to 160 ms with 'none'; goal is 3 full presses with D13 on while held, while
+                   fitted, removing the pull down resets the count
+    pot.js         pure createPotSim (1.6) board: A0 is the pot1 knob; readout 'A0 reads <raw>, <volts> V'; goal is
+                   A0 at or below 100 and at or above 920 since Run, any order
+    fade.js        pure createFadeSim (1.7) board: reads D9 duty; goal is one full fade (one end, the other end
+                   and back) taking 1000 to 3000 ms on the sketch clock; reload starts timing again
     serial.js      pure createSerial({ maxLines }): print, println (floats to 2 decimals), getLines, clear; send(text)
-                   queues a line for the sketch, available, read, readLine, clearInput; subscribe(fn) with
-                   'output' or 'input'; createTicker(periodMs, startedAt).due(now) for timed loops
-    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, serial, onGoal, uploadMs }): hasSim, run, tick(now), stop,
-                   getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
-                   else ''); UPLOAD_MS fake upload (1500)
+                   queues a line, available, read, readLine, clearInput; subscribe(fn) with 'output' or 'input'
+    runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal,
+                   uploadMs }): hasSim, run({ lessonId, getValues, source, now }), reload(source, now), tick(now),
+                   receive(batch), fail(error), stop, getPhase (idle, uploading, running, error), getError,
+                   isGoalMet, getReadout; checkCode(source) compiles without running; UPLOAD_MS (1500)
   runner/          code runner for learner code (Level 2 onward)
     lexer.js       pure lex(source) -> tokens { type, value, line, column } (number, string, char, ident, keyword,
                    op, include, eof); CodeError(message, line, column) with message 'Line N: ...'
@@ -190,8 +188,10 @@ src/
                    store), Arduino built-ins, Serial, Servo and String methods; runtime CodeErrors stop it;
                    pinName(n) maps 0 to 13 -> D0 to D13 and 14 to 19 -> A0 to A5
     session.js     pure createSession(source, { random }) -> { advance(untilMs) -> batch, setInputs(levels),
-                   sendSerial(text) }; batch { pins (0 to 1), tones (Hz), servos (deg), serial, millis, error };
-                   unset input pins read HIGH with INPUT_PULLUP, else LOW
+                   sendSerial(text) }; batch { pins (0 to 1), tones (Hz), servos (deg), events ([ms, kind, pin,
+                   value] for every change in order, kind 'pin', 'tone' or 'servo'), serial, millis, error };
+                   tone(pin, hz, ms) ends by itself at its own time; null or unset input pins read HIGH with
+                   INPUT_PULLUP, else LOW
     worker.js      Web Worker: start, stop, inputs, serial messages in; batch and error messages out; follows
                    real time every 16 ms
     codeRunner.js  createCodeRunner({ onBatch, onError }) -> { start(source), stop(), setInputs(levels),
@@ -201,14 +201,17 @@ src/
     infoPanel.js   lesson heading plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
     codePanel.js   Code heading, lesson line, param controls (range sliders with value text, choice
-                   radio fieldsets) and the sketch coloured per line; controls refill the slots live,
-                   values reset on lesson change; the trace loops an is-active line highlight on timers;
-                   lessons without a sketch show coloured example.code, no controls, no trace;
-                   returns { toolbar, getValues, subscribe }: an empty slot after the lesson line, a copy of
-                   the values, and subscribe(fn) calling fn(values) on every control change and lesson change
-    runControls.js Run and Stop buttons plus status line in the code panel toolbar; hidden on lessons
-                   without a sim; rAF loop calls runner.tick while not idle; stops the runner on lesson change;
-                   .run-readout line under the status shows runner.getReadout(), hidden when empty
+                   radio fieldsets) and the sketch editor: a transparent textarea (#code-input) over the
+                   coloured code, a Reset code button and an error line; controls refill the slots until the
+                   learner edits the text, then switch off (except params with circuit: true) until Reset;
+                   the trace loops an is-active line highlight while unedited; has-error marks a code error;
+                   lessons without a sketch show coloured example.code read only; returns { toolbar,
+                   getValues, subscribe, getSource, isEdited, setError({ line, message } | null) }
+    runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
+                   { noticeError }: Run sends getSource() and shows a compile or runtime error as
+                   'Stopped. Line N: ...' plus onError(error) for the code panel; Stop button and status
+                   line; hidden on lessons without a sim; rAF loop calls runner.tick while running; stops
+                   the runner on lesson change; .run-readout line shows runner.getReadout()
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
@@ -224,7 +227,8 @@ src/
                    the tone on the buzzer pin; "Sound on" / "Sound off" toggle below the Run row on buzzer
                    lessons, saved under robo-learn:sound (default on)
     serialMonitor.js usesSerial(lesson) (sketch or example contains Serial.begin);
-                   createSerialMonitor({ container, serial }) -> { setVisible(on) }: #serial-panel above the
+                   createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; main.js sends
+                   lines to the running sketch through the code runner: #serial-panel above the
                    lesson strip with Clear, a scrolling non live role="log" output and a Send form
     multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
                    select below the Run row and click to probe a visible part of a target (a pointer up within
@@ -314,38 +318,54 @@ the current lesson, and every panel updates from it.
 
 ## Sims and goal checks
 
-- A lesson sim is made by a factory `create({ pins, inputs, room, tones, servos, serial, getValues, startedAt })` and
-  returns `{ update(now), stop(), checkGoal? }`. `now` and `startedAt` are ms on
-  the same clock. `getValues()` gives the live code panel param values.
+- Run sends the learner's sketch (the code panel text) through the code runner
+  in `src/runner/`. The lesson sim is a board: the circuit around the sketch and
+  the goal. It is made by `create({ pins, inputs, room, tones, servos, serial,
+  getValues, startedAt })` and returns:
+  - `levels(now)`: the input levels the circuit puts on the sketch's pins
+    (0 to 1, or null when it does not drive the pin), sent to the code runner
+    when they change;
+  - `output({ kind, pin, value, at })` (optional): each sketch output event,
+    after the runner applied it, with `at` on the same clock as `now`;
+  - `update(now)`, `reload(now)`, `stop()`, `checkGoal()`, `readout()`, all
+    optional.
+- `getValues()` gives the live code panel param values. Only circuit params
+  (`circuit: true`) change the board; the others are numbers in the code.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
   have no Run controls.
 - Pin levels live in one shared `createPins()`: a number from `0` to `1`, unset
   pins read `0`. Digital pins use `0` (LOW) and `1` (HIGH). An analog input is its
   voltage as a share of 5 V; a PWM output is its duty cycle, the `analogWrite`
-  value / 255. Stop resets every pin to `0`.
+  value / 255. The runner writes sketch outputs into it; Stop resets it to `0`.
 - `tones` is a second `createPins()` holding a tone frequency in Hz per pin, 0
-  for silent. Sims call `tones.set(pin, hz)`; Stop resets it like the pins.
+  for silent, written from tone events; Stop resets it like the pins.
 - `servos` is a third `createPins()` holding a servo arm angle in deg per pin.
-  Stop leaves it as it is, because a real servo holds its angle.
-- `serial` is the port shared with the Serial Monitor. Sims print what their
-  sketch prints, timed with `createTicker`, and read sent lines with
-  `serial.readLine()`. A run drops unread input; a lesson change clears output.
-- A sim may return `readout()`, a short string. The runner `getReadout()` gives it
-  while running, else `''`, and `runControls` shows it under the status. It stands
-  in for the Serial Monitor until Phase 3.
-- Run starts a fake upload of `UPLOAD_MS` (1500 ms), then the runner creates the
-  sim and calls `update(now)` every tick.
+  The 1.12 board moves it towards the commanded angle. Stop leaves it as it is,
+  because a real servo holds its angle.
+- `serial` is the port shared with the Serial Monitor. The runner prints the
+  sketch's serial text into it; the monitor's Send goes to the running sketch.
+  A lesson change clears the output.
+- A board may return `readout()`, a short string. The runner `getReadout()` gives
+  it while running, else `''`, and `runControls` shows it under the status.
+- Run first compiles the code (`checkCode`); an error stops there with its line.
+  Then a fake upload of `UPLOAD_MS` (1500 ms), then the runner creates the board
+  and starts the code runner. A runtime error stops the run in the `error` phase.
+- Moving a slider while running reloads the refilled sketch at once
+  (`runner.reload`), keeping the board and its goal progress. Edited code waits
+  for the next Run, like a real upload.
 - A lesson is marked done only by `onGoal(lessonId)`, which the runner calls once
-  per run when `checkGoal()` first returns true. A sim without `checkGoal` never
-  completes its lesson. The runner never calls `markComplete` itself; `main.js`
-  passes `onGoal: (id) => course.markComplete(id)`.
+  per run when `checkGoal()` first returns true. The runner never calls
+  `markComplete` itself; `main.js` passes `onGoal: (id) => course.markComplete(id)`.
+- `test/lessonGoals.test.js` runs every lesson sketch through the runtime, its
+  board and the runner, and checks that each goal fails at the defaults and passes
+  after the learner's action. Keep it passing when a lesson changes.
 - `main.js` subscribes once to `pins`. On a change it calls `setBrightness(level)`
   on every LED in the current circuit whose `pin` matches, then `invalidate()`.
   A newly built circuit sets each LED from `pins.get(part.pin)`. Stop goes
   through `pins.reset()`, so it turns the LEDs off.
 - `inputs` is one shared `createInputs()` of held buttons, set by `partPress`,
-  and knob values from 0 to 1, set by `partTurn` and the Knob slider. Sims read it
-  with `inputs.isPressed(id)` and `inputs.getValue(id)`. `subscribe` fires
+  and knob values from 0 to 1, set by `partTurn` and the Knob slider. Boards read
+  it with `inputs.isPressed(id)` and `inputs.getValue(id)`. `subscribe` fires
   `(id, on)` for a press and `(id, value)` for a knob, only on a real change.
   Stop does not reset it, so a held button stays held until released.
 

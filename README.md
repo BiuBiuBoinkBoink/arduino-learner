@@ -77,6 +77,7 @@ Phase 1 (engine foundation) is done. Jobs 001 to 007 are merged into `main`; 008
 | 017 | Serial Monitor panel with scrolling output, Clear and Send, fed by the 1.6 and 1.10 sims |
 | 018 | Code runner lexer and parser: Arduino C subset to an AST, errors with line numbers |
 | 019 | Code runner runtime: interpreter on a virtual clock, Arduino built-ins, Serial, tone and Servo, in a Web Worker |
+| 020 | Editable code panel: Run executes the learner's sketch in the code runner, errors on their line, Reset code; lesson sims become boards |
 
 ### Where we stopped
 
@@ -160,7 +161,14 @@ and `src/runner/parser.js` turn an Arduino C subset into an AST, with errors lik
 [factory/handoff/019-code-runtime-spec.md](factory/handoff/019-code-runtime-spec.md): an interpreter
 that runs the AST on a virtual clock with the Arduino built-ins, Serial, tone and Servo, a
 session that holds pin state, and a Web Worker with a main thread client. Every lesson sketch
-runs without errors. It is not wired to the code panel yet (job 020).
+runs without errors.
+
+**Job 020 is built** on `feature/code-editor`, from
+[factory/handoff/020-code-editor-spec.md](factory/handoff/020-code-editor-spec.md): the code panel
+is an editor, and Run sends the learner's own sketch through the code runner. Errors show on their
+line, and Reset code restores the lesson code. Each lesson sim is now a board (circuit inputs plus
+a goal that watches the sketch's outputs). Every existing lesson goal still passes; an end to end
+test proves it for each one.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
