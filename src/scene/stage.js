@@ -1,8 +1,10 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { createRenderLoop } from './renderLoop.js'
+import { easeInOut, lerpVec, viewFor } from './cameraMath.js'
 
 const BACKGROUND = 0xf4f1ea
+const VIEW_MS = 450
 const GROUND_SIZE = 120
 const SHADOW_SIZE = 40
 
@@ -88,5 +90,57 @@ export function createStage(container) {
     invalidate()
   }
 
-  return { scene, camera, renderer, controls, invalidate, setDaylight }
+  // Camera views: tween position and target to a framed view. A new call
+  // cancels a running one; reduced motion or animate false jumps. Orbiting by
+  // hand after a view makes it 'custom'.
+  // The first load camera is not a framed view, so it starts as custom.
+  let view = 'custom'
+  let tween = null
+  controls.addEventListener('start', () => {
+    if (!tween) view = 'custom'
+  })
+
+  function placeCamera(position, target) {
+    camera.position.set(position.x, position.y, position.z)
+    controls.target.set(target.x, target.y, target.z)
+    controls.update()
+    invalidate()
+  }
+
+  function setView(kind, box, { animate = true } = {}) {
+    if (tween) {
+      cancelAnimationFrame(tween.frame)
+      tween.resolve()
+      tween = null
+    }
+    view = kind
+    const end = viewFor(kind, box, { fov: camera.fov, aspect: camera.aspect })
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!animate || reduced) {
+      placeCamera(end.position, end.target)
+      return Promise.resolve()
+    }
+    const from = { position: camera.position.clone(), target: controls.target.clone() }
+    const startAt = performance.now()
+    return new Promise((resolve) => {
+      const current = { resolve, frame: 0 }
+      tween = current
+      function step(now) {
+        const t = Math.min(1, (now - startAt) / VIEW_MS)
+        const k = easeInOut(t)
+        placeCamera(lerpVec(from.position, end.position, k), lerpVec(from.target, end.target, k))
+        if (t < 1) {
+          current.frame = requestAnimationFrame(step)
+          return
+        }
+        tween = null
+        resolve()
+      }
+      current.frame = requestAnimationFrame(step)
+    })
+  }
+
+  const getView = () => view
+
+  return { scene, camera, renderer, controls, invalidate, setDaylight, setView, getView }
 }
