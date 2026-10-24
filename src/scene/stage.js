@@ -54,15 +54,6 @@ export function createStage(container) {
   ground.receiveShadow = true
   scene.add(ground)
 
-  const placeholder = new THREE.Mesh(
-    new THREE.BoxGeometry(2, 2, 2),
-    new THREE.MeshStandardMaterial({ color: 0x3a6ea5 })
-  )
-  placeholder.name = 'placeholder'
-  placeholder.position.y = 1
-  placeholder.castShadow = true
-  scene.add(placeholder)
-
   const loop = createRenderLoop({
     render: () => renderer.render(scene, camera),
     requestFrame: (cb) => requestAnimationFrame(cb)

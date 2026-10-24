@@ -7,6 +7,8 @@ import { idFromHash, hashForId } from './course/hash.js'
 import { createLessonStrip } from './ui/lessonStrip.js'
 import { createInfoPanel } from './ui/infoPanel.js'
 import { createCodePanel } from './ui/codePanel.js'
+import { createBoardTour } from './ui/boardTour.js'
+import { createUnoBoard } from './parts/unoBoard.js'
 
 const app = document.querySelector('#app')
 
@@ -14,7 +16,10 @@ const stageEl = document.createElement('div')
 stageEl.id = 'stage'
 app.append(stageEl)
 
-createStage(stageEl)
+const stage = createStage(stageEl)
+const board = createUnoBoard()
+stage.scene.add(board.group)
+stage.invalidate()
 const panels = createPanels(app)
 
 function getStorage() {
@@ -55,3 +60,4 @@ window.addEventListener('hashchange', () => {
 createInfoPanel(panels.info, course)
 createCodePanel(panels.code, course)
 createLessonStrip(panels.strip, course)
+createBoardTour({ stage, board, course, container: app })
