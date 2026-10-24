@@ -17,7 +17,7 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 ## Phase 2: Level 1 lessons
 
 - [x] Scene interaction: raycast press and release on parts, and a push button part, with lessons 1.4 Button input and 1.5 Pull up vs pull down including a floating pin effect → feature/button-input
-- [ ] Potentiometer part with drag to turn, and lessons 1.6 Potentiometer and 1.7 PWM fade with LED brightness from analogWrite values
+- [x] Potentiometer part with drag to turn, and lessons 1.6 Potentiometer and 1.7 PWM fade with LED brightness from analogWrite values → feature/potentiometer
 - [ ] Sim multimeter that reads current through a selected part, and lesson 1.3 Resistors and Ohm's law with a resistor choice of 220 ohm, 1k and 10k
 - [ ] RGB LED part and lesson 1.8 Colour mixing with a target colour match goal
 - [ ] Room environment controls for light level and temperature, LDR and TMP36 parts, and lessons 1.9 Light sensor and 1.10 Temperature

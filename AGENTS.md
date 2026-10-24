@@ -71,7 +71,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/parts/wire.js`, `src/circuits/circuits.js`, `src/circuits/buildCircuit.js`, `src/sim/pins.js`,
 `src/sim/sims.js`, `src/sim/blink.js`, `src/sim/runner.js`, `src/ui/runControls.js`,
 `src/parts/button.js`, `src/sim/inputs.js`, `src/sim/button.js`, `src/sim/pullDown.js`,
-`src/ui/partPress.js`. The other
+`src/ui/partPress.js`, `src/parts/potentiometer.js`, `src/ui/partTurn.js`, `src/sim/pot.js`,
+`src/sim/fade.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -85,7 +86,7 @@ src/
                    overview (1 to 3 paragraph strings), pinout ([{ pin, use }]),
                    example ({ code, note }), specs ([{ label, value }]); optional
                    tour ([{ zone, label, text }], one entry per UNO_ZONE_IDS id, lesson 1.1 only);
-                   optional sketch ({ code, params, trace }, 1.2 to 1.5 now): code is a template with
+                   optional sketch ({ code, params, trace }, 1.2 to 1.7 now): code is a template with
                    {{name}} slots; params are range ({ name, label, min, max, step, value, unit? }) or
                    choice ({ name, label, value, options: [{ value, label, code? }] }, an option code is the
                    text its slot shows instead of the value); trace is a looping list
@@ -98,22 +99,29 @@ src/
                    PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top
     breadboard.js  createBreadboard() -> { group }, half size, 30 columns, no rails; BREADBOARD_COLUMNS,
                    BREADBOARD_ROWS, parseHole('12e'), holePosition(hole) local Vector3, holeStrip(hole)
-    led.js         createLed({ color, anode, cathode }) -> { group, setLit(on) }; red, green, yellow, blue; anode leg kinked;
-                   setLit glows the lens in its own colour (emissive only), new LEDs start unlit
+    led.js         createLed({ color, anode, cathode }) -> { group, setLit(on), setBrightness(b) }; red, green, yellow,
+                   blue; anode leg kinked; setBrightness(b) for b from 0 to 1 glows the lens in its own colour
+                   (emissive only) at LIT_INTENSITY * b, none at 0; setLit(on) is setBrightness(on ? 1 : 0);
+                   new LEDs start unlit
     resistor.js    resistorBands(ohms) -> 4 colour names; createResistor({ ohms, from, to }) -> { group }
     button.js      createButton({ legs }) -> { group, setPressed(on) }; 4 leg tactile switch, legs are four
                    hole tops; setPressed lowers the cap 0.05 cm; group.userData.pressable = true
+    potentiometer.js createPotentiometer({ legs }) -> { group, setValue(v) }; blue 1 cm body on three legs (outer,
+                   wiper, outer), knob with a pointer mark; setValue clamps to 0 to 1 and turns the knob over
+                   270 degrees, clockwise from above as v rises, 0.5 straight ahead (-z); starts at 0.5;
+                   group.userData.turnable = true
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
-    circuits.js    circuits keyed by lesson id (1.2, 1.3, 1.4, 1.5, 1.7 now); plain data, no three.js
+    circuits.js    circuits keyed by lesson id (1.2 to 1.7 now); plain data, no three.js
     buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
                    to world positions, one factory result per id, item group name = id;
-                   buttonHoles(at) -> the four button leg holes
+                   buttonHoles(at) -> the four button leg holes; potHoles(at) -> the three pot leg holes
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
-    inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), subscribe(fn); held buttons by part id
-    sims.js        sims registry: lesson id -> sim factory ('1.2', '1.4', '1.5' now)
+    inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
+                   subscribe(fn); held buttons and knob values (0 to 1, 0.5 when never set) by part id
+    sims.js        sims registry: lesson id -> sim factory ('1.2', '1.4', '1.5', '1.6', '1.7' now)
     blink.js       pure createBlinkSim: D13 HIGH for onMs, LOW for offMs from startedAt; checkGoal passes when
                    the last two rising edges of D13 were under 500 ms apart and onMs + offMs is under 500
     button.js      pure createButtonSim (1.4): internal pull up, D2 reads 0 while btn1 is held, D13 follows the
@@ -121,8 +129,14 @@ src/
     pullDown.js    pure createPullDownSim (1.5): btn1 to 5V, released reads 0 with pull 'down', floats (random
                    level every 40 to 160 ms, injectable random) with 'none'; D13 copies D2; goal is 3 full
                    presses while fitted, removing the pull down resets the count
+    pot.js         pure createPotSim (1.6): A0 follows the pot1 knob; readout 'A0 reads <raw>, <volts> V'; goal is
+                   A0 read at or below 100 and at or above 920 since Run, any order
+    fade.js        pure createFadeSim (1.7): analogWrite value 0 to 255 then 255 to 0, one step every stepMs (live),
+                   D9 level value / 255; readout 'analogWrite(9, <value>), duty <percent>%'; goal is one full
+                   fade (512 steps) seen taking 1000 to 3000 ms with the current stepMs also in range
     runner.js      pure createSimRunner({ sims, pins, inputs, onGoal, uploadMs }): hasSim, run, tick(now), stop,
-                   getPhase (idle, uploading, running), isGoalMet; UPLOAD_MS fake upload (1500)
+                   getPhase (idle, uploading, running), isGoalMet, getReadout (sim readout() while running,
+                   else ''); UPLOAD_MS fake upload (1500)
   runner/          code runner for learner code (Level 2 onward)
   ui/              panels: lesson strip, info tabs, code panel, params, serial monitor
     panels.js      panel elements: #info-panel (left), #code-panel (right), #lesson-strip (bottom), filled by infoPanel, codePanel, lessonStrip
@@ -135,11 +149,16 @@ src/
                    returns { toolbar, getValues, subscribe }: an empty slot after the lesson line, a copy of
                    the values, and subscribe(fn) calling fn(values) on every control change and lesson change
     runControls.js Run and Stop buttons plus status line in the code panel toolbar; hidden on lessons
-                   without a sim; rAF loop calls runner.tick while not idle; stops the runner on lesson change
+                   without a sim; rAF loop calls runner.tick while not idle; stops the runner on lesson change;
+                   .run-readout line under the status shows runner.getReadout(), hidden when empty
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
                    "Hold to press" keyboard path below the Run row, aria-pressed follows inputs
+    partTurn.js    createPartTurn({ stage, getItems, inputs }) -> { setValue(id, v), release() }: vertical drag on
+                   visible turnable circuit items (200 px for the full range), orbit off while turning, ns-resize
+                   cursor on hover; createKnobSlider({ container, partTurn, inputs }) -> { setTarget(id) }, the
+                   "Knob" range input (0 to 1023) below the Run row, following the knob both ways
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
@@ -187,6 +206,11 @@ the current lesson, and every panel updates from it.
   `14f`), straddling the centre channel. `at` must be in row `e` with a column of
   at most 28. Facing legs are always joined, so column 12 top and bottom are one
   node, same for 14; pressing joins column 12 to column 14.
+- A potentiometer is `{ id: 'pot1', type: 'potentiometer', at: '12e' }`. Its three
+  legs go in columns `c`, `c + 1` and `c + 2` of the row of `at` (`12e`, `13e`,
+  `14e`); the middle leg is the wiper. `at` must have a column of at most 28.
+  `main.js` sets its knob to 0.5 whenever it builds a circuit with one, and shows
+  the Knob slider only on those lessons.
 - Any part may carry `showWhen: { param, value }`. `main.js` draws it only while
   that code panel param has that value (through the code panel `subscribe`).
   Hidden parts are not pressable.
@@ -202,21 +226,28 @@ the current lesson, and every panel updates from it.
   the same clock. `getValues()` gives the live code panel param values.
 - `src/sim/sims.js` exports `sims`, keyed by lesson id. Lessons without an entry
   have no Run controls.
-- Pin levels live in one shared `createPins()`: `0` is LOW, `1` is HIGH, unset
-  pins read `0`. Stop resets every pin to `0`.
+- Pin levels live in one shared `createPins()`: a number from `0` to `1`, unset
+  pins read `0`. Digital pins use `0` (LOW) and `1` (HIGH). An analog input is its
+  voltage as a share of 5 V; a PWM output is its duty cycle, the `analogWrite`
+  value / 255. Stop resets every pin to `0`.
+- A sim may return `readout()`, a short string. The runner `getReadout()` gives it
+  while running, else `''`, and `runControls` shows it under the status. It stands
+  in for the Serial Monitor until Phase 3.
 - Run starts a fake upload of `UPLOAD_MS` (1500 ms), then the runner creates the
   sim and calls `update(now)` every tick.
 - A lesson is marked done only by `onGoal(lessonId)`, which the runner calls once
   per run when `checkGoal()` first returns true. A sim without `checkGoal` never
   completes its lesson. The runner never calls `markComplete` itself; `main.js`
   passes `onGoal: (id) => course.markComplete(id)`.
-- `main.js` subscribes once to `pins`. On a change it calls `setLit(level === 1)`
+- `main.js` subscribes once to `pins`. On a change it calls `setBrightness(level)`
   on every LED in the current circuit whose `pin` matches, then `invalidate()`.
   A newly built circuit sets each LED from `pins.get(part.pin)`. Stop goes
   through `pins.reset()`, so it turns the LEDs off.
-- `inputs` is one shared `createInputs()` of held buttons, set by `partPress`.
-  Sims read it with `inputs.isPressed(id)`. Stop does not reset it, so a held
-  button stays held until released.
+- `inputs` is one shared `createInputs()` of held buttons, set by `partPress`,
+  and knob values from 0 to 1, set by `partTurn` and the Knob slider. Sims read it
+  with `inputs.isPressed(id)` and `inputs.getValue(id)`. `subscribe` fires
+  `(id, on)` for a press and `(id, value)` for a knob, only on a real change.
+  Stop does not reset it, so a held button stays held until released.
 
 ## Conventions
 
