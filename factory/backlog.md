@@ -27,7 +27,7 @@ the ones above it. Phases 4 and later are notes, not queued yet.
 
 ## Phase 3: Code runner and Level 2
 
-- [ ] Serial Monitor panel with scrolling output, a text input that sends lines to the running sketch, and a clear button
+- [x] Serial Monitor panel with scrolling output, a text input that sends lines to the running sketch, and a clear button → feature/serial-monitor
 - [ ] Code runner parser: tokenise and parse an Arduino C subset (setup and loop, int float bool long, const, arrays, if else, for, while, switch, functions, enum) into an AST, with clear error messages and line numbers, fully unit tested
 - [ ] Code runner runtime: interpret the AST in a Web Worker against a virtual clock with digitalWrite, digitalRead, pinMode, analogRead, analogWrite, delay, millis, Serial print and read, tone, and Servo, posting pin changes to the sim, fully unit tested
 - [ ] Editable code panel: learners edit the sketch, Run sends it through the code runner instead of the per lesson sim, errors show inline on the right line, and a reset button restores the lesson code
