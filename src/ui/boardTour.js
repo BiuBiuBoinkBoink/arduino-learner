@@ -2,6 +2,9 @@
 // the board, plus a tour card with a checklist as the keyboard path. Zone names
 // and text come from the lesson data. Opened zones live in memory only.
 // onComplete(lessonId) runs once when every zone of the lesson is opened.
+// Returns { setEnabled(on), reset(lessonId) }: main.js turns the tour on only
+// while the current step is the tour step, and reset forgets a lesson's opened
+// zones (Start this lesson again).
 import * as THREE from 'three'
 import { createTour } from '../sim/tour.js'
 
@@ -39,6 +42,7 @@ export function createBoardTour({ stage, board, course, container, onComplete })
   container.append(card, label)
 
   let active = null
+  let enabled = true
   let hovered = null
   let down = null
 
@@ -88,7 +92,7 @@ export function createBoardTour({ stage, board, course, container, onComplete })
   }
 
   canvas.addEventListener('pointermove', (event) => {
-    if (!active) return
+    if (!active || !enabled) return
     const zoneId = zoneAt(event)
     setHovered(zoneId)
     if (zoneId) {
@@ -103,14 +107,14 @@ export function createBoardTour({ stage, board, course, container, onComplete })
   })
 
   canvas.addEventListener('pointerdown', (event) => {
-    if (!active || event.button !== 0) return
+    if (!active || !enabled || event.button !== 0) return
     down = { x: event.clientX, y: event.clientY, zoneId: zoneAt(event) }
   })
 
   canvas.addEventListener('pointerup', (event) => {
     const start = down
     down = null
-    if (!active || !start || !start.zoneId) return
+    if (!active || !enabled || !start || !start.zoneId) return
     const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y)
     if (moved < CLICK_SLOP && zoneAt(event) === start.zoneId) open(start.zoneId)
   })
@@ -129,7 +133,7 @@ export function createBoardTour({ stage, board, course, container, onComplete })
     heading.textContent = entry ? entry.label : 'Board tour'
     text.textContent = entry ? entry.text : 'Point at a part of the board and click it, or pick a part below.'
     progress.textContent = tour.isComplete()
-      ? 'All ' + tour.total + ' parts opened. Lesson done.'
+      ? 'All ' + tour.total + ' parts opened.'
       : tour.openedCount() + ' of ' + tour.total + ' parts opened'
     checklist.replaceChildren(...lesson.tour.map((item) => {
       const isOpened = tour.isOpened(item.zone)
@@ -161,10 +165,27 @@ export function createBoardTour({ stage, board, course, container, onComplete })
       return
     }
     active = { lesson, state: stateFor(lesson) }
-    card.hidden = false
+    card.hidden = !enabled
     renderCard()
+  }
+
+  function setEnabled(on) {
+    if (Boolean(on) === enabled) return
+    enabled = Boolean(on)
+    down = null
+    if (!enabled) setHovered(null)
+    card.hidden = !(active && enabled)
+  }
+
+  function reset(lessonId) {
+    tours.delete(lessonId)
+    if (active && active.lesson.id === lessonId) {
+      active = { lesson: active.lesson, state: stateFor(active.lesson) }
+      renderCard()
+    }
   }
 
   render(course.getState())
   course.subscribe(render)
+  return { setEnabled, reset }
 }

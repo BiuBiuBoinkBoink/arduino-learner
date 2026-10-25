@@ -16,8 +16,8 @@ export const lessons = [
   {
     id: '1.1',
     level: 1,
-    title: 'Meet the Uno',
-    summary: 'Tour the board and find the pins, power jacks and the reset button.',
+    title: 'Meet the Uno and breadboard',
+    summary: 'Tour the board, then learn how a breadboard joins holes.',
     overview: [
       'The Uno is a small board built around the ATmega328P chip. It runs one program, called a sketch, again and again.',
       'Digital pins sit along the top edge. Power and analog pins sit along the bottom edge. The USB port powers the board and loads new sketches.'
@@ -58,6 +58,107 @@ void loop() {
       { zone: 'usb-power', label: 'USB and power jack', text: 'The USB port powers the board and loads your sketch. The barrel jack takes 7 to 12 V when no computer is attached.' },
       { zone: 'chip', label: 'ATmega328P chip', text: 'This chip is the brain of the board. It stores your sketch and runs it at 16 MHz.' },
       { zone: 'reset', label: 'Reset button', text: 'Press it to restart your sketch from the top. The board runs setup again, then loop.' }
+    ],
+    kit: { parts: [{ id: 'r1', type: 'resistor', ohms: 220 }], wires: 2 },
+    prebuilt: [],
+    steps: [
+      {
+        id: 'tour',
+        kind: 'explore',
+        title: 'Tour the board',
+        body: ['Click each part of the Uno to see what it does. The card on the right lists the six parts to find.'],
+        check: { type: 'tour', text: 'Open all six parts of the Uno' },
+        hint: 'Move the pointer over the board. Each part lights up blue when you can click it.',
+        done: 'You know where the pins, the power and the chip are.'
+      },
+      {
+        id: 'strips',
+        kind: 'explore',
+        title: 'Find the strips',
+        body: [
+          'A breadboard hides metal strips under its holes. In each column, holes a to e share one strip, and holes f to j share another.',
+          'Point at a few holes and watch which other holes light up with them.'
+        ],
+        check: { type: 'event', items: [{ text: 'Point at holes in 3 different strips', event: 'strip-hover', count: 3 }] },
+        hint: 'Move the pointer slowly across the breadboard. Every hole lights up the whole strip it belongs to.',
+        done: 'Holes in the same strip are joined, so parts in them are connected.'
+      },
+      {
+        id: 'gap',
+        kind: 'learn',
+        title: 'The centre gap',
+        body: ['The gap down the middle of the breadboard splits every column in two. Chips and buttons sit across it.'],
+        check: {
+          type: 'quiz',
+          question: 'Are holes 12a and 12f joined?',
+          options: ['Yes, they are in the same column', 'No, the centre gap splits the column', 'Only when a wire is in them'],
+          answer: 1,
+          explain: [
+            'Not quite. The column is split by the gap: 12a to 12e is one strip, 12f to 12j is another.',
+            'Right. The gap splits each column into two strips, so 12a and 12f are not joined.',
+            'Not quite. Holes are joined by the strip under them, and 12a and 12f sit on different strips.'
+          ]
+        },
+        done: 'Each column holds two strips, one on each side of the gap.'
+      },
+      {
+        id: 'place-resistor',
+        kind: 'build',
+        title: 'Place a resistor',
+        parts: ['r1'],
+        body: [
+          'Pick the resistor from the tray. Click a hole for one end, then a hole a few columns away in the same row for the other end.',
+          'Its two legs must sit in two different strips, or the current goes round it.'
+        ],
+        check: {
+          type: 'circuit',
+          items: [
+            { text: 'Resistor is on the breadboard', rule: { placed: 'r1' } },
+            { text: 'Legs in two different strips', rule: { apart: ['r1.a', 'r1.b'] } }
+          ]
+        },
+        hint: 'Keep both legs in the same row, for example row c, three or four columns apart.',
+        done: 'Each leg has its own strip, so anything joined to the resistor goes through it.'
+      },
+      {
+        id: 'power-wires',
+        kind: 'wire',
+        title: 'Wire up power',
+        parts: [],
+        body: [
+          'Pick Jumper wires in the tray. Click the 5V pin on the Uno, then a hole. Do the same for a GND pin.',
+          'The long rails along the edges are made for power: the red + rail for 5V and the blue - rail for GND.'
+        ],
+        check: {
+          type: 'circuit',
+          items: [
+            { text: 'A wire from 5V to the breadboard', rule: { wired: '5V' } },
+            { text: 'A wire from GND to the breadboard', rule: { wired: 'GND' } },
+            { text: '5V and GND are not joined', rule: { noShorts: true } }
+          ]
+        },
+        hint: 'Put the 5V wire in the top red + rail and the GND wire in the top blue - rail.',
+        done: 'Power is on the rails, ready for any part that needs it.'
+      },
+      {
+        id: 'practice',
+        kind: 'build',
+        title: 'Move things around',
+        parts: [],
+        body: [
+          'Click the resistor to pick it up, then put it somewhere else.',
+          'Then click it again and press Delete to put it back in the tray.'
+        ],
+        check: {
+          type: 'event',
+          items: [
+            { text: 'Move a part', event: 'part-moved', count: 1 },
+            { text: 'Put a part back in the tray', event: 'part-returned', count: 1 }
+          ]
+        },
+        hint: 'Click the resistor once to lift it, then click two holes to put it down. To remove it, lift it and press Delete.',
+        done: 'You can place, move and remove parts. That is all you need for every lesson.'
+      }
     ]
   },
   {

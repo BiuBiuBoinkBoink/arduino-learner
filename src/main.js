@@ -111,7 +111,13 @@ const guide = createGuidePanel(layout.guide, {
   tracker,
   // Show me and Do it for me need a reference circuit and a circuit check.
   canSuggest: (lesson, step) => Boolean(circuits[lesson.id]) && Boolean(step.check) && step.check.type === 'circuit',
-  onRestart: () => workbench.reset(),
+  onRestart: () => {
+    const { id } = course.getState().lesson
+    workbench.reset()
+    toursDone.delete(id)
+    boardTour.reset(id)
+    updateFlow()
+  },
   onHelp: (level) => {
     if (level === 3) doItForMe()
   }
@@ -530,13 +536,17 @@ codePanel.onInput(updateFlowSoon)
 subscribeValues(() => {
   if (runner.getPhase() === 'running' && !codePanel.isEdited()) runner.reload(codePanel.getSource(), performance.now())
 })
-// A finished tour counts for the step checks, and still marks 1.1 done while
-// its step is the generated one.
+// A finished tour counts for the tour step check; the flow marks 1.1 done once
+// every step passed. The tour card and zone clicks are on only during that step.
 function onTourComplete(id) {
   toursDone.add(id)
-  const lesson = lessons.find((item) => item.id === id)
-  if (lesson && hasGeneratedSteps(lesson)) course.markComplete(id)
   updateFlow()
 }
-createBoardTour({ stage, board, course, container: layout.workbench, onComplete: onTourComplete })
+const boardTour = createBoardTour({ stage, board, course, container: layout.workbench, onComplete: onTourComplete })
+function tourFor(viewState) {
+  const entry = viewState.steps[viewState.index]
+  boardTour.setEnabled(Boolean(entry && ['tour', 'legacy'].includes(entry.step.check.type)))
+}
+tourFor(flow.getView())
+flow.subscribe(tourFor)
 updateFlow()

@@ -6,8 +6,12 @@ import { lessons } from '../src/course/lessons.js'
 const byId = (id) => lessons.find((lesson) => lesson.id === id)
 
 describe('stepsFor', () => {
-  it('gives 1.1 one explore step', () => {
-    expect(stepsFor(byId('1.1'))).toEqual([{
+  // Every course lesson has its own steps since phase 6; these lessons have none.
+  const toured = { id: 't', title: 'T', overview: ['A board.'], tour: [{ zone: 'chip', label: 'Chip', text: 'The chip.' }] }
+  const plain = { id: 'p', title: 'P', overview: ['A part.', 'Goal: press Run.'] }
+
+  it('gives a lesson with a tour and no steps one explore step', () => {
+    expect(stepsFor(toured)).toEqual([{
       id: 'goal',
       kind: 'explore',
       title: 'Tour the board',
@@ -27,22 +31,25 @@ describe('stepsFor', () => {
     ])
   })
 
-  it('gives 1.4 one run step with its goal text', () => {
-    const lesson = byId('1.4')
-    expect(stepsFor(lesson)).toEqual([{
+  it('gives a lesson with no steps one run step with its goal text', () => {
+    expect(stepsFor(plain)).toEqual([{
       id: 'goal',
       kind: 'run',
       title: 'Goal',
-      body: [splitGoal(lesson.overview).goal],
+      body: [splitGoal(plain.overview).goal],
       check: { type: 'legacy' }
     }])
+  })
+
+  it('gives 1.1 its tour and breadboard steps', () => {
+    expect(stepsFor(byId('1.1')).map((step) => step.id)).toEqual(['tour', 'strips', 'gap', 'place-resistor', 'power-wires', 'practice'])
   })
 
   it('returns the steps a lesson gives', () => {
     const steps = [{ id: 'a', kind: 'learn', title: 'A', body: [], check: { type: 'legacy' } }]
     expect(stepsFor({ ...byId('1.2'), steps })).toEqual(steps)
-    expect(hasGeneratedSteps({ ...byId('1.4'), steps })).toBe(false)
-    expect(hasGeneratedSteps(byId('1.4'))).toBe(true)
+    expect(hasGeneratedSteps({ ...plain, steps })).toBe(false)
+    expect(hasGeneratedSteps(plain)).toBe(true)
   })
 
   it('keeps build and wire steps now the build flag is on', () => {
