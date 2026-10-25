@@ -87,6 +87,6 @@ describe('scopeFor', () => {
     expect(scopeFor(lesson, 0)).toEqual(['r1', 'w1', 'btn1'])
     expect(scopeFor(lesson, 2)).toEqual(['r1', 'w1', 'btn1'])
     expect(scopeFor(lesson, 3)).toEqual(['r1', 'w1', 'btn1', 'led1'])
-    expect(scopeFor({ ...byId('1.4') }, 0)).toEqual([])
+    expect(scopeFor({ id: 'p', title: 'P', overview: ['Goal: press Run.'] }, 0)).toEqual([])
   })
 })

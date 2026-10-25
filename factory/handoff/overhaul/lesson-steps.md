@@ -405,7 +405,7 @@ steps: [
       type: 'circuit',
       items: [
         { text: 'Button is on the breadboard', rule: { placed: 'btn1' } },
-        { text: 'Across the centre gap', rule: { apart: ['btn1.a', 'btn1.b'] } }
+        { text: 'Across the centre gap', rule: { straddles: 'btn1' } }
       ]
     },
     hint: 'Hover over row e next to the gap. The ghost shows all four legs: two above the gap and two below.',
@@ -417,7 +417,7 @@ steps: [
     title: 'Wire the button',
     parts: [],
     body: [
-      'Wire D2 to one side of the button and GND to the other side.',
+      'Wire D2 to one side of the button and GND to the other side. The GND pin next to D13 is in use, so take one from the bottom header.',
       'The sketch turns on a pull up resistor inside the Uno, so D2 reads HIGH until the button joins it to GND.'
     ],
     check: {
@@ -515,7 +515,10 @@ steps: [
     kind: 'wire',
     title: 'Wire 5V and GND',
     parts: [],
-    body: ['Run GND to the free end of the 10 kohm resistor. Then run 5V to the other side of the button from D2.'],
+    body: [
+      'Run GND to the free end of the 10 kohm resistor. Then run 5V to the other side of the button from D2.',
+      'The GND pin next to D13 is in use, so take one from the bottom header.'
+    ],
     check: {
       type: 'circuit',
       items: [
@@ -881,7 +884,10 @@ steps: [
     kind: 'wire',
     title: 'Wire the divider',
     parts: [],
-    body: ['Wire 5V to the free leg of the photoresistor, A0 to the middle strip, and GND to the free end of the 10 kohm resistor.'],
+    body: [
+      'Wire 5V to the free leg of the photoresistor, A0 to the middle strip, and GND to the free end of the 10 kohm resistor.',
+      'The GND pin next to D13 is in use, so take one from the bottom header.'
+    ],
     check: {
       type: 'circuit',
       items: [
@@ -951,6 +957,7 @@ steps: [
         { text: 'Each leg in its own strip', rule: { allApart: 'tmp1' } }
       ]
     },
+    hint: 'Keep all three legs in the same row, for example row e. They then sit in three side by side strips.',
     done: 'Three legs, three strips.'
   },
   {
@@ -1049,6 +1056,7 @@ steps: [
         { text: 'Legs in two different strips', rule: { apart: ['bz1.a', 'bz1.b'] } }
       ]
     },
+    hint: 'Put both legs in the same row, for example row e. The legs sit three columns apart.',
     done: 'Two legs, two strips.'
   },
   {
@@ -1066,6 +1074,7 @@ steps: [
       ],
       pass: { matches: 'all' }
     },
+    hint: 'D8 is on the top header of the Uno, next to a GND pin. Each wire goes into a free hole in the strip of one leg.',
     done: 'D8 can now make sound.'
   },
   {
@@ -1142,6 +1151,7 @@ steps: [
       ],
       pass: { matches: 'all' }
     },
+    hint: 'GND and 5V are on the bottom header of the Uno, and D9 is on the top header. The cable ends are brown, red and orange from left to right.',
     done: 'The Servo library can now drive D9.'
   },
   {
