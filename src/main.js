@@ -109,6 +109,8 @@ const guide = createGuidePanel(layout.guide, {
   course,
   flow,
   tracker,
+  // Show me and Do it for me need a reference circuit and a circuit check.
+  canSuggest: (lesson, step) => Boolean(circuits[lesson.id]) && Boolean(step.check) && step.check.type === 'circuit',
   onRestart: () => workbench.reset(),
   onHelp: (level) => {
     if (level === 3) doItForMe()
@@ -173,6 +175,9 @@ const viewControls = createViewControls({
 // circuit (lesson prebuilt lists only count while BUILD_STEPS_ENABLED).
 const workbench = createWorkbench({ storage: getStorage() })
 let reference = null
+// A lesson has a circuit to edit when it has a reference circuit or its own
+// kit (1.1 has a kit and no reference: no run lock, no hint ghosts).
+let hasCircuit = false
 // Tray labels for the current kit: partLabel against the whole kit.
 let kitLabels = {}
 
@@ -208,7 +213,8 @@ function checkBuild() {
 
 // The table the view draws: the build plus the reference meter and room flags.
 function buildTable() {
-  if (!reference) return null
+  if (!hasCircuit) return null
+  if (!reference) return workbench.getBuild()
   return { ...workbench.getBuild(), meter: reference.meter, roomDriven: reference.roomDriven }
 }
 
@@ -255,12 +261,13 @@ function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
   circuitLessonId = lesson.id
   reference = circuits[lesson.id] || null
+  hasCircuit = Boolean(reference || lesson.kit)
   const kit = kitFor(lesson, reference, { prebuiltLists: BUILD_STEPS_ENABLED })
   const kitParts = kit.parts.map((part) => ({ id: part.id, type: part.type, ...part.meta }))
   kitLabels = Object.fromEntries(kitParts.map((part) => [part.id, partLabel(part, kitParts)]))
   workbench.load(lesson.id, { kit, reference })
   checkBuild()
-  viewControls.setEditAvailable(Boolean(reference))
+  viewControls.setEditAvailable(hasCircuit)
   placement.setEnabled(viewControls.isEditing())
   drawBuild({ fresh: true })
   defaultEditing(flow.getView())
@@ -276,7 +283,7 @@ function defaultEditing(viewState) {
   // The lesson's circuit loads after the flow hears of a lesson change.
   if (!entry || key === editStepKey || viewState.lesson.id !== circuitLessonId) return
   editStepKey = key
-  viewControls.setEditing(Boolean(reference) && BUILD_KINDS.includes(entry.step.kind))
+  viewControls.setEditing(hasCircuit && BUILD_KINDS.includes(entry.step.kind))
 }
 flow.subscribe(defaultEditing)
 
@@ -296,11 +303,13 @@ function refreshMarks() {
   const { lesson, index } = viewState
   if (lesson.id !== circuitLessonId) return
   const entry = viewState.steps[index]
-  const later = reference && entry ? laterParts(lesson, index) : []
+  const later = hasCircuit && entry ? laterParts(lesson, index) : []
   placement.setLocked(later)
   const kind = entry ? entry.step.kind : null
+  const pulsing = Boolean(hasCircuit && entry && kind === 'build' && !entry.passed)
+  tray.setStep({ pulse: pulsing ? entry.step.parts || [] : [], later })
+  // Hint glows, rings and ghosts need the reference circuit.
   const building = Boolean(reference && entry && BUILD_KINDS.includes(kind) && !entry.passed)
-  tray.setStep({ pulse: building && kind === 'build' ? entry.step.parts || [] : [], later })
   // Show me on a code step marks the lines to change in the editor.
   const showMe = entry && kind === 'code' && !entry.passed && entry.hintLevel >= 2 ? entry.step.showMe : null
   if (showMe) codePanel.markLines(showMe.lines, showMe.note)

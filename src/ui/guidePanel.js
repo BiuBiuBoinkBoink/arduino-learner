@@ -26,10 +26,12 @@ const RESTART_CONFIRM = 'Click again to start over'
 const CONFIRM_MS = 3000
 const CHECKLIST_HINT = 'Look at the checklist: the first item without a tick is the next thing to do.'
 // Show me works on build, wire and code steps; Do it for me on build and wire.
+// canSuggest(lesson, step) says whether a build or wire step can show or do
+// anything (main.js: a reference circuit and a circuit check).
 const SHOW_ME_KINDS = ['build', 'wire', 'code']
 const DO_IT_KINDS = ['build', 'wire']
 
-export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {}, onHelp = () => {} }) {
+export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {}, onHelp = () => {}, canSuggest = () => true }) {
   const header = document.createElement('div')
   header.className = 'guide-header'
   const eyebrow = document.createElement('p')
@@ -245,9 +247,11 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     label.className = 'step-hint-label'
     label.textContent = 'Stuck?'
     row.append(label, rung(view.lesson.project ? 'Need a hint?' : 'Hint', 1, level, index))
-    const canShow = SHOW_ME_KINDS.includes(step.kind) && (step.kind !== 'code' || Boolean(step.showMe))
+    // Build and wire steps suggest only where main.js can (canSuggest).
+    const suggests = DO_IT_KINDS.includes(step.kind) && canSuggest(view.lesson, step)
+    const canShow = step.kind === 'code' ? Boolean(step.showMe) : suggests
     if (level >= 1 && canShow) row.append(rung('Show me', 2, level, index))
-    if (level >= 2 && DO_IT_KINDS.includes(step.kind)) row.append(rung('Do it for me', 3, level, index))
+    if (level >= 2 && suggests) row.append(rung('Do it for me', 3, level, index))
     box.append(row)
     return box
   }

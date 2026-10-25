@@ -254,10 +254,64 @@ describe('circuit checks', () => {
     expect(done.passed).toBe(true)
   })
 
-  it('never passes without a reference circuit', () => {
-    const result = evaluate(stepOf('place-led'), circuitCtx({ parts: [led('9e', '10e')], wires: [] }, { reference: null }))
+  it('never passes a matches rule without a reference circuit', () => {
+    const result = evaluate(stepOf('add-resistor'), circuitCtx({ parts: [led('9e', '10e'), resistor('5c', '9c')], wires: [] }, { reference: null, scope: ['led1', 'r1'] }))
+    expect(result.items.map((item) => item.ok)).toEqual([true, true, false])
     expect(result.passed).toBe(false)
-    expect(result.feedback).toBe(null)
+  })
+})
+
+describe('circuit checks without a reference circuit', () => {
+  // The 1.1 breadboard steps: item rules only, mistakes from an empty reference.
+  const placeResistor = {
+    id: 'place-resistor',
+    kind: 'build',
+    parts: ['r1'],
+    check: {
+      type: 'circuit',
+      items: [
+        { text: 'Resistor is on the breadboard', rule: { placed: 'r1' } },
+        { text: 'Legs in two different strips', rule: { apart: ['r1.a', 'r1.b'] } }
+      ]
+    }
+  }
+  const powerWires = {
+    id: 'power-wires',
+    kind: 'wire',
+    parts: [],
+    check: {
+      type: 'circuit',
+      items: [
+        { text: 'A wire from 5V to the breadboard', rule: { wired: '5V' } },
+        { text: 'A wire from GND to the breadboard', rule: { wired: 'GND' } },
+        { text: '5V and GND are not joined', rule: { noShorts: true } }
+      ]
+    }
+  }
+  const resistor = (a, b) => ({ id: 'r1', type: 'resistor', ohms: 220, legs: [a, b] })
+  const noRef = (build, overrides = {}) => ctx({ build, reference: null, scope: ['r1'], attempts: 1, busy: false, ...overrides })
+
+  it('passes item rules and names two legs in one strip', () => {
+    const same = evaluate(placeResistor, noRef({ parts: [resistor('5c', '5a')], wires: [] }))
+    expect(same.passed).toBe(false)
+    expect(same.feedback.text).toBe('Both legs of the resistor are in strip 5 (rows a to e), so the current goes round it.')
+    expect(same.feedback.targets.places).toEqual(['strip:5-top'])
+    const good = evaluate(placeResistor, noRef({ parts: [resistor('5c', '9c')], wires: [] }))
+    expect(good.passed).toBe(true)
+    // An empty board has no mistake to name: there is nothing to compare with.
+    expect(evaluate(placeResistor, noRef({ parts: [], wires: [] })).feedback).toBe(null)
+  })
+
+  it('wires power to the rails, and names only a short', () => {
+    const parts = [resistor('5c', '9c')]
+    const one = evaluate(powerWires, noRef({ parts, wires: [{ id: 'u1', from: '5V', to: 'T+3', color: 'red' }] }))
+    expect(one.items.map((item) => item.ok)).toEqual([true, false, true])
+    expect(one.feedback).toBe(null)
+    const shorted = evaluate(powerWires, noRef({ parts, wires: [{ id: 'u1', from: '5V', to: 'T+3', color: 'red' }, { id: 'u2', from: 'GND.2', to: 'T+4', color: 'black' }] }))
+    expect(shorted.passed).toBe(false)
+    expect(shorted.feedback.text).toBe('This joins 5V straight to GND. On a real board that is a short circuit.')
+    const good = evaluate(powerWires, noRef({ parts, wires: [{ id: 'u1', from: '5V', to: 'T+3', color: 'red' }, { id: 'u2', from: 'GND.2', to: 'T-3', color: 'black' }] }))
+    expect(good.passed).toBe(true)
   })
 })
 

@@ -13,6 +13,9 @@ import { diagnose } from '../circuits/netlist.js'
 export const CHECK_TYPES = ['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'event', 'circuit', 'all']
 
 const RUN_AND_WATCH = 'Now press Run and watch.'
+// A lesson with no reference circuit (1.1) checks its item rules against an
+// empty one, so only rules that need no answer key can pass there.
+const EMPTY_REFERENCE = { parts: [], wires: [] }
 
 export function evaluate(step, ctx) {
   return check(step.check, step, ctx)
@@ -38,7 +41,7 @@ const circuitCache = new WeakMap()
 
 function circuitResult(spec, step, ctx) {
   const build = ctx.build || { parts: [], wires: [] }
-  const reference = ctx.reference || null
+  const reference = ctx.reference || EMPTY_REFERENCE
   const scope = Array.isArray(ctx.scope) ? ctx.scope : []
   const key = step.id + '|' + scope.join()
   let byStep = circuitCache.get(build)
@@ -47,22 +50,17 @@ function circuitResult(spec, step, ctx) {
     circuitCache.set(build, byStep)
   }
   if (byStep.results.has(key)) return byStep.results.get(key)
-  let entry
-  if (!reference) {
-    entry = { items: spec.items.map((item) => ({ text: item.text, ok: false })), passed: false, mistake: () => null }
-  } else {
-    // One rule context per evaluation: the build is aligned once.
-    const rules = createRuleContext(build, reference)
-    const items = spec.items.map((item) => ({ text: item.text, ok: evaluateRule(item.rule, rules) }))
-    const passed = items.every((item) => item.ok) && (!spec.pass || evaluateRule(spec.pass, rules))
-    let first
-    // Build steps name mistakes in the scope only; wire steps look at everything.
-    const mistake = () => {
-      if (first === undefined) first = diagnose(build, reference, step.kind === 'build' ? { only: scope } : {})[0] || null
-      return first
-    }
-    entry = { items, passed, mistake }
+  // One rule context per evaluation: the build is aligned once.
+  const rules = createRuleContext(build, reference)
+  const items = spec.items.map((item) => ({ text: item.text, ok: evaluateRule(item.rule, rules) }))
+  const passed = items.every((item) => item.ok) && (!spec.pass || evaluateRule(spec.pass, rules))
+  let first
+  // Build steps name mistakes in the scope only; wire steps look at everything.
+  const mistake = () => {
+    if (first === undefined) first = diagnose(build, reference, step.kind === 'build' ? { only: scope } : {})[0] || null
+    return first
   }
+  const entry = { items, passed, mistake }
   byStep.results.set(key, entry)
   return entry
 }

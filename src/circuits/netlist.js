@@ -327,17 +327,19 @@ export function diagnose(build, reference, { only } = {}) {
     }
   }
 
-  // same-net: two terminals of one part share a net that they do not share in the reference.
+  // same-net: two terminals of one part share a net that they do not share in
+  // the reference. A part the reference does not have (1.1, with an empty
+  // reference) must never have two terminals in one net.
   for (const part of placedParts) {
     const refPart = refById.get(part.id)
-    if (part.type === 'button' || !refPart || !placed(refPart)) continue
+    if (part.type === 'button' || (refPart && !placed(refPart))) continue
     const terminals = PART_TYPES[part.type].terminals
     let found = null
     for (let i = 0; i < terminals.length && !found; i++) {
       for (let j = i + 1; j < terminals.length && !found; j++) {
         const shared = termNet(net, part.id, terminals[i])
         if (!shared || shared !== termNet(net, part.id, terminals[j])) continue
-        const refShared = termNet(refNet, part.id, terminals[i])
+        const refShared = refPart ? termNet(refNet, part.id, terminals[i]) : null
         if (refShared && refShared === termNet(refNet, part.id, terminals[j])) continue
         found = [terminals[i], terminals[j], shared]
       }
@@ -404,8 +406,9 @@ export function diagnose(build, reference, { only } = {}) {
   }
 
   // loose-wire: a wire from a pin ends in places with nothing else in them. Not
-  // counted while the parts it should meet are still in the tray.
-  for (const item of net.nets) {
+  // counted while the parts it should meet are still in the tray, nor with an
+  // empty reference, where power on a bare rail is the point (1.1).
+  for (const item of refParts.length === 0 ? [] : net.nets) {
     if (item.pins.length !== 1 || item.terms.length > 0 || item.places.length === 0) continue
     const pin = item.pins[0]
     const refItems = refNet.nets.filter((other) => other.pins.includes(pin))

@@ -242,6 +242,29 @@ describe('diagnose on 1.2', () => {
   })
 })
 
+describe('diagnose with an empty reference', () => {
+  const empty = { parts: [], wires: [] }
+
+  it('handles an empty build and reference', () => {
+    expect(diagnose({ parts: [], wires: [] }, empty)).toEqual([])
+  })
+
+  it('names two legs of a part in one place, and nothing for power on a bare rail', () => {
+    const build = {
+      parts: [{ id: 'r1', type: 'resistor', ohms: 220, legs: ['5c', '5e'] }],
+      wires: [{ id: 'u1', from: '5V', to: 'T+3', color: 'red' }]
+    }
+    expect(ids(diagnose(build, empty))).toEqual(['same-net'])
+    build.parts[0].legs = ['5c', '9c']
+    expect(diagnose(build, empty)).toEqual([])
+  })
+
+  it('still finds a short', () => {
+    const build = { parts: [], wires: [{ id: 'u1', from: '5V', to: 'T+3', color: 'red' }, { id: 'u2', from: 'GND', to: 'T+9', color: 'black' }] }
+    expect(ids(diagnose(build, empty))).toEqual(['short'])
+  })
+})
+
 describe('diagnose on other lessons', () => {
   it('finds a 1.4 button that does not cross the centre gap', () => {
     const build = clone(ref('1.4'))
