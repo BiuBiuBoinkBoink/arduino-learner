@@ -33,7 +33,7 @@ import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createCodeRunner } from './runner/codeRunner.js'
 import { circuits } from './circuits/circuits.js'
-import { compare, partLabel, placeOf } from './circuits/netlist.js'
+import { compare, diagnose, partLabel, placeOf } from './circuits/netlist.js'
 import { isHole } from './circuits/holes.js'
 import { joinPlaces, pendingPins } from './circuits/suggest.js'
 import { kitFor } from './build/kit.js'
@@ -180,11 +180,17 @@ function setEditing(on) {
   refreshMarks()
 }
 
-// Run stays locked while the build does not match the reference circuit.
+// Run stays locked while the build does not match the reference circuit; a
+// short circuit gets its own message.
 let buildMatches = true
+let buildLock = null
 const BUILD_LOCK = 'Finish the circuit to unlock Run.'
+const SHORT_LOCK = 'Fix the short circuit to unlock Run.'
 function checkBuild() {
-  buildMatches = !reference || compare(workbench.getBuild(), reference).match
+  const build = workbench.getBuild()
+  buildMatches = !reference || compare(build, reference).match
+  buildLock = null
+  if (!buildMatches) buildLock = diagnose(build, reference).some((item) => item.id === 'short') ? SHORT_LOCK : BUILD_LOCK
 }
 
 // The table the view draws: the build plus the reference meter and room flags.
@@ -406,7 +412,7 @@ const run = createRunControls({
   getValues,
   getSource: codePanel.getSource,
   onError: codePanel.setError,
-  getLock: () => flow.runLock() || (buildMatches ? null : BUILD_LOCK),
+  getLock: () => flow.runLock() || buildLock,
   onFrame: updateFlow
 })
 flow.subscribe(() => run.refreshLock())
