@@ -1981,9 +1981,9 @@ summary:focus-visible {
   display: none;
 }
 
-/* No dock controls, or the parts tray is up (presses are off while editing):
-   no Controls button. */
-#app[data-layout='compact'] #workbench:has(#controls-dock:not(:has(> :not([hidden]):not(.dock-heading)))) .dock-toggle,
+/* The parts tray is up (presses are off while editing): no Controls button.
+   layout.js hides the button when the dock has no controls. */
+#app[data-layout='compact'] .dock-toggle[hidden],
 #app[data-layout='compact'] #workbench:has(#parts-tray:not([hidden])) .dock-toggle,
 #app[data-layout='compact'] #workbench:has(#parts-tray:not([hidden])) #controls-dock {
   display: none;

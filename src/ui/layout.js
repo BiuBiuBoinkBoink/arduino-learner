@@ -41,6 +41,12 @@ export function createLayout(app) {
   dockToggle.setAttribute('aria-expanded', 'false')
   dockToggle.addEventListener('click', () => setDockOpen(dockToggle.getAttribute('aria-expanded') !== 'true'))
   workbench.append(stageEl, runBar, viewControls, dock, dockToggle)
+  // The Controls button shows only while the dock has a control to show.
+  new MutationObserver(() => {
+    dockToggle.hidden = ![...dock.children].some((child) => child !== dockHeading && !child.hidden)
+    if (dockToggle.hidden) setDockOpen(false)
+  }).observe(dock, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] })
+  dockToggle.hidden = true
 
   const codePanel = document.createElement('aside')
   codePanel.id = 'code-panel'
