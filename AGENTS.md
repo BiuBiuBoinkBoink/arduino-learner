@@ -82,7 +82,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/runner/worker.js`, `src/runner/codeRunner.js`, `src/runner/codeChecks.js`, `src/sim/responseTimer.js`,
 `src/build/kit.js`, `src/build/workbench.js`, `src/build/wireColor.js`, `src/ui/placement.js`, `src/ui/partsTray.js`,
 `src/ui/holeTooltip.js`, `src/circuits/suggest.js`, `src/course/nudge.js`, `src/ui/labels.js`,
-`src/ui/stepMarks.js`. The other
+`src/ui/stepMarks.js`, `src/ui/layoutMode.js`, `src/ui/sheetState.js`, `src/ui/bottomSheet.js`,
+`src/ui/sheetPeek.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -98,12 +99,16 @@ src/
                    draws the step hints and mistakes (see "Build steps and hints"); counts the step events
                    (hovered places, parts moved, parts put back) for event checks, turns hover only placement
                    on for explore steps with an event check, turns the board tour on only on its step, and
-                   on Start this lesson again resets the lesson build and its tour
+                   on Start this lesson again resets the lesson build and its tour; makes the bottom sheet before the scene and moves the guide
+                   and code panel into it in the compact layout (see "Layouts and touch"), starts narrower
+                   layouts in the framed 3D view and frames the top or 3D view again on a stage resize
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
                    overlays (#run-bar, #view-controls, #controls-dock, .tour-card) float over it; a
-                   container query stacks the run bar under the view buttons on a workbench under 640 px
+                   container query stacks the run bar under the view buttons on a workbench under 640 px;
+                   #app[data-layout='medium' | 'compact'] rules change the grid and overlays (see "Layouts
+                   and touch"), --guide-w-medium (280px) and --peek-h (132px) size them
   app/             composition helpers for main.js
     scene.js       createScene(stageEl) -> { stage, board, breadboard, frameBox() }: the Uno left and the
                    breadboard right, 1 cm apart, centred on x = 0; frameBox() is the box around both as
@@ -297,14 +302,30 @@ src/
                    with line null, so Run never fails silently
   ui/              layout, top bar, course map, guide, info tabs, code panel, params, workbench controls
     layout.js      createLayout(app) -> { topBar, guide, workbench, stageEl, runBar, viewControls, dock, codePanel,
-                   setCodeOpen(on), isCodeOpen(), subscribeCode(fn) }: builds header#top-bar, aside#guide-panel,
-                   main#workbench (with #stage, #run-bar, #view-controls and #controls-dock inside) and
-                   aside#code-panel; setCodeOpen toggles is-closed on the code panel
+                   setCodeOpen(on), isCodeOpen(), subscribeCode(fn), getMode(), subscribeMode(fn) }: builds
+                   header#top-bar, aside#guide-panel, main#workbench (with #stage, #run-bar, #view-controls,
+                   #controls-dock and the compact Controls button inside) and aside#code-panel; setCodeOpen
+                   toggles is-closed on the code panel; a ResizeObserver on #app sets data-layout from
+                   layoutFor(width) and calls subscribeMode listeners on a change; the Controls button
+                   (.dock-toggle, aria-expanded) toggles .is-open on the dock and is hidden while the dock has
+                   no visible control
+    layoutMode.js  pure layoutFor(width) -> 'wide' (>= 1200) | 'medium' (900 to 1199) | 'compact' (< 900); a
+                   width that is not a number is wide
+    sheetState.js  pure nextSheetState(state, action) with 'expand', 'collapse' or { type: 'drag', dy, height }
+                   (snaps to the state whose height is nearest the release) and sheetHeights(height) ->
+                   { peek: 132, half: height / 2, full: height - 8 (never under peek) }
+    bottomSheet.js createBottomSheet({ container, tabs: [{ id, label, element }] }) -> { setState(state), getState(),
+                   selectTab(id), getTab(), subscribe(fn), setActive(on), isActive(), peekSlot }: section
+                   #bottom-sheet (see "Layouts and touch")
+    sheetPeek.js   createSheetPeek({ container, flow, course }): the peek of the current step (kind and title,
+                   'N of M done', and once passed 'Milestone done' with Continue or 'Lesson done' with the
+                   next lesson)
     topBar.js      createTopBar(container, course, { levels, onOpenMap, flow }) -> { mapButton }: Robo Learn, the
                    'Level 1 Basics / 1.2 Blink' breadcrumb, step progress from the flow (one 28 x 6 px segment
                    per step, good when passed, accent when current, line when locked, then 'Step 2 of 3' or
                    'Done'; the group's aria-label is 'Step 2 of 3' or 'Lesson done'), Prev and Next, and the
-                   Course map button
+                   Course map button; the level and separator are .top-crumb-level spans and Prev and Next
+                   carry a chevron icon beside a .top-button-text span, so the compact CSS can hide them
     courseMap.js   createCourseMap({ container, course, levels, button }) -> { open, close, isOpen }: #course-map
                    dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
                    per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
@@ -327,7 +348,10 @@ src/
     viewControls.js createViewControls({ container, stage, getFrameBox, getEditBox, onEdit }) -> { setView(kind,
                    opts), setEditing(on), setEditAvailable(on), isEditing() }: an Edit circuit toggle
                    (aria-pressed) in its own group, then Top view, 3D view and Reset view buttons; Top and 3D
-                   follow stage.getView() with aria-pressed
+                   follow stage.getView() with aria-pressed. Both groups sit in .view-menu (display: contents
+                   outside compact) after a View button (.view-toggle, aria-expanded, hidden outside
+                   compact) that opens them as a popover; a choice, Escape (focus back on View) or a pointer
+                   down outside closes it
     infoPanel.js   createInfoPanel(panel, course, { heading = true }): lesson heading (left out with heading
                    false, as in the guide's Reference drawer) plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
@@ -352,7 +376,8 @@ src/
                    the runner on lesson change; .run-readout line shows runner.getReadout(); main.js puts it
                    in #run-bar, a floating bar at the top left of the workbench; options getLock() (a string
                    disables Run and shows as the status; refreshLock() re-checks it) and onFrame() (after
-                   every loop frame, on Stop and on an error); returns { noticeError, refreshLock, stop }
+                   every loop frame, on Stop and on an error); returns { noticeError, refreshLock, stop };
+                   the status and readout keep their whole text in title (compact cuts them with an ellipsis)
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed(), setEnabled(on) }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
@@ -379,12 +404,14 @@ src/
                    "Workbench and placement"); setMarks([{ place, tone }]) adds step highlights under its
                    own, setLocked(ids) stops later parts being picked up, setHoverOnly(on) keeps the hovered
                    strip and the hole tooltip with edit mode off (no picking; the arrows move the hovered hole
-                   while the page has focus); exports buildGhost({ table, board,
+                   while the page has focus); touch taps move the target without placing (getState().touch
+                   and touchReady; see "Layouts and touch"); exports buildGhost({ table, board,
                    breadboard, values, tint }) and disposeGroup(scene, group)
     partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render(),
                    setStep({ pulse, later }) }: #parts-tray with the kit, Jumper wires, Undo, Reset circuit,
                    status, colour and the keyboard row; pulse parts get an accent ring animation (a still
-                   ring under reduced motion), later parts say Later and are disabled
+                   ring under reduced motion), later parts say Later and are disabled; .tray-touch floats
+                   above it with Place, Turn and Cancel while placement's touchReady is true
     labels.js      createLabels({ stage, container }) -> { set(list), clear() }: aria-hidden .pin-label boxes
                    above projected 3D points ([{ id, position, text, tone }]), re-placed on controls change,
                    resize and set; hidden behind the camera or outside the workbench
@@ -402,7 +429,8 @@ src/
                    below the view buttons; calls onComplete(lessonId) once every zone is opened (main.js feeds
                    it to the tour step check; the flow marks 1.1 done once every step passed); returns
                    { setEnabled(on), reset(lessonId) }: main.js enables it only while the current step has a
-                   tour (or legacy) check, and reset forgets the opened zones
+                   tour (or legacy) check, and reset forgets the opened zones; a zone tap counts within 8 px
+                   for touch (5 px for the mouse); the compact CSS turns the card into a strip above the peek
 test/              vitest unit tests
 ```
 
@@ -583,7 +611,8 @@ the current lesson, and every panel updates from it.
   if edit mode moved the camera. It follows the step: each new current step turns it on for build
   and wire steps and off for the others; the learner's own toggle sticks until the step changes.
 - Placement modes: `idle`, `carry` (fixed shapes, `R` cycles orientations), `bend` (resistor, ldr:
-  two clicks) and `wire` (two clicks, repeats). A click is a pointer up within 5 px of its down. The
+  two clicks) and `wire` (two clicks, repeats). A click is a pointer up within 5 px of its down
+  (8 px for touch, which works by taps: see "Layouts and touch"). The
   ray meets the breadboard and Uno header planes, then `nearestHole` / `nearestPin`. In idle,
   clicking a part picks it up, clicking a wire (or the hole or pin it ends in) selects it; Delete
   or Backspace removes the selection, Escape steps back. The ghost is the part or wire at 0.5
@@ -607,6 +636,54 @@ the current lesson, and every panel updates from it.
   reference).match` is false: `Fix the short circuit to unlock Run.` when the diagnosis has a
   `short`, else `Finish the circuit to unlock Run.`; re-checked after every workbench change, and a
   running sketch stops when the build stops matching.
+
+## Layouts and touch
+
+- Three layouts from the width of `#app` (`layoutFor` in `src/ui/layoutMode.js`): `wide` (>= 1200
+  px), `medium` (900 to 1199) and `compact` (< 900). `createLayout` sets `data-layout` on `#app`
+  with a ResizeObserver; every mode rule in `style.css` keys off `#app[data-layout=...]`, not media
+  queries, so tests and the preview can force a mode by setting the attribute.
+- Wide: the phase 1 grid (guide, workbench, code panel columns). Its parts for other modes (View
+  button, Controls button, chevron icons) are hidden.
+- Medium: columns `var(--guide-w-medium)` (280 px) and the workbench. The code panel is an absolute
+  drawer over the right of the workbench (`grid-row: 2; grid-column: 1 / -1; top: 0; bottom: 0;
+  right: 0; width: min(420px, 60vw)`, z-index 5, shadow); closed, it is a 36 x 96 px Code tab
+  centred on the right edge. The run bar max width is `calc(100% - 200px)`.
+- Compact: one column, the top bar shows only `1.2 Blink`, `Step 2 of 6`, 32 px chevron Prev and
+  Next and Course map; the course map fills the screen under the top bar; the run bar spans the top
+  (8 px margins) with the status and readout on one line each (ellipsis, full text in `title`); the
+  view buttons fold into a View popover below it on the right; the controls dock folds behind a
+  `Controls` button at the bottom left above the peek (hidden while the dock is empty or the tray
+  shows); the tray spans the width just above the peek and its items scroll sideways; the board
+  tour card is a strip above the peek with its checklist in one sideways row; pinned labels are
+  11 px, at most 160 px wide. Body text stays at least 14 px and labels 12 px.
+- Bottom sheet (`createBottomSheet`, compact only): `#bottom-sheet` at the bottom of the workbench,
+  full width, 12 px top corners, z-index 6, in `data-state` `peek` (132 px), `half` (50 %) or
+  `full` (100 % less 8 px); the height animates 0.2 s except under reduced motion or while
+  dragging. Header: a handle button (`Resize the lesson panel`; click or Enter toggles peek and
+  half, ArrowUp and ArrowDown expand and collapse one state, a pointer drag moves the sheet and
+  snaps with `nextSheetState` on release, and the click after a drag is ignored), the `Steps` and
+  `Code` tabs (WAI-ARIA tabs with `nextTabIndex`; a tab clicked while peeking opens the sheet to
+  half) and `Expand` / `Collapse` (aria-expanded; Expand opens full, Collapse returns to peek). The
+  peek slot (sheetPeek.js) shows only in peek, the tab panels only in half and full.
+- Moving the panels: main.js makes the sheet right after the layout, before the scene, so the stage
+  starts at its real size. `setActive(true)` (compact) leaves a comment placeholder where
+  `#guide-panel` and `#code-panel` were and appends those same elements to the Steps and Code
+  panels; `setActive(false)` puts them back. Nothing is rebuilt: the editor keeps its text, caret,
+  listeners and full screen. In the sheet the code panel always shows its body (no rail, no Hide
+  code chevron). Leaving compact resets the sheet to peek. A step that opens the code panel
+  selects the Code tab, and one that closes it the Steps tab, only when the sheet is not peeking.
+- Touch placement (`placement.js`): pointers with `pointerType === 'touch'` have no hover (touch
+  moves and leaves are ignored). A tap (pointer up within 8 px of its down, one finger; a second
+  finger leaves the gesture to the camera) moves the target to the hole or pin under it and shows
+  the ghost and the hole tooltip for 2 s, but does not place; in idle it picks up a placed part or
+  selects a wire as a click does. `getState().touchReady` is true while a tapped target waits
+  (touch, edit mode, not idle, a target that is not the first end); the tray then shows `Place`
+  (confirm), `Turn` (rotate; only while carrying a part with more than one orientation) and
+  `Cancel` (Escape). After a first end or a wire is placed by touch the target clears, so Place
+  waits for the next tap. A mouse pointer down turns touch off again.
+- Hover only steps on touch (1.1 Find the strips): a tap on a hole calls `onHover` for that hole,
+  so it counts as a strip hover, and shows the tooltip for 2 s.
 
 ## Sims and goal checks
 

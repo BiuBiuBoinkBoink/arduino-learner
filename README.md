@@ -229,6 +229,13 @@ place, marked Built earlier, and the learner builds and wires the new part by ha
 that connects the same way passes. P1 starts from an empty breadboard and shows hints only when
 asked (Need a hint?). The overview tabs no longer carry a Goal sentence; the steps do.
 
+**Lesson overhaul phase 7, narrow screens** (`feature/lesson-overhaul`, not merged): the app now
+works on tablets and phones. From 900 to 1199 px wide the code panel becomes a drawer over the
+workbench with a Code tab on the right edge. Under 900 px the guide and the code move into a
+bottom sheet with Steps and Code tabs; its peek shows the current step, how much of its checklist
+is done and, once it passes, Continue. The top bar, run bar, view buttons and controls fold up to
+fit, and parts and wires can be placed by touch: tap a hole, then Place, Turn or Cancel.
+
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
 
@@ -307,8 +314,8 @@ in AGENTS.md.
   clone starts at 001 again. That is fine: the branch is deleted after each merge.
 - **Leftover dev servers:** reviewers sometimes leave a dev server running. If a worktree folder
   will not delete, find the process on that port (`netstat -ano | findstr :7171`) and stop it.
-- **Phone layout:** UX and UI reviewers keep noting the 390 px panel overlap. It predates every
-  job and is not a blocker. It needs its own backlog item.
+- **Phone layout:** the old 390 px panel overlap is fixed on `feature/lesson-overhaul` (overhaul
+  phase 7). Until that merges, `main` still has it.
 - **One job at a time per person:** jobs can run in parallel (one Claude session each), but two
   people must never claim the same backlog item. Pull `main` before `/factory next`.
 
@@ -340,5 +347,4 @@ If the team wants avr8js instead, change the two code runner items in the backlo
 
 ## Known issues
 
-- At phone width (around 390 px) the left and right panels overlap each other and the stage.
-  Desktop only for now. A narrow screen layout needs its own backlog item.
+- None listed. (The phone layout overlap is fixed by overhaul phase 7 on `feature/lesson-overhaul`.)

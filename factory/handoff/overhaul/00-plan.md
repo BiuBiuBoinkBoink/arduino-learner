@@ -239,3 +239,18 @@ the final screenshot shows, anything not verified.
   again, a zone click, Next). Not verified: Do it for me in the browser (unit tested for every
   step), strip hovering with the real mouse (synthetic pointer moves), the 3D mouse press and knob
   drag (keyboard paths used), reduced motion and screen reader output.
+- 2026-10-26: phase 7 narrow screens, last code commit a97e175, 901 tests. Final screenshot at
+  1440 x 900 on 1.4 after playing it at 390 x 844: the wide layout back with the guide (all five
+  steps ticked, Lesson done, Next lesson: 1.5 Pull up vs pull down), the run bar (Goal met, Presses:
+  3 of 3), the button, LED and wires on the breadboard, the Controls dock with Hold to press, and the
+  code panel open in its column. Checks: 1024 x 768 medium (guide left, drawer, Code tab when
+  closed, 1.2 finished), 768 x 1024 and 390 x 844 compact (peek, Expand, Steps and Code tabs, editor
+  text and caret kept across tabs, landscape 844 x 390, 1024 x 768 medium and back), 1.2 and 1.4
+  built at 390 x 844 by touch taps with Place, Turn and Cancel and continued from the peek, the 1.1
+  tour strip and Find the strips passed by taps, course map full screen closing with its button and
+  Escape, no horizontal scroll at 360 x 740 (peek, full sheet on both tabs, View menu, course map),
+  wide restored with nothing lost; no console errors in a fresh tab driven by real input. Not
+  verified: real touch (synthetic touch PointerEvents only), a two finger gesture, every lesson
+  played at 390 x 844 by touch (1.1's first steps, 1.2 and 1.4 were; the others share the same
+  placement and sheet paths), the drag snap animation by eye, reduced motion and screen reader
+  output.
