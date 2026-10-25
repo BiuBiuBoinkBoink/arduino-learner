@@ -156,6 +156,15 @@ describe('compare', () => {
     const build = clone(ref('1.8'))
     expect(align(build, ref('1.8')).parts.map((item) => item.id)).toEqual(['rgb1', 'r1', 'r2', 'r3'])
   })
+
+  it('gives one placed resistor the id of the leg it is on', () => {
+    const rgb = part(clone(ref('1.8')), 'rgb1')
+    const build = { parts: [rgb, { id: 'r3', type: 'resistor', ohms: 220, legs: ['8c', '14c'] }], wires: [] }
+    expect(align(build, ref('1.8')).parts.map((item) => item.id)).toEqual(['rgb1', 'r1'])
+    const found = ids(diagnose(build, ref('1.8'), { only: ['rgb1', 'r1', 'r2', 'r3'] }))
+    expect(found).not.toContain('reversed')
+    expect(found).toContain('missing')
+  })
 })
 
 describe('diagnose on 1.2', () => {

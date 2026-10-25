@@ -175,13 +175,16 @@ export function interchangeKey(part) {
   return part.type
 }
 
-function permutations(items) {
-  if (items.length <= 1) return [items.slice()]
-  return items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]))
+// Every ordered choice of k items from items, without repeats.
+function arrangements(items, k) {
+  if (k === 0) return [[]]
+  return items.flatMap((item, i) => arrangements([...items.slice(0, i), ...items.slice(i + 1)], k - 1).map((rest) => [item, ...rest]))
 }
 
 // A copy of the build with the ids of interchangeable parts swapped so it
-// matches the reference best; ties keep the original ids.
+// matches the reference best; ties keep the original ids. A placed part may
+// take the id of an unplaced one of its group, so the first of three 220 ohm
+// resistors fits whichever colour leg it went on.
 export function align(build, reference) {
   let parts = (build.parts || []).map((part) => ({ ...part }))
   const refCanon = canonical(buildNetlist(reference), reference.parts)
@@ -194,11 +197,13 @@ export function align(build, reference) {
   for (const [key, count] of groups) {
     if (count < 2 || count > 4) continue
     const members = parts.map((part, i) => (interchangeKey(part) === key ? i : -1)).filter((i) => i !== -1)
-    if (members.length < 2 || members.length > 4) continue
+    if (members.length < 1 || members.length > 4) continue
     const ids = members.map((i) => parts[i].id)
+    const pool = [...new Set([...(reference.parts || []).filter((part) => interchangeKey(part) === key).map((part) => part.id), ...ids])]
     let best = parts
     let bestScore = score(parts)
-    for (const order of permutations(ids).slice(1)) {
+    for (const order of arrangements(pool, ids.length)) {
+      if (order.every((id, n) => id === ids[n])) continue
       const candidate = parts.map((part) => ({ ...part }))
       members.forEach((index, n) => { candidate[index].id = order[n] })
       const value = score(candidate)
