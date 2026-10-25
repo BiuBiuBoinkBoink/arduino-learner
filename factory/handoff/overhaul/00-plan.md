@@ -216,3 +216,13 @@ the final screenshot shows, anything not verified.
   unit test, not by eye (too small at pane size); the hover tint (opacity 0.12) was not seen,
   only the info and bad tints; pointer checks 2 to 5 ran at 1440 x 900 emulation, 3 and 4 also at
   the pane's own size; screen reader output was not tested.
+- 2026-10-25: phase 5 build steps and hints, last code commit 3f22abf, 690 tests. Final screenshot
+  at 1440 x 900 on 1.2 at Add the resistor: Edit circuit and Top view pressed, the guide with
+  Learn and Build Place the LED ticked and the Add the resistor card (three unticked items, Stuck?
+  Hint), the LED in 9e and 10e, strip 9 (rows a to e) glowing blue, and the tray with the resistor
+  (In the tray, pulsing), the LED (Placed), Jumper wires 4 of 4 left, Undo and Reset circuit. All 8
+  browser checks done (checks 2, 4, 5 and 8 through the tray keyboard path); no console errors in a
+  fresh tab driven by real keys and clicks. Not verified: the 40 s auto nudge in the browser (unit
+  tested with fake timers; the mistake nudge was seen), the pin rings and hint ghosts by eye (too
+  small at pane size; the ring pool is unit tested and the ghost path is shared with placement),
+  the tray pulse under reduced motion, and screen reader output.

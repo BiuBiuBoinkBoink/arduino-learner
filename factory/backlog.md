@@ -46,7 +46,7 @@ request until the owner says so.
 - [x] Overhaul phase 2, milestone engine: lesson steps, checks, per step progress, board progress names, lesson 1.2 as steps -> 02-milestone-engine.md -> feature/lesson-overhaul
 - [x] Overhaul phase 3, netlist and footprints: power rails, part footprints, connection checker with mistake messages, step rules -> 03-netlist-footprints.md -> feature/lesson-overhaul
 - [x] Overhaul phase 4, placement: workbench build, parts tray, ghost and snap placement, wires, keyboard path, edit mode, run lock -> 04-placement.md -> feature/lesson-overhaul
-- [ ] Overhaul phase 5, build steps and hints: circuit checks, mistakes in 3D, hint ladder with show me and do it for me, 1.2 built by hand -> 05-build-steps-hints.md
+- [x] Overhaul phase 5, build steps and hints: circuit checks, mistakes in 3D, hint ladder with show me and do it for me, 1.2 built by hand -> 05-build-steps-hints.md -> feature/lesson-overhaul
 - [ ] Overhaul phase 6, lessons converted: every lesson as milestones with carry over, breadboard steps in 1.1 -> 06-lessons-converted.md
 - [ ] Overhaul phase 7, narrow screens: medium and compact layouts, bottom sheet, touch placement -> 07-narrow-screens.md
 - [ ] Overhaul phase 8, explain tools: x-ray, current trace, scope, connections, part cards, voltage, slow motion, what if -> 08-explain-tools.md

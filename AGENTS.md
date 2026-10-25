@@ -81,7 +81,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`, `src/runner/interpreter.js`, `src/runner/session.js`,
 `src/runner/worker.js`, `src/runner/codeRunner.js`, `src/runner/codeChecks.js`, `src/sim/responseTimer.js`,
 `src/build/kit.js`, `src/build/workbench.js`, `src/build/wireColor.js`, `src/ui/placement.js`, `src/ui/partsTray.js`,
-`src/ui/holeTooltip.js`. The other
+`src/ui/holeTooltip.js`, `src/circuits/suggest.js`, `src/course/nudge.js`, `src/ui/labels.js`,
+`src/ui/stepMarks.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -91,8 +92,10 @@ src/
                    through the circuit view (fresh), and redraws it after every workbench change, then
                    points the per lesson controls (hold button, knob, meter, room, sound) at its parts;
                    runs Edit circuit mode and the build run lock (see "Workbench and placement"); builds the step check context (currentContext) and feeds it to the flow each
-                   run frame, on Stop, lesson change, tour completion and 300 ms after a code edit; opens
-                   the code panel on predict, run and code steps and closes it on the others
+                   run frame, on Stop, lesson change, tour completion, every workbench change, a busy
+                   change and 300 ms after a code edit; opens the code panel on predict, run and code
+                   steps and closes it on the others; turns edit mode on for build and wire steps, and
+                   draws the step hints and mistakes (see "Build steps and hints")
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
@@ -114,15 +117,19 @@ src/
     goalText.js    pure splitGoal(paragraphs) -> { intro, goal }: goal is the text after 'Goal: ' in the first
                    paragraph that has it; every other text stays in intro (goal null when there is none)
     steps.js       pure stepsFor(lesson) -> step[]: lesson.steps when given (without build and wire steps
-                   while BUILD_STEPS_ENABLED is false), else one generated step { id: 'goal', kind: 'run',
-                   title: 'Goal', body: [goal], check: { type: 'legacy' } }, or for a lesson with a tour kind
-                   'explore', title 'Tour the board'; hasGeneratedSteps(lesson); CODE_OPEN_KINDS; STEP_KINDS
+                   while BUILD_STEPS_ENABLED is false; it is true since phase 5), else one generated step
+                   { id: 'goal', kind: 'run', title: 'Goal', body: [goal], check: { type: 'legacy' } }, or for
+                   a lesson with a tour kind 'explore', title 'Tour the board'; hasGeneratedSteps(lesson);
+                   scopeFor(lesson, stepIndex) (prebuilt ids, then the parts of every build or wire step up
+                   to that one, no repeats); CODE_OPEN_KINDS; STEP_KINDS; BUILD_KINDS
     stepTracker.js pure createStepTracker({ storage, lessons, stepsFor }): get(lessonId) -> { current, passed,
                    helped, answers, latched, hintLevels }, has, setCurrent, markPassed, answer, latch,
                    setHintLevel, reset, completeAll, subscribe; key robo-learn:steps
     checks.js      pure evaluate(step, ctx) -> { passed, items, feedback }; CHECK_TYPES; simKey, simKeys(check)
     flow.js        pure createFlow({ course, tracker, stepsFor, evaluate }): getView, update(ctx), answer, next,
-                   toggleOpen, runLock, subscribe (see "Lesson steps and checks")
+                   toggleOpen, raiseHint(level), runLock, subscribe (see "Lesson steps and checks")
+    nudge.js       pure createNudge({ flow, delayMs, setTimer, clearTimer }) -> { poke(), stop() }; NUDGE_MS
+                   (40000): raises the current step to hint level 1 on a mistake or after the wait
     progress.js    pure lessonStatus(lessons, completed, id) -> 'done' | 'next' | '' (next is the first lesson in
                    course order that is not done)
     lessons.js     levels ([{ id, title }], 1 Basics to 5 Beyond the Uno); lesson objects: id, level,
@@ -146,7 +153,8 @@ src/
                    target }: top looks straight down, 3d from +z at 45 deg, both fitting the box with 10% margin
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
-    unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones;
+    unoBoard.js    createUnoBoard() -> { group, zones, highlightPins(names) }, 1 unit = 1 cm; highlightPins
+                   draws a thin accent ring just above each named header hole (pool, callers invalidate); UNO_ZONE_IDS for the six clickable zones;
                    PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top;
                    PIN_TOP_Y and nearestPin(localX, localZ, maxDistance = 0.6 * PITCH) -> pin name or null
     breadboard.js  createBreadboard() -> { group, highlightPlaces(list), clearHighlights() }, half size, 30
@@ -194,6 +202,9 @@ src/
     netlist.js     pure buildNetlist, canonical, compare, align, diagnose, normalizePin, placeOf, partLabel,
                    thingLabel, placeLabel, formatOhms (see "Netlist and footprints")
     rules.js       pure createRuleContext(build, reference), evaluateRule(rule, ruleContext)
+    suggest.js     pure suggest(build, reference, step, scope) -> [{ kind: 'part', id, legs } | { kind: 'wire',
+                   from, to } | { kind: 'unwire', id }]; joinPlaces, pendingPins, suggestionLabels;
+                   SEARCH_LIMIT (see "Build steps and hints")
   build/           the learner's build (pure; see "Workbench and placement")
     kit.js         kitFor(lesson, reference, { prebuiltLists }) -> { parts: [{ id, type, meta }], wires, prebuilt }
     workbench.js   createWorkbench({ storage }): load, getBuild, tray, occupancy, canPlace, place, remove, canWire,
@@ -289,18 +300,20 @@ src/
                    dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
                    per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
                    Escape closes and refocuses the button, a click outside closes; lessons are never locked
-    guidePanel.js  createGuidePanel(container, { course, flow, tracker }) -> { referenceBody }: lesson header, an
+    guidePanel.js  createGuidePanel(container, { course, flow, tracker, onRestart, onHelp }) -> { referenceBody,
+                   setShowMe(texts) }: lesson header, an
                    ol.guide-steps from flow.getView() and a closed details.guide-reference hosting the info
                    tabs. One li per step: a row with an 18 px status icon (done tick, current ring and dot,
                    locked padlock), kind label and title; done rows are buttons (aria-expanded) opening a read
                    only card, locked rows are dimmed with aria-label '<title>, locked'. The current card shows
                    the body (generated steps show the lesson intro and Goal box instead), the question with
                    .guide-option buttons (aria-pressed; right good border, wrong bad border, predict accent),
-                   the 'To pass' checklist, feedback, a Hint button, and once passed a success box ('Milestone
-                   done' and Continue, or 'Lesson done' and the next lesson). Feedback and success sit in
+                   the 'To pass' checklist, feedback, the hint ladder (see "Build steps and hints"), and once
+                   passed a success box ('Milestone done' and Continue, or 'Lesson done' and the next lesson,
+                   plus a muted 'Helped' line for a helped step). Feedback and success sit in
                    persistent role="status" regions; a re-render keeps focus on the same control. 'Start this
                    lesson again' needs a second click within 3 s ('Click again to start over') and calls
-                   tracker.reset
+                   tracker.reset, then onRestart (main.js resets the lesson build)
     viewControls.js createViewControls({ container, stage, getFrameBox, getEditBox, onEdit }) -> { setView(kind,
                    opts), setEditing(on), setEditAvailable(on), isEditing() }: an Edit circuit toggle
                    (aria-pressed) in its own group, then Top view, 3D view and Reset view buttons; Top and 3D
@@ -318,8 +331,10 @@ src/
                    lessons without a sketch show coloured example.code read only; a Full screen button at
                    the top right of the editor (Escape or the button closes) moves the workspace (editor,
                    error line, serial slot) to the body to fill the window over a backdrop; returns
-                   { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError }; onInput(fn)
-                   calls fn(source) on every edit of the sketch text
+                   { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError, markLines,
+                   clearMarks }; onInput(fn) calls fn(source) on every edit of the sketch text;
+                   markLines(lines, note) gives those 1 based lines is-hint (accent soft background) and puts
+                   the note after the first one until clearMarks or a lesson change
     runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
                    { noticeError }: Run sends getSource() and shows a compile or runtime error as
                    'Stopped. Line N: ...' plus onError(error) for the code panel; Stop button and status
@@ -351,10 +366,19 @@ src/
                    5 px of its down); both write inputs.setProbe(id); hidden with no targets
     placement.js   createPlacement({ stage, board, breadboard, workbench, getItems, getValues, tooltip, onChange,
                    onHover }): edit mode picking, ghosts, strip highlights, wires and window keys (see
-                   "Workbench and placement")
-    partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render() }:
-                   #parts-tray with the kit, Jumper wires, Undo, Reset circuit, status, colour and the
-                   keyboard row
+                   "Workbench and placement"); setMarks([{ place, tone }]) adds step highlights under its
+                   own, setLocked(ids) stops later parts being picked up; exports buildGhost({ table, board,
+                   breadboard, values, tint }) and disposeGroup(scene, group)
+    partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render(),
+                   setStep({ pulse, later }) }: #parts-tray with the kit, Jumper wires, Undo, Reset circuit,
+                   status, colour and the keyboard row; pulse parts get an accent ring animation (a still
+                   ring under reduced motion), later parts say Later and are disabled
+    labels.js      createLabels({ stage, container }) -> { set(list), clear() }: aria-hidden .pin-label boxes
+                   above projected 3D points ([{ id, position, text, tone }]), re-placed on controls change,
+                   resize and set; hidden behind the camera or outside the workbench
+    stepMarks.js   createStepMarks({ stage, board, breadboard, placement, labels, getValues }) -> { set({ places,
+                   pins, ghost, labels }), clear() }: step highlights, pin rings, accent hint ghosts and
+                   labels at holes or pins
     holeTooltip.js createHoleTooltip({ container }) -> { show(name, clientX, clientY), hide() }: aria-hidden
                    label with the hole and its place, or a pin name
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
@@ -516,7 +540,8 @@ the current lesson, and every panel updates from it.
   (meta is every field but id, type and the positions `legs`, `anode`, `cathode`, `from`, `to`,
   `at`); wires `lesson.kit.wires`, else the reference wire count plus 2; prebuilt `lesson.prebuilt`
   when given and `prebuiltLists` is true, else every reference item. main.js passes
-  `BUILD_STEPS_ENABLED`, so for now every lesson opens with its whole circuit built.
+  `BUILD_STEPS_ENABLED` (true since phase 5), so 1.2 (`prebuilt: []`) opens empty and lessons
+  without a list open with their whole circuit built.
 - Workbench rules: only kit ids, legs that `legsValid` accepts (any orientation), one leg or wire
   end per hole, one wire per pin; moving ignores the part's own holes; a wire runs from a pin or a
   hole to a hole, two different ends, while the kit has a wire left. Reasons: `That hole is already
@@ -534,7 +559,8 @@ the current lesson, and every panel updates from it.
 - Edit circuit (view controls, hidden on lessons without a circuit): on turns placement and the
   tray on and press, turn and meter clicks off, and moves the camera to the top view of both boards
   unless the learner orbited since the last view change; off reverses it and returns to the 3D view
-  if edit mode moved the camera.
+  if edit mode moved the camera. It follows the step: each new current step turns it on for build
+  and wire steps and off for the others; the learner's own toggle sticks until the step changes.
 - Placement modes: `idle`, `carry` (fixed shapes, `R` cycles orientations), `bend` (resistor, ldr:
   two clicks) and `wire` (two clicks, repeats). A click is a pointer up within 5 px of its down. The
   ray meets the breadboard and Uno header planes, then `nearestHole` / `nearestPin`. In idle,
@@ -556,9 +582,10 @@ the current lesson, and every panel updates from it.
 - Window keys while placing: arrows move the target a column or row, `R` turns, `Enter` places,
   `Escape` cancels, `Delete` removes; ignored in inputs, selects and textareas except Escape in
   the tray, and Enter is left to a focused button.
-- Run lock: the flow's lock first, then `Finish the circuit to unlock Run.` while the lesson has a
-  reference and `compare(build, reference).match` is false; re-checked after every workbench change,
-  and a running sketch stops when the build stops matching.
+- Run lock: the flow's lock first, then while the lesson has a reference and `compare(build,
+  reference).match` is false: `Fix the short circuit to unlock Run.` when the diagnosis has a
+  `short`, else `Finish the circuit to unlock Run.`; re-checked after every workbench change, and a
+  running sketch stops when the build stops matching.
 
 ## Sims and goal checks
 
@@ -631,12 +658,12 @@ the current lesson, and every panel updates from it.
 ## Lesson steps and checks
 
 - A lesson may have `steps: [step, ...]` (1.2 now) and `prebuilt: [ids]`. A step
-  is `{ id, kind, title, body: [1 to 3 paragraphs], check, hint?, done?, showMe? }`.
+  is `{ id, kind, title, body: [1 to 3 paragraphs], check, hint?, done?, showMe?, parts? }`.
   Ids are kebab case and unique in the lesson. Kinds: `learn`, `explore`, `build`,
-  `wire`, `predict`, `run`, `code`. Build and wire steps (with `parts` and a
-  `circuit` check) stay hidden while `BUILD_STEPS_ENABLED` in `steps.js` is false
-  (phase 5 turns it on). Lessons without steps get one generated step whose check
-  is `legacy`.
+  `wire`, `predict`, `run`, `code`. Build and wire steps have `parts` (the kit ids the
+  step places, empty for wire steps) and a `circuit` check; they would stay hidden if
+  `BUILD_STEPS_ENABLED` in `steps.js` were false. Lessons without steps get one
+  generated step whose check is `legacy`.
 - `evaluate(step, ctx)` in `src/course/checks.js` returns `{ passed, items: [{ text,
   ok }], feedback: null | { tone: 'good' | 'bad' | 'info', text } }`. Check types:
   - `legacy`: passes when `ctx.lessonCompleted`; item `Meet the goal`.
@@ -652,20 +679,32 @@ the current lesson, and every panel updates from it.
   - `code` `{ rule: 'compiles', text }`: `ctx.code.error` is null; else feedback
     `bad` `The sketch does not compile. <message>`.
   - `tour` `{ text }`: `ctx.tour.complete`.
+  - `circuit` `{ items: [{ text, rule }], pass? }`: one `createRuleContext(build,
+    reference)` per evaluation; items are `{ text, ok: evaluateRule(rule) }`; passes when
+    every item and `pass` (when given) are true. When not passed, `attempts > 0` and not
+    `busy`, feedback is `{ tone: 'bad', text, targets }` from the first mistake of
+    `diagnose(build, reference, { only: scope })` on build steps or `diagnose(build,
+    reference)` on wire steps (none when there is no mistake). Results are cached per build
+    object and step.
   - `all` `{ checks }`: every inner check passes; items in order, the first non
     null feedback.
 - The context: `{ lessonId, lessonCompleted, answers, latched, sim: { phase,
-  progress }, code: { error }, tour: { complete } }`. `main.js` builds `sim`,
-  `code` (checkCode of the code panel source, cached by source) and `tour`; the
-  flow adds `lessonId`, `lessonCompleted`, `answers` and `latched` from the course
-  and the tracker.
+  progress }, code: { error }, tour: { complete }, build, reference, scope, attempts,
+  busy }`. `main.js` builds `sim`, `code` (checkCode of the code panel source, cached
+  by source), `tour`, `build` (one object per workbench state), `reference`, `scope`
+  (`scopeFor` of the current step), `attempts` (workbench changes since the step became
+  current) and `busy` (a part carried or bent, or a wire half drawn); the flow adds
+  `lessonId`, `lessonCompleted`, `answers` and `latched` from the course and the
+  tracker, and starts every new current step with `attempts: 0`.
 - Latching: on every update the flow latches each sim key of the current step that
   is ok now (`tracker.latch`), so progress made in one run survives Stop. A step
   stored as passed counts its sim keys as latched and its answer as given, so its
   items stay ticked after a reload; code items stay live.
 - Flow rules (`src/course/flow.js`): `update(ctx)` evaluates the current step,
   latches, stores a pass once (`markPassed`) and, when every step passed and the
-  course does not list the lesson, calls `course.markComplete` once. `next()` moves
+  course does not list the lesson, calls `course.markComplete` once. A pass is stored as
+  helped when the step's hint level is 3 (Do it for me). `raiseHint(level)` raises the
+  current step's hint level (never lowers it, nothing once passed). `next()` moves
   on only from a passed step and does nothing on the last. `answer(stepId,
   option)` works on the current step until it passes. `toggleOpen(index)` opens
   or closes done cards. `runLock()` is `Make a guess first.` on a predict step
@@ -673,13 +712,53 @@ the current lesson, and every panel updates from it.
   record gets `completeAll` on first view. A lesson change resets the flow's
   context to idle, so an old run never counts. Subscribers hear only real view
   changes. The view: `{ lesson, steps: [{ step, status: 'done' | 'current' |
-  'locked', passed, helped, open, result, answer }], index, result, passedNow,
-  lessonDone }`.
+  'locked', passed, helped, open, result, answer, hintLevel }], index, result,
+  targets, passedNow, lessonDone }`; `targets` are those of the current feedback, or null.
 - Step progress is saved under `robo-learn:steps`: a JSON object keyed by lesson id
   of `{ current, passed, helped, answers, latched, hintLevels }`. Loading drops
   unknown lesson and step ids, wrong types and non integer indexes, and clamps
   `current`. `reset` keeps an empty record, so a reset lesson is not migrated
   again.
+
+## Build steps and hints
+
+- Scope: `scopeFor(lesson, index)`, the lesson's prebuilt ids plus the `parts` of this and
+  every earlier build or wire step. Build step mistakes look at the scope only, so a part a
+  later step adds is never named.
+- Suggestions (`src/circuits/suggest.js`, pure). Build steps: for each part of `step.parts`
+  not placed or not right, try its reference legs (its own holes count as free), then the
+  reference legs shifted like the nearest related placed part (same column offset, rows
+  within their half), then a search (fixed shapes: every anchor and orientation; bend
+  shapes: pairs starting in a place the part must join), nearest to the reference legs
+  first, at most `SEARCH_LIMIT` (3000) tries. The last part must make the step pass; earlier
+  ones must `compare` right with the parts so far. Wire steps, per pin (GND pins are one):
+  each reference wire whose parts the pin does not reach gets a wire from that pin to the
+  free hole nearest the reference end in the build net holding those parts; wrong learner
+  wires from that pin, and any from pins the reference does not use, come first as
+  `unwire`. `joinPlaces` gives the places a build step's parts must join, `pendingPins` the
+  pins still to wire, `suggestionLabels` the label text: `long leg: 9e`, `short leg: 10e`,
+  `ends: 5c and 9c`, `<terminal label>: <holes>`, `D13 to 5a`.
+- Hint ladder, levels per step in the tracker (`hintLevels`, 0 to 3), shown in the current
+  card until the step passes: a `Stuck?` row with `Hint` (`Need a hint?` on lessons with
+  `project: true`), then `Show me` from level 1 (build, wire, and code steps with `showMe`),
+  then `Do it for me` from level 2 (build and wire). Buttons are `aria-pressed` once their
+  level was used. Level 1 shows `Hint: <step.hint>`, or the current mistake, or
+  `Look at the checklist: the first item without a tick is the next thing to do.` Level 2
+  adds `Show me: <label texts>.` (or `Show me: Lines 10 and 12: try 200.` on code steps,
+  whose lines get `markLines`). Level 3 applies `suggest` through the workbench (unwire,
+  place, add wire); the step is stored as helped when it passes and the success box says
+  `Helped`. When the pass removes the focused rung, focus moves to Continue.
+- Level 0, on build and wire steps that have not passed: the tray pulses the step's parts,
+  the places from `joinPlaces` glow `info`, and on wire steps the `pendingPins` get rings
+  (`board.highlightPins`). Level 2 adds the suggestion as accent ghosts and `info` labels,
+  recomputed after every change.
+- Auto nudge (`createNudge`, non project lessons): a `bad` feedback on the current step, or
+  `NUDGE_MS` (40 s) with no checklist change and no workbench change, raises it to level 1.
+- Mistakes: the current feedback's `targets` places (and the places of its holes) glow
+  `bad`, and one `bad` label with the mistake text sits at its first hole, else its first
+  pin. Labels (`src/ui/labels.js`) are aria-hidden; the guide carries the same text.
+- Step marks show only while edit mode is on; `src/ui/stepMarks.js` draws them. Kit parts
+  of later build or wire steps show `Later` in the tray and cannot be picked up.
 
 ## Conventions
 

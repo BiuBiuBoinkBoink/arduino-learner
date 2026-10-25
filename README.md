@@ -23,7 +23,7 @@ Uno and breadboard in the middle and the code panel on the right. Go to `#1.1` f
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 617 tests at the moment
+npm test        # vitest, 690 tests at the moment
 npm run build   # production build
 ```
 
@@ -209,6 +209,16 @@ wires from a pin or hole, undo and reset. Everything also works from the keyboar
 typed into the tray, arrows, R, Enter, Escape, Delete). Lessons still open with the whole circuit
 built; Run stays locked while the build does not match the lesson circuit. Lesson 1.3 now has one
 resistor whose bands follow the choice.
+
+**Lesson overhaul phase 5, build steps and hints** (`feature/lesson-overhaul`, not merged): lesson
+1.2 is now built by hand from an empty breadboard, one step at a time: place the LED, add the
+resistor, wire D13 and GND, then guess and code as before. Edit mode turns on by itself on build
+and wire steps, the tray pulses the part to place and greys out parts for later steps, and the
+strip the new part must join (or the pins still to wire) glows. Mistakes are named in the guide
+and marked in 3D with a red strip and a label. A hint ladder under each step (Hint, Show me, Do it
+for me) gives a hint, then a ghost of where things go with labels, then places them; it opens by
+itself after a mistake or 40 seconds without progress. Run names a short circuit. Other lessons
+still open with their circuit built.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
