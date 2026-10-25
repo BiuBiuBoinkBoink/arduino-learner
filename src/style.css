@@ -2258,3 +2258,33 @@ summary:focus-visible {
 .tray-touch-button.is-primary:hover:not(:disabled) {
   background: #2a62bf;
 }
+
+/* Compact: the board tour card is a strip above the peek (and above the tray
+   when it shows), its checklist one row that scrolls sideways. */
+#app[data-layout='compact'] .tour-card {
+  top: auto;
+  right: 8px;
+  bottom: calc(var(--peek-h) + 8px);
+  left: 8px;
+  width: auto;
+  max-width: none;
+  max-height: calc(100% - var(--peek-h) - 130px);
+  padding: 8px 12px;
+}
+
+#app[data-layout='compact'] .tour-checklist {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+#app[data-layout='compact'] .tour-item {
+  flex: none;
+  min-height: 32px;
+  font-size: 0.8rem;
+}
+
+#app[data-layout='compact'] .pin-label {
+  max-width: 160px;
+  font-size: 11px;
+}
