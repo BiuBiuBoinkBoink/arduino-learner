@@ -127,12 +127,13 @@ export function createRunControls({ container, course, runner, getValues, getSou
     frame = requestAnimationFrame(loop)
   })
 
-  stopButton.addEventListener('click', () => {
+  function stop() {
     runner.stop()
     stopLoop()
     showIdle(STATUS_STOPPED)
     onFrame()
-  })
+  }
+  stopButton.addEventListener('click', stop)
 
   // A runtime error can arrive between frames, while the loop is waiting.
   function noticeError() {
@@ -151,5 +152,5 @@ export function createRunControls({ container, course, runner, getValues, getSou
 
   render(course.getState())
   course.subscribe(render)
-  return { noticeError, refreshLock }
+  return { noticeError, refreshLock, stop }
 }

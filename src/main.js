@@ -21,6 +21,9 @@ import { createRunControls } from './ui/runControls.js'
 import { createPartPress, createHoldButton } from './ui/partPress.js'
 import { createPartTurn, createKnobSlider } from './ui/partTurn.js'
 import { createMultimeter } from './ui/multimeter.js'
+import { createPlacement } from './ui/placement.js'
+import { createPartsTray } from './ui/partsTray.js'
+import { createHoleTooltip } from './ui/holeTooltip.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
@@ -28,6 +31,7 @@ import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createCodeRunner } from './runner/codeRunner.js'
 import { circuits } from './circuits/circuits.js'
+import { compare, partLabel } from './circuits/netlist.js'
 import { kitFor } from './build/kit.js'
 import { createWorkbench } from './build/workbench.js'
 import { createPins } from './sim/pins.js'
@@ -136,7 +140,14 @@ const knobSlider = createKnobSlider({ container: dock, partTurn, inputs })
 const roomControls = createRoomControls({ container: dock, room })
 const sound = createSound({ container: dock, tones, storage: getStorage() })
 const multimeter = createMultimeter({ container: dock, stage, getItems: view.items, inputs })
-createViewControls({ container: layout.viewControls, stage, getFrameBox: frameBox })
+const viewControls = createViewControls({
+  container: layout.viewControls,
+  stage,
+  getFrameBox: frameBox,
+  // Both boards, so the Uno pins stay in view for wiring.
+  getEditBox: frameBox,
+  onEdit: setEditing
+})
 
 // The learner's build of the lesson circuit. The scene draws it, not the
 // reference table, which is the answer key. Until build steps exist every
@@ -144,6 +155,28 @@ createViewControls({ container: layout.viewControls, stage, getFrameBox: frameBo
 // BUILD_STEPS_ENABLED).
 const workbench = createWorkbench({ storage: getStorage() })
 let reference = null
+// Tray labels for the current kit: partLabel against the whole kit.
+let kitLabels = {}
+
+// Edit circuit mode: placement and the parts tray on, press, turn and meter
+// clicks off.
+const tooltip = createHoleTooltip({ container: layout.workbench })
+const placement = createPlacement({ stage, board, breadboard, workbench, getItems: view.items, getValues, tooltip })
+const tray = createPartsTray({ container: layout.workbench, workbench, placement, kitLabels: () => kitLabels })
+function setEditing(on) {
+  placement.setEnabled(on)
+  tray.setVisible(on)
+  partPress.setEnabled(!on)
+  partTurn.setEnabled(!on)
+  multimeter.setEnabled(!on)
+}
+
+// Run stays locked while the build does not match the reference circuit.
+let buildMatches = true
+const BUILD_LOCK = 'Finish the circuit to unlock Run.'
+function checkBuild() {
+  buildMatches = !reference || compare(workbench.getBuild(), reference).match
+}
 
 // The table the view draws: the build plus the reference meter and room flags.
 function buildTable() {
@@ -183,6 +216,7 @@ function drawBuild({ fresh }) {
   roomControls.setSensors({ light: ownRoom && types.includes('ldr'), temp: ownRoom && types.includes('tmp36') })
   const buzzer = find('buzzer')
   sound.setPin(buzzer ? buzzer.pin : null)
+  placement.refresh()
   stage.invalidate()
 }
 
@@ -193,13 +227,24 @@ function showCircuit({ lesson }) {
   if (lesson.id === circuitLessonId) return
   circuitLessonId = lesson.id
   reference = circuits[lesson.id] || null
-  workbench.load(lesson.id, { kit: kitFor(lesson, reference, { prebuiltLists: BUILD_STEPS_ENABLED }), reference })
+  const kit = kitFor(lesson, reference, { prebuiltLists: BUILD_STEPS_ENABLED })
+  const kitParts = kit.parts.map((part) => ({ id: part.id, type: part.type, ...part.meta }))
+  kitLabels = Object.fromEntries(kitParts.map((part) => [part.id, partLabel(part, kitParts)]))
+  workbench.load(lesson.id, { kit, reference })
+  checkBuild()
+  viewControls.setEditAvailable(Boolean(reference))
+  placement.setEnabled(viewControls.isEditing())
   drawBuild({ fresh: true })
 }
 
-// Every edit redraws the build in place.
+// Every edit redraws the build in place and re-checks the run lock; a build
+// that stops matching stops a running sketch.
 workbench.subscribe((event) => {
-  if (event.type !== 'load') drawBuild({ fresh: false })
+  if (event.type === 'load') return
+  drawBuild({ fresh: false })
+  checkBuild()
+  if (!buildMatches && ['uploading', 'running'].includes(runner.getPhase())) run.stop()
+  run.refreshLock()
 })
 
 showCircuit(course.getState())
@@ -252,7 +297,7 @@ const run = createRunControls({
   getValues,
   getSource: codePanel.getSource,
   onError: codePanel.setError,
-  getLock: () => flow.runLock(),
+  getLock: () => flow.runLock() || (buildMatches ? null : BUILD_LOCK),
   onFrame: updateFlow
 })
 flow.subscribe(() => run.refreshLock())

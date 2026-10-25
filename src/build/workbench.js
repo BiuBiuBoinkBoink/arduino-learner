@@ -4,7 +4,7 @@
 // createWorkbench({ storage }) -> { load(lessonId, { kit, reference }), getBuild(),
 //   tray(), occupancy(), canPlace(id, legs), place(id, legs), remove(id),
 //   canWire(from, to), addWire(from, to, color), removeWire(id), canUndo(),
-//   undo(), reset(), placeReference(ids), subscribe(fn) }
+//   undo(), reset(), placeReference(ids), kitPart(id), subscribe(fn) }
 //
 // The build has the circuit table shape with legs: { parts: [{ id, type, legs,
 // ...meta }], wires: [{ id, from, to, color }] }; only placed parts are in it.
@@ -300,6 +300,11 @@ export function createWorkbench({ storage }) {
     undo,
     reset,
     placeReference,
+    // A kit part as a part table entry without legs: { id, type, ...meta }, or null.
+    kitPart: (id) => {
+      const part = kitPart(id)
+      return part ? { id: part.id, type: part.type, ...structuredClone(part.meta) } : null
+    },
     subscribe,
     lessonId: () => lessonId
   }

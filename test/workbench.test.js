@@ -67,6 +67,12 @@ describe('workbench', () => {
     expect(events).toEqual([{ type: 'load', id: '1.2' }])
   })
 
+  it('gives kit parts without legs', () => {
+    const { bench } = open(storage)
+    expect(bench.kitPart('led1')).toEqual({ id: 'led1', type: 'led', color: 'red', pin: 'D13' })
+    expect(bench.kitPart('nope')).toBe(null)
+  })
+
   it('starts empty when the lesson prebuilds nothing', () => {
     const { bench } = open(storage, { id: '1.2', prebuilt: [] })
     expect(bench.getBuild()).toEqual({ parts: [], wires: [] })

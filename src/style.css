@@ -598,6 +598,12 @@ button.guide-step-row:hover {
 #view-controls {
   top: 12px;
   right: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+#view-controls .view-group[hidden] {
+  display: none;
 }
 
 /* A narrow workbench has no room for the run bar beside the view buttons, so
@@ -671,6 +677,183 @@ button.guide-step-row:hover {
 
 #controls-dock > * {
   margin: 0;
+}
+
+/* Parts tray: the lesson kit at the bottom centre while editing the circuit. */
+#parts-tray {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: calc(100% - 340px);
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--overlay-shadow);
+}
+
+#parts-tray[hidden] {
+  display: none;
+}
+
+.tray-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tray-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.tray-items {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.tray-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tray-item:hover {
+  border-color: var(--muted);
+}
+
+.tray-item.is-carried {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.tray-icon {
+  flex: none;
+}
+
+.tray-item-text {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.tray-item-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tray-item-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.tray-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.tray-action {
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: inherit;
+  white-space: nowrap;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tray-action:hover:not(:disabled) {
+  background: var(--soft);
+}
+
+.tray-action:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.tray-status {
+  flex: 1;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.tray-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.tray-field[hidden],
+.tray-keys[hidden] {
+  display: none;
+}
+
+.tray-field input,
+.tray-field select {
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+#parts-tray button:focus-visible,
+#parts-tray input:focus-visible,
+#parts-tray select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Hole tooltip: follows the pointer while editing the circuit. */
+.hole-tooltip {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 7px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #ffffff;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(29, 35, 48, 0.88);
+  border-radius: 6px;
+}
+
+.hole-tooltip[hidden],
+.hole-tooltip-place[hidden] {
+  display: none;
+}
+
+.hole-tooltip-name {
+  font-weight: 600;
 }
 
 /* Code panel: open at --code-w, closed to a rail. */
