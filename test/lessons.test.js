@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { lessons } from '../src/course/lessons.js'
 import { UNO_ZONE_IDS } from '../src/parts/unoBoard.js'
 import { fillSketch, slotValues } from '../src/ui/sketch.js'
-import { STEP_KINDS } from '../src/course/steps.js'
+import { STEP_KINDS, BUILD_KINDS } from '../src/course/steps.js'
 import { CHECK_TYPES } from '../src/course/checks.js'
+import { circuits } from '../src/circuits/circuits.js'
+import { PART_TYPES } from '../src/circuits/footprints.js'
+import { isPinName } from '../src/circuits/netlist.js'
+import { kitFor } from '../src/build/kit.js'
 
 function isAscii(text) {
   return [...text].every((ch) => ch.charCodeAt(0) < 128)
@@ -234,9 +238,166 @@ describe('lesson steps', () => {
     })
   }
 
+  it('gives every lesson its own steps', () => {
+    for (const lesson of lessons) expect(Array.isArray(lesson.steps) && lesson.steps.length > 0, lesson.id).toBe(true)
+  })
+
+  it('gives 1.1 its new title, summary and kit, and P1 project: true', () => {
+    const intro = lessons.find((item) => item.id === '1.1')
+    expect(intro.title).toBe('Meet the Uno and breadboard')
+    expect(intro.summary).toBe('Tour the board, then learn how a breadboard joins holes.')
+    expect(intro.kit).toEqual({ parts: [{ id: 'r1', type: 'resistor', ohms: 220 }], wires: 2 })
+    expect(intro.steps[0].check).toEqual({ type: 'tour', text: 'Open all six parts of the Uno' })
+    expect(lessons.find((item) => item.id === 'P1').project).toBe(true)
+    expect(lessons.filter((item) => item.project).map((item) => item.id)).toEqual(['P1'])
+  })
+
   it('gives 1.2 the six steps from the plan', () => {
     const lesson = lessons.find((item) => item.id === '1.2')
     expect(lesson.prebuilt).toEqual([])
     expect(lesson.steps.map((step) => step.id)).toEqual(['led-legs', 'place-led', 'add-resistor', 'wire-up', 'guess', 'faster'])
   })
+})
+
+// The progress names each board reports (see "Sims and goal checks" in
+// AGENTS.md); ran and goal come from the runner for every board.
+const PROGRESS = {
+  '1.2': ['blinked', 'fast'],
+  '1.3': ['measured220', 'measured1000', 'measured10000'],
+  '1.4': ['pressedOnce'],
+  '1.5': ['floated', 'pressedOnce'],
+  '1.6': ['seenLow', 'seenHigh'],
+  '1.7': ['rampSeen'],
+  '1.8': [],
+  '1.9': ['turnedOn'],
+  '1.10': ['seenCool', 'seenWarm'],
+  '1.11': ['played'],
+  '1.12': ['reached45', 'reached90', 'reached135'],
+  P1: []
+}
+const RUNNER_KEYS = ['ran', 'goal']
+
+// Every check in a check tree, the tree itself first.
+function checksOf(check) {
+  if (check.type === 'predict') return [check, ...checksOf(check.then)]
+  if (check.type === 'all') return [check, ...check.checks.flatMap(checksOf)]
+  return [check]
+}
+
+// The ids and pins a rule names.
+function ruleNames(rule) {
+  if (rule.placed) return [rule.placed]
+  if (rule.allApart) return [rule.allApart]
+  if (rule.straddles) return [rule.straddles]
+  if (rule.wired) return [rule.wired]
+  if (rule.apart) return rule.apart
+  if (rule.joined) return rule.joined
+  if (rule.matches) return rule.matches === 'all' ? [] : rule.matches
+  if (rule.noShorts) return []
+  return [null]
+}
+
+// Every text a learner reads in a step.
+function stepTexts(step) {
+  const texts = [step.title, ...step.body]
+  for (const field of ['hint', 'done']) if (step[field] !== undefined) texts.push(step[field])
+  if (step.showMe && step.showMe.note) texts.push(step.showMe.note)
+  for (const check of checksOf(step.check)) {
+    if (check.text) texts.push(check.text)
+    if (check.question) texts.push(check.question, ...check.options, ...check.explain)
+    if (check.items) texts.push(...check.items.map((item) => item.text))
+  }
+  return texts
+}
+
+describe('lesson steps against kits, circuits and boards', () => {
+  for (const lesson of lessons) {
+    describe(lesson.id, () => {
+      const reference = circuits[lesson.id] || null
+      const kit = kitFor(lesson, reference, { prebuiltLists: true })
+      const kitIds = kit.parts.map((part) => part.id)
+      const prebuilt = lesson.prebuilt || []
+      const builds = lesson.steps.filter((step) => BUILD_KINDS.includes(step.kind))
+
+      it('has a lesson without a reference circuit only when it has a kit', () => {
+        expect(Boolean(reference || lesson.kit)).toBe(true)
+      })
+
+      it('lists prebuilt ids from the reference circuit', () => {
+        const refIds = reference ? [...reference.parts, ...reference.wires].map((item) => item.id) : []
+        for (const id of prebuilt) expect(refIds, id).toContain(id)
+      })
+
+      it('places kit parts that are not prebuilt in build and wire steps', () => {
+        for (const step of builds) {
+          expect(Array.isArray(step.parts), step.id).toBe(true)
+          if (step.kind === 'wire') expect(step.parts, step.id).toEqual([])
+          for (const id of step.parts) {
+            expect(kitIds, step.id + ' ' + id).toContain(id)
+            expect(prebuilt, step.id + ' ' + id).not.toContain(id)
+          }
+        }
+      })
+
+      it('places every kit part in some step or as prebuilt', () => {
+        const placedIds = [...prebuilt, ...builds.flatMap((step) => step.parts)]
+        for (const id of kitIds) expect(placedIds, id).toContain(id)
+      })
+
+      it('checks build and wire steps with circuit or event checks, and other steps without them', () => {
+        for (const step of lesson.steps) {
+          if (BUILD_KINDS.includes(step.kind)) expect(['circuit', 'event'], step.id).toContain(step.check.type)
+          else expect(step.check.type, step.id).not.toBe('circuit')
+        }
+      })
+
+      it('names only kit parts, their terminals and Uno pins in its rules', () => {
+        const typeOf = Object.fromEntries(kit.parts.map((part) => [part.id, part.type]))
+        for (const step of lesson.steps.filter((item) => item.check.type === 'circuit')) {
+          const rules = [...step.check.items.map((item) => item.rule), ...(step.check.pass ? [step.check.pass] : [])]
+          for (const rule of rules) {
+            for (const name of ruleNames(rule)) {
+              expect(name, step.id).not.toBe(null)
+              if (isPinName(name)) continue
+              const [id, terminal] = name.split('.')
+              expect(kitIds, step.id + ' ' + name).toContain(id)
+              if (terminal === undefined) continue
+              const allowed = [...PART_TYPES[typeOf[id]].terminals, '*', ...(typeOf[id] === 'potentiometer' ? ['end'] : [])]
+              expect(allowed, step.id + ' ' + name).toContain(terminal)
+            }
+          }
+        }
+      })
+
+      it('checks only progress names its board reports', () => {
+        const names = [...(PROGRESS[lesson.id] || []), ...RUNNER_KEYS]
+        for (const step of lesson.steps) {
+          for (const check of checksOf(step.check).filter((item) => item.type === 'sim')) {
+            if (check.goal) continue
+            expect(Object.hasOwn(PROGRESS, lesson.id), step.id).toBe(true)
+            expect(names, step.id).toContain(check.progress)
+          }
+        }
+      })
+
+      it('gives event checks known events and counts', () => {
+        for (const step of lesson.steps.filter((item) => item.check.type === 'event')) {
+          for (const item of step.check.items) {
+            expect(['strip-hover', 'part-moved', 'part-returned']).toContain(item.event)
+            expect(Number.isInteger(item.count) && item.count > 0).toBe(true)
+          }
+        }
+      })
+
+      it('writes every step text in ASCII with no exclamation marks', () => {
+        for (const step of lesson.steps) {
+          for (const text of stepTexts(step)) {
+            expect(nonEmpty(text), step.id).toBe(true)
+            expect(isAscii(text), step.id + ': ' + text).toBe(true)
+            expect(text.includes('!'), step.id + ': ' + text).toBe(false)
+          }
+        }
+      })
+    })
+  }
 })
