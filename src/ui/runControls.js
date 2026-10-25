@@ -35,6 +35,12 @@ export function createRunControls({ container, course, runner, getValues, getSou
   readout.className = 'run-readout'
   readout.hidden = true
   row.append(buttons, status, readout)
+  // The compact layout cuts a long status or readout with an ellipsis; the title keeps the whole line.
+  for (const line of [status, readout]) {
+    new MutationObserver(() => {
+      line.title = line.textContent
+    }).observe(line, { childList: true, characterData: true, subtree: true })
+  }
   container.append(row)
 
   let lessonId = null

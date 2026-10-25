@@ -15,6 +15,8 @@
   --guide-w: clamp(280px, 24vw, 360px);
   --code-w: clamp(320px, 28vw, 440px);
   --rail-w: 44px;
+  --guide-w-medium: 280px;
+  --peek-h: 132px;
   --gap: 12px;
   font-family: system-ui, sans-serif;
   color: var(--ink);
@@ -1781,4 +1783,222 @@ summary:focus-visible {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(29, 35, 48, 0.18);
   border-radius: 8px;
+}
+
+/* Layout modes: #app[data-layout] is set by src/ui/layout.js from the app
+   width (wide >= 1200, medium 900 to 1199, compact < 900). Wide is the grid
+   above. The parts below are hidden in wide. */
+.view-toggle,
+.dock-toggle,
+.top-button-icon {
+  display: none;
+}
+
+.view-menu {
+  display: contents;
+}
+
+/* Medium: the code panel is a drawer over the right side of the workbench,
+   or a Code tab on the right edge when closed. */
+#app[data-layout='medium'] {
+  position: relative;
+  grid-template-columns: var(--guide-w-medium) minmax(0, 1fr);
+}
+
+#app[data-layout='medium'] #code-panel {
+  position: absolute;
+  z-index: 5;
+  top: var(--topbar-h);
+  right: 0;
+  bottom: 0;
+  width: min(420px, 60vw);
+  box-shadow: var(--overlay-shadow);
+}
+
+#app[data-layout='medium'] .code-body {
+  width: min(420px, 60vw);
+}
+
+#app[data-layout='medium'] #code-panel.is-closed {
+  top: 50%;
+  bottom: auto;
+  width: 36px;
+  height: 96px;
+  transform: translateY(-50%);
+  border: 1px solid var(--line);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+}
+
+#app[data-layout='medium'] .code-rail {
+  align-items: center;
+  padding: 0;
+  border-radius: 10px 0 0 10px;
+}
+
+#app[data-layout='medium'] #run-bar {
+  max-width: calc(100% - 200px);
+}
+
+/* Compact: one column, the guide and code in a bottom sheet over the
+   workbench (src/ui/bottomSheet.js moves them in). */
+#app[data-layout='compact'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#app[data-layout='compact'] #workbench {
+  grid-column: 1;
+}
+
+#app[data-layout='compact'] #top-bar {
+  gap: 8px;
+  padding: 0 8px;
+}
+
+#app[data-layout='compact'] .top-brand,
+#app[data-layout='compact'] .top-crumb-level,
+#app[data-layout='compact'] .top-segments,
+#app[data-layout='compact'] .top-button-text {
+  display: none;
+}
+
+#app[data-layout='compact'] .top-nav {
+  gap: 4px;
+}
+
+#app[data-layout='compact'] .top-button.has-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+}
+
+#app[data-layout='compact'] .top-button-icon {
+  display: block;
+}
+
+#app[data-layout='compact'] #course-map {
+  position: fixed;
+  top: var(--topbar-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#app[data-layout='compact'] #run-bar {
+  top: 8px;
+  right: 8px;
+  left: 8px;
+  max-width: none;
+}
+
+#app[data-layout='compact'] .run-status,
+#app[data-layout='compact'] .run-readout {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#app[data-layout='compact'] #view-controls {
+  top: 66px;
+  right: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+#app[data-layout='compact'] .view-toggle {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--overlay-shadow);
+}
+
+#app[data-layout='compact'] .view-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+#app[data-layout='compact'] .view-menu {
+  display: none;
+}
+
+#app[data-layout='compact'] #view-controls.is-open .view-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+#app[data-layout='compact'] .view-menu .view-group {
+  flex-direction: column;
+}
+
+#app[data-layout='compact'] .view-menu .view-button + .view-button {
+  border-top: 1px solid var(--line);
+  border-left: 0;
+}
+
+#app[data-layout='compact'] .view-menu .view-button {
+  min-height: 36px;
+  text-align: right;
+}
+
+#app[data-layout='compact'] .dock-toggle {
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  bottom: calc(var(--peek-h) + 8px);
+  display: block;
+  min-height: 36px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--overlay-shadow);
+}
+
+#app[data-layout='compact'] .dock-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+#app[data-layout='compact'] #controls-dock {
+  left: 8px;
+  bottom: calc(var(--peek-h) + 52px);
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - var(--peek-h) - 130px);
+}
+
+#app[data-layout='compact'] #controls-dock:not(.is-open) {
+  display: none;
+}
+
+/* No dock controls, or the parts tray is up (presses are off while editing):
+   no Controls button. */
+#app[data-layout='compact'] #workbench:has(#controls-dock:not(:has(> :not([hidden]):not(.dock-heading)))) .dock-toggle,
+#app[data-layout='compact'] #workbench:has(#parts-tray:not([hidden])) .dock-toggle,
+#app[data-layout='compact'] #workbench:has(#parts-tray:not([hidden])) #controls-dock {
+  display: none;
+}
+
+#app[data-layout='compact'] #parts-tray {
+  right: 8px;
+  bottom: calc(var(--peek-h) + 8px);
+  left: 8px;
+  max-width: none;
+  transform: none;
+}
+
+/* Labels stay at least 12px in compact. */
+#app[data-layout='compact'] .tray-item-sub,
+#app[data-layout='compact'] .tray-label {
+  font-size: 0.75rem;
 }

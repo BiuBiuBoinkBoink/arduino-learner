@@ -4,6 +4,9 @@
 // calls onEdit(on); turning it on moves the camera to the top view framed on
 // getEditBox() unless the learner orbited since the last view change, and
 // turning it off goes back to the 3D view if edit mode moved the camera.
+// In the compact layout the buttons fold into a View button (aria-expanded)
+// that opens them as a small popover; Escape, a click outside or a choice
+// closes it. Outside compact the View button is hidden by CSS.
 export function createViewControls({ container, stage, getFrameBox, getEditBox = getFrameBox, onEdit = () => {} }) {
   const group = document.createElement('div')
   group.className = 'view-group'
@@ -22,7 +25,36 @@ export function createViewControls({ container, stage, getFrameBox, getEditBox =
   const editGroup = document.createElement('div')
   editGroup.className = 'view-group'
   editGroup.append(edit)
-  container.append(editGroup, group)
+  const menu = document.createElement('div')
+  menu.className = 'view-menu'
+  menu.id = 'view-menu'
+  menu.append(editGroup, group)
+  const toggle = viewButton('View', () => setMenuOpen(!menuOpen))
+  toggle.classList.add('view-toggle')
+  toggle.setAttribute('aria-controls', 'view-menu')
+  toggle.setAttribute('aria-expanded', 'false')
+  container.append(toggle, menu)
+
+  let menuOpen = false
+  function setMenuOpen(on, returnFocus = false) {
+    menuOpen = Boolean(on)
+    toggle.setAttribute('aria-expanded', String(menuOpen))
+    container.classList.toggle('is-open', menuOpen)
+    if (!menuOpen && returnFocus) toggle.focus()
+  }
+  // A choice closes the popover; Escape returns focus to the View button.
+  menu.addEventListener('click', (event) => {
+    if (menuOpen && event.target.closest('button')) setMenuOpen(false, true)
+  })
+  container.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !menuOpen) return
+    event.preventDefault()
+    event.stopPropagation()
+    setMenuOpen(false, true)
+  })
+  document.addEventListener('pointerdown', (event) => {
+    if (menuOpen && !container.contains(event.target)) setMenuOpen(false)
+  })
 
   let editing = false
   let orbited = false
