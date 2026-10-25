@@ -10,7 +10,8 @@ const STATUS_IDLE = 'Press Run to upload the sketch.'
 const STATUS_UPLOADING = 'Uploading sketch...'
 const STATUS_RUNNING = 'Running.'
 const STATUS_STOPPED = 'Stopped.'
-const STATUS_GOAL = 'Goal met. Lesson done.'
+// The sim goal is one check among the lesson steps, so it does not end the lesson.
+const STATUS_GOAL = 'Goal met.'
 
 export function createRunControls({ container, course, runner, getValues, getSource, onError, getLock = () => null, onFrame = () => {} }) {
   const row = document.createElement('div')
