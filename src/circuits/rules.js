@@ -3,9 +3,10 @@
 // evaluateRule(rule, ruleContext) -> boolean. Items in rules are a pin ('D13',
 // GND pins normalized), a terminal ('led1.anode'), any terminal of a part
 // ('r1.*') or either outer leg of a potentiometer ('pot1.end').
+// { straddles: id } is true for a button with its legs in rows e and f.
 import { isHole } from './holes.js'
 import { PART_TYPES, legsOf } from './footprints.js'
-import { align, buildNetlist, compare, diagnose, normalizePin, isPinName } from './netlist.js'
+import { align, buildNetlist, compare, diagnose, normalizePin, isPinName, straddles } from './netlist.js'
 
 export function createRuleContext(build, reference) {
   const aligned = align(build, reference)
@@ -60,6 +61,10 @@ export function evaluateRule(rule, ctx) {
   if (Object.hasOwn(rule, 'apart')) {
     const [a, b] = rule.apart.map((item) => netsOf(ctx, item))
     return a.size > 0 && b.size > 0 && !shares(a, b)
+  }
+  if (Object.hasOwn(rule, 'straddles')) {
+    const part = placedPart(ctx, rule.straddles)
+    return Boolean(part && part.type === 'button' && straddles(part))
   }
   if (Object.hasOwn(rule, 'allApart')) {
     const part = placedPart(ctx, rule.allApart)

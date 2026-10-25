@@ -280,7 +280,8 @@ function mistake(id, text, { parts = [], holes = [], pins = [], places = [] } = 
   return { id, text, targets: { parts, holes, pins, places } }
 }
 
-function straddles(part) {
+// True for a button with one pair of legs in row e and the other in row f.
+export function straddles(part) {
   const legs = legsOf(part)
   return legs.length === 4 && legs[0].endsWith('e') && legs[2].endsWith('f')
 }
@@ -314,14 +315,13 @@ export function diagnose(build, reference, { only } = {}) {
   }
 
   // button-gap: both sides of a button in one net, or a button that does not
-  // straddle the channel where the reference one does, with the circuit wrong.
+  // straddle the channel where the reference one does (1.4 asks for the gap).
   const scopeIds = only || refParts.map((part) => part.id)
   for (const part of placedParts.filter((item) => item.type === 'button')) {
     const a = termNet(net, part.id, 'a')
     const joined = a && a === termNet(net, part.id, 'b')
     const refPart = refById.get(part.id)
-    const offGap = refPart && placed(refPart) && straddles(refPart) && !straddles(part) &&
-      !compare(aligned, reference, only ? { only } : {}).match
+    const offGap = refPart && placed(refPart) && straddles(refPart) && !straddles(part)
     if (joined || offGap) {
       out.push(mistake('button-gap', 'Put the button across the centre gap so each side gets its own strips.', { parts: [part.id], holes: legsOf(part) }))
     }

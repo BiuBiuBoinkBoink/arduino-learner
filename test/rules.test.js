@@ -84,6 +84,17 @@ describe('evaluateRule on 1.4', () => {
     expect(check({ joined: ['D2', 'btn1.*'] }, build, r14)).toBe(false)
   })
 
+  it('straddles only for a button with legs in rows e and f', () => {
+    const build = { parts: [btn], wires: [] }
+    expect(check({ straddles: 'btn1' }, build, r14)).toBe(true)
+    // Rows a and d work as a switch, but the lesson asks for the centre gap.
+    const top = { parts: [{ id: 'btn1', type: 'button', legs: ['12a', '14a', '12d', '14d'] }], wires: [] }
+    expect(check({ apart: ['btn1.a', 'btn1.b'] }, top, r14)).toBe(true)
+    expect(check({ straddles: 'btn1' }, top, r14)).toBe(false)
+    expect(check({ straddles: 'btn1' }, { parts: [], wires: [] }, r14)).toBe(false)
+    expect(check({ straddles: 'r1' }, r14, r14)).toBe(false)
+  })
+
   it('apart, wired, noShorts and matches on the whole circuit', () => {
     expect(check({ apart: ['D2', 'GND'] }, r14, r14)).toBe(true)
     expect(check({ wired: 'GND' }, r14, r14)).toBe(true)

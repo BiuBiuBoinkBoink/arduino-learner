@@ -276,6 +276,11 @@ describe('diagnose on other lessons', () => {
     expect(first.text).toBe('Put the button across the centre gap so each side gets its own strips.')
   })
 
+  it('names a 1.4 button off the gap on a build step, where the scope still matches', () => {
+    const build = { parts: [{ id: 'btn1', type: 'button', legs: ['12a', '14a', '12d', '14d'] }], wires: [] }
+    expect(diagnose(build, ref('1.4'), { only: ['btn1'] })[0].id).toBe('button-gap')
+  })
+
   it('finds a button with both sides in one net', () => {
     const build = { parts: [{ id: 'btn1', type: 'button', at: '12e' }], wires: [{ id: 'w9', from: '12b', to: '14b' }] }
     expect(diagnose(build, ref('1.4'), { only: ['btn1'] })[0].id).toBe('button-gap')
