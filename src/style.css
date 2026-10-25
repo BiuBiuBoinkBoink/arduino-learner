@@ -1805,10 +1805,13 @@ summary:focus-visible {
   grid-template-columns: var(--guide-w-medium) minmax(0, 1fr);
 }
 
+/* An absolute grid child is placed in its grid area: row 2, all columns. */
 #app[data-layout='medium'] #code-panel {
   position: absolute;
   z-index: 5;
-  top: var(--topbar-h);
+  grid-row: 2;
+  grid-column: 1 / -1;
+  top: 0;
   right: 0;
   bottom: 0;
   width: min(420px, 60vw);
