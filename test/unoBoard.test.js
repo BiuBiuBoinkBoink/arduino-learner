@@ -39,6 +39,22 @@ describe('createUnoBoard', () => {
     }
   })
 
+  it('rings the pins it is asked to highlight, from a pool', () => {
+    const board = createUnoBoard()
+    const rings = () => board.group.children.filter((child) => child.name === 'pin-ring')
+    board.highlightPins(['D13', 'GND', 'nope'])
+    expect(rings().filter((ring) => ring.visible)).toHaveLength(2)
+    const d13 = unoPinPosition('D13')
+    expect(rings()[0].position.x).toBeCloseTo(d13.x)
+    expect(rings()[0].position.z).toBeCloseTo(d13.z)
+    expect(rings()[0].position.y).toBeGreaterThan(d13.y)
+    board.highlightPins(['5V'])
+    expect(rings()).toHaveLength(2)
+    expect(rings().filter((ring) => ring.visible)).toHaveLength(1)
+    board.highlightPins([])
+    expect(rings().some((ring) => ring.visible)).toBe(false)
+  })
+
   it('does not share a material between two zones', () => {
     const { zones } = createUnoBoard()
     const owner = new Map()

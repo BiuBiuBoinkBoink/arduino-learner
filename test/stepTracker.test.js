@@ -109,6 +109,16 @@ describe('createStepTracker', () => {
     expect(calls).toEqual([])
   })
 
+  it('keeps hint levels across a reload, and reset clears them', () => {
+    const { tracker, storage } = setup()
+    tracker.setHintLevel('a', 'one', 1)
+    tracker.setHintLevel('a', 'two', 3)
+    const again = createStepTracker({ storage, lessons, stepsFor })
+    expect(again.get('a').hintLevels).toEqual({ one: 1, two: 3 })
+    again.reset('a')
+    expect(again.get('a').hintLevels).toEqual({})
+  })
+
   it('keeps working in memory when storage throws', () => {
     const storage = {
       getItem: () => { throw new Error('blocked') },

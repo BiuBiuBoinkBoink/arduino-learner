@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { createCourse } from '../src/course/state.js'
 import { createStepTracker } from '../src/course/stepTracker.js'
 import { createFlow } from '../src/course/flow.js'
-import { stepsFor } from '../src/course/steps.js'
+import { stepsFor, scopeFor } from '../src/course/steps.js'
 import { evaluate } from '../src/course/checks.js'
+import { lessons as courseLessons } from '../src/course/lessons.js'
+import { circuits } from '../src/circuits/circuits.js'
 
 const quiz = {
   id: 'legs',
@@ -232,5 +234,111 @@ describe('createFlow', () => {
     const again = setup(memory(first.storage.data))
     expect(again.flow.getView().index).toBe(1)
     expect(statuses(again.flow)).toEqual(['done', 'current', 'locked'])
+  })
+})
+
+describe('lesson 1.2 built by hand', () => {
+  const reference = circuits['1.2']
+  const blink = courseLessons.find((lesson) => lesson.id === '1.2')
+
+  function setup12(storage = memory()) {
+    const course = createCourse({ lessons: [blink], storage })
+    const completions = []
+    const markComplete = course.markComplete
+    course.markComplete = (id) => {
+      completions.push(id)
+      markComplete(id)
+    }
+    const tracker = createStepTracker({ storage, lessons: [blink], stepsFor })
+    const flow = createFlow({ course, tracker, stepsFor, evaluate })
+    let build = { parts: [], wires: [] }
+    let attempts = 0
+    // What main.js sends: the build, its reference and the step scope.
+    const send = (extra = {}) => flow.update({
+      sim: { phase: 'idle', progress: {} },
+      code: { error: null },
+      tour: { complete: false },
+      build,
+      reference,
+      scope: scopeFor(blink, tracker.get('1.2').current),
+      attempts,
+      busy: false,
+      ...extra
+    })
+    const change = (next) => {
+      build = next
+      attempts += 1
+      send()
+    }
+    const next = () => {
+      flow.next()
+      attempts = 0
+      send()
+    }
+    return { flow, tracker, completions, send, change, next, build: () => build }
+  }
+
+  const led = { id: 'led1', type: 'led', color: 'red', pin: 'D13', legs: ['9e', '10e'] }
+  const resistor = { id: 'r1', type: 'resistor', ohms: 220, legs: ['5c', '9c'] }
+  const wireD13 = { id: 'u1', from: 'D13', to: '5a', color: 'yellow' }
+  const wireGnd = { id: 'u2', from: 'GND', to: '10a', color: 'black' }
+
+  it('runs from the quiz to the code step and completes the lesson once', () => {
+    const { flow, completions, send, change, next } = setup12()
+    expect(flow.getView().steps.map((entry) => entry.step.id)).toEqual(['led-legs', 'place-led', 'add-resistor', 'wire-up', 'guess', 'faster'])
+    flow.answer('led-legs', 1)
+    next()
+    expect(flow.getView().steps[1].status).toBe('current')
+    change({ parts: [led], wires: [] })
+    expect(flow.getView().passedNow).toBe(true)
+    next()
+    change({ parts: [led, resistor], wires: [] })
+    expect(flow.getView().passedNow).toBe(true)
+    next()
+    change({ parts: [led, resistor], wires: [wireD13] })
+    expect(flow.getView().passedNow).toBe(false)
+    change({ parts: [led, resistor], wires: [wireD13, wireGnd] })
+    expect(flow.getView().passedNow).toBe(true)
+    next()
+    expect(flow.runLock()).toBe('Make a guess first.')
+    flow.answer('guess', 1)
+    send({ sim: { phase: 'running', progress: { ran: true, goal: false, blinked: true } } })
+    expect(flow.getView().passedNow).toBe(true)
+    next()
+    expect(completions).toEqual([])
+    send({ sim: { phase: 'running', progress: { ran: true, goal: true } } })
+    expect(flow.getView().lessonDone).toBe(true)
+    send({ sim: { phase: 'running', progress: { ran: true, goal: true } } })
+    expect(completions).toEqual(['1.2'])
+  })
+
+  it('keeps the mistake targets in the view', () => {
+    const { flow, change, next } = setup12()
+    flow.answer('led-legs', 1)
+    next()
+    change({ parts: [{ ...led, legs: ['9c', '9d'] }], wires: [] })
+    expect(flow.getView().targets).toEqual({ parts: ['led1'], holes: ['9c', '9d'], pins: [], places: ['strip:9-top'] })
+    change({ parts: [led], wires: [] })
+    expect(flow.getView().targets).toBe(null)
+  })
+
+  it('raises the hint level one way only, and stores a step passed at level 3 as helped', () => {
+    const { flow, tracker, change, next } = setup12()
+    flow.answer('led-legs', 1)
+    next()
+    flow.raiseHint(2)
+    flow.raiseHint(1)
+    expect(flow.getView().steps[1].hintLevel).toBe(2)
+    flow.raiseHint(3)
+    change({ parts: [led], wires: [] })
+    expect(tracker.get('1.2').helped).toEqual(['place-led'])
+    expect(flow.getView().steps[1].helped).toBe(true)
+    // A passed step keeps its level, and a step passed below level 3 is not helped.
+    flow.raiseHint(0)
+    next()
+    flow.raiseHint(1)
+    change({ parts: [led, resistor], wires: [] })
+    expect(tracker.get('1.2').helped).toEqual(['place-led'])
+    expect(tracker.get('1.2').hintLevels).toEqual({ 'place-led': 3, 'add-resistor': 1 })
   })
 })
