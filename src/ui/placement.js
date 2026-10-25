@@ -5,12 +5,15 @@
 //   tooltip, onChange, onHover }) -> { setEnabled(on), isEnabled(), pick(id),
 //   toggleWire(on), setWireColor(color), cancel(), rotate(), moveBy(dColumn, dRow),
 //   placeAt(name), confirm(), deleteSelected(), showMessage(text), refresh(),
-//   setMarks(list), setLocked(ids), getState(), subscribe(fn) }
+//   setMarks(list), setLocked(ids), setHoverOnly(on), getState(), subscribe(fn) }
 //
 // setMarks([{ place, tone }]) adds strip highlights under placement's own (the
 // step hints and mistakes); setLocked(ids) stops those kit parts being picked
 // up (parts of later steps). buildGhost and disposeGroup are shared with the
-// hint ghosts.
+// hint ghosts. setHoverOnly(true) keeps the hovered strip highlight and the
+// hole tooltip while edit mode is off, with no picking (explore steps that
+// count strip hovers); the arrow keys then move the hovered hole, starting at
+// 15e, while the page itself has focus.
 //
 // Modes: idle, carry (fixed shapes), bend (resistor, ldr: two clicks) and wire
 // (two clicks, repeating until turned off). The target is the hole or pin
@@ -104,6 +107,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   let hidden = null
   let marks = []
   let locked = []
+  let hoverOnly = false
 
   function reset() {
     mode = 'idle'
@@ -226,7 +230,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   function update() {
     const c = candidate()
     syncHidden()
-    if (enabled) {
+    if (enabled || hoverOnly) {
       // Placement's own highlights win over a mark on the same place.
       const own = places(c)
       breadboard.highlightPlaces([...marks.filter((mark) => !own.some((entry) => entry.place === mark.place)), ...own])
@@ -513,13 +517,13 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   })
 
   canvas.addEventListener('pointermove', (event) => {
-    if (!enabled || event.buttons !== 0) return
+    if ((!enabled && !hoverOnly) || event.buttons !== 0) return
     setRay(event)
     hover(event)
   })
 
   canvas.addEventListener('pointerleave', () => {
-    if (!enabled) return
+    if (!enabled && !hoverOnly) return
     if (tooltip) tooltip.hide()
     if (hoveredHole) {
       hoveredHole = null
@@ -532,6 +536,10 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   // cancels, Delete removes. Ignored in text fields (the tray handles Enter in
   // its own inputs) and Enter is left to a focused button.
   window.addEventListener('keydown', (event) => {
+    if (!enabled && hoverOnly) {
+      hoverKey(event)
+      return
+    }
     if (!enabled || (mode === 'idle' && !selectedWire)) return
     if (event.ctrlKey || event.metaKey || event.altKey) return
     const element = event.target
@@ -552,6 +560,37 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     else return
     event.preventDefault()
   })
+
+  // Hover only keyboard path: the arrows move the hovered hole while nothing
+  // else on the page has focus (so tabs and menus keep their own arrows).
+  function hoverKey(event) {
+    const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+    if (!Object.hasOwn(moves, event.key) || event.ctrlKey || event.metaKey || event.altKey) return
+    if (event.target !== document.body && event.target !== canvas) return
+    event.preventDefault()
+    const [dColumn, dRow] = moves[event.key]
+    let next = START_HOLE
+    if (target && isHole(target)) {
+      const { column, row } = parseHole(target)
+      const index = Math.min(ALL_ROWS.length - 1, Math.max(0, ALL_ROWS.indexOf(row) + dRow))
+      next = holeName(Math.min(30, Math.max(1, column + dColumn)), ALL_ROWS[index])
+    }
+    setTarget(next)
+    hoveredHole = next
+    onHover(next)
+    update()
+  }
+
+  function setHoverOnly(on) {
+    if (Boolean(on) === hoverOnly) return
+    hoverOnly = Boolean(on)
+    if (!enabled) {
+      target = null
+      hoveredHole = null
+      if (tooltip) tooltip.hide()
+    }
+    update()
+  }
 
   // Undo, reset or a lesson change drop whatever is being carried.
   workbench.subscribe((event) => {
@@ -589,6 +628,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     refresh,
     setMarks,
     setLocked,
+    setHoverOnly,
     isLocked: (partId) => locked.includes(partId),
     getState,
     subscribe

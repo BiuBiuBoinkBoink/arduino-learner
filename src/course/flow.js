@@ -30,6 +30,7 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
   // tracker. A step stored as passed keeps its sim and answer items ticked
   // (its keys count as latched, its answer as given), so a reload or a lesson
   // marked done before steps existed still shows it met; code items stay live.
+  // stepPassed keeps tour and event items ticked, as those live in memory only.
   function stepCtx(lesson, record, step) {
     const passed = record.passed.includes(step.id)
     const answers = { ...record.answers }
@@ -41,7 +42,8 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
       lessonId: lesson.id,
       lessonCompleted: course.getState().completed.includes(lesson.id),
       answers,
-      latched: passed ? [...new Set([...latched, ...simKeys(check)])] : latched
+      latched: passed ? [...new Set([...latched, ...simKeys(check)])] : latched,
+      stepPassed: passed
     }
   }
 

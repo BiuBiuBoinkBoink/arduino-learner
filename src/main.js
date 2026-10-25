@@ -179,7 +179,7 @@ let kitLabels = {}
 // Edit circuit mode: placement and the parts tray on, press, turn and meter
 // clicks off.
 const tooltip = createHoleTooltip({ container: layout.workbench })
-const placement = createPlacement({ stage, board, breadboard, workbench, getItems: view.items, getValues, tooltip })
+const placement = createPlacement({ stage, board, breadboard, workbench, getItems: view.items, getValues, tooltip, onHover: noteHover })
 const tray = createPartsTray({ container: layout.workbench, workbench, placement, kitLabels: () => kitLabels })
 // Step hints and mistakes in the scene: strip glows, pin rings, ghosts, labels.
 const labels = createLabels({ stage, container: layout.workbench })
@@ -391,12 +391,32 @@ let attemptsKey = null
 function stepKey(viewState) {
   return viewState.lesson.id + ':' + viewState.index
 }
+// What the learner did while the current step is current, for event checks:
+// the places hovered, parts moved and parts put back in the tray. Memory only.
+function freshEvents() {
+  return { 'strip-hover': new Set(), 'part-moved': 0, 'part-returned': 0 }
+}
+let stepEvents = freshEvents()
 flow.subscribe((viewState) => {
   if (stepKey(viewState) === attemptsKey) return
   attemptsKey = stepKey(viewState)
   attempts = 0
+  stepEvents = freshEvents()
 })
 attemptsKey = stepKey(flow.getView())
+function noteHover(hole) {
+  if (!hole || stepEvents['strip-hover'].has(placeOf(hole))) return
+  stepEvents['strip-hover'].add(placeOf(hole))
+  updateFlow()
+}
+
+// Hovering shows strips on explore steps that count hovers, with edit mode off.
+function hoverOnlyFor(viewState) {
+  const entry = viewState.steps[viewState.index]
+  placement.setHoverOnly(Boolean(entry && entry.step.kind === 'explore' && entry.step.check.type === 'event' && !entry.passed))
+}
+hoverOnlyFor(flow.getView())
+flow.subscribe(hoverOnlyFor)
 
 // Every edit redraws the build in place, re-checks the run lock and the step;
 // a build that stops matching stops a running sketch.
@@ -404,6 +424,8 @@ workbench.subscribe((event) => {
   checkedBuild = null
   if (event.type === 'load') return
   attempts += 1
+  if (event.type === 'move') stepEvents['part-moved'] += 1
+  if (event.type === 'remove') stepEvents['part-returned'] += 1
   drawBuild({ fresh: false })
   checkBuild()
   if (!buildMatches && ['uploading', 'running'].includes(runner.getPhase())) run.stop()
@@ -450,6 +472,7 @@ function currentContext() {
     sim: { phase: runner.getPhase(), progress: runner.getProgress() },
     code: { error: checkedError },
     tour: { complete: toursDone.has(lesson.id) },
+    events: stepEvents,
     build: currentBuild(),
     reference,
     scope: scopeFor(lesson, tracker.get(lesson.id).current),

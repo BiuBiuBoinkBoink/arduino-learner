@@ -52,7 +52,7 @@ const codeStep = {
 
 describe('evaluate', () => {
   it('knows its check types', () => {
-    expect(CHECK_TYPES).toEqual(['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'circuit', 'all'])
+    expect(CHECK_TYPES).toEqual(['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'event', 'circuit', 'all'])
   })
 
   it('legacy passes when the lesson is completed', () => {
@@ -126,6 +126,43 @@ describe('evaluate', () => {
     const step = { id: 't', check: { type: 'tour', text: 'Open every part' } }
     expect(evaluate(step, ctx()).passed).toBe(false)
     expect(evaluate(step, ctx({ tour: { complete: true } }))).toEqual({ passed: true, items: [{ text: 'Open every part', ok: true }], feedback: null })
+  })
+
+  it('tour stays ticked on a step stored as passed', () => {
+    const step = { id: 't', check: { type: 'tour', text: 'Open every part' } }
+    expect(evaluate(step, ctx({ stepPassed: true })).passed).toBe(true)
+  })
+
+  const strips = {
+    id: 'strips',
+    check: { type: 'event', items: [{ text: 'Point at holes in 3 different strips', event: 'strip-hover', count: 3 }] }
+  }
+  const practice = {
+    id: 'practice',
+    check: {
+      type: 'event',
+      items: [
+        { text: 'Move a part', event: 'part-moved', count: 1 },
+        { text: 'Put a part back in the tray', event: 'part-returned', count: 1 }
+      ]
+    }
+  }
+
+  it('event counts the places in a strip-hover set', () => {
+    expect(evaluate(strips, ctx())).toEqual({ passed: false, items: [{ text: 'Point at holes in 3 different strips', ok: false }], feedback: null })
+    const two = { 'strip-hover': new Set(['strip:3-top', 'strip:4-top']), 'part-moved': 0, 'part-returned': 0 }
+    expect(evaluate(strips, ctx({ events: two })).passed).toBe(false)
+    two['strip-hover'].add('rail:T+')
+    expect(evaluate(strips, ctx({ events: two }))).toEqual({ passed: true, items: [{ text: 'Point at holes in 3 different strips', ok: true }], feedback: null })
+  })
+
+  it('event ticks each item on its own count and passes when all are ok', () => {
+    const moved = evaluate(practice, ctx({ events: { 'strip-hover': new Set(), 'part-moved': 2, 'part-returned': 0 } }))
+    expect(moved.items.map((item) => item.ok)).toEqual([true, false])
+    expect(moved.passed).toBe(false)
+    expect(evaluate(practice, ctx({ events: { 'strip-hover': new Set(), 'part-moved': 1, 'part-returned': 1 } })).passed).toBe(true)
+    // A step stored as passed keeps its items ticked after the counts reset.
+    expect(evaluate(practice, ctx({ stepPassed: true })).items.map((item) => item.ok)).toEqual([true, true])
   })
 
   it('all combines a code and a sim check', () => {

@@ -2,13 +2,15 @@
 // a lesson step passes, the checklist under "To pass" ([{ text, ok }]) and an
 // optional feedback line ({ tone: 'good' | 'bad' | 'info', text }). Pure module.
 // ctx: { lessonId, lessonCompleted, answers, latched, sim: { phase, progress },
-// code: { error }, tour: { complete }, build, reference, scope, attempts, busy }.
-// Sim items latch: a key reported once while the step was current
-// (ctx.latched) stays ok after Stop.
+// code: { error }, tour: { complete }, events, build, reference, scope, attempts,
+// busy, stepPassed }. Sim items latch: a key reported once while the step was
+// current (ctx.latched) stays ok after Stop. Tour and event items of a step
+// stored as passed (ctx.stepPassed) stay ok, since tours and events live in
+// memory only.
 import { createRuleContext, evaluateRule } from '../circuits/rules.js'
 import { diagnose } from '../circuits/netlist.js'
 
-export const CHECK_TYPES = ['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'circuit', 'all']
+export const CHECK_TYPES = ['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'event', 'circuit', 'all']
 
 const RUN_AND_WATCH = 'Now press Run and watch.'
 
@@ -106,8 +108,19 @@ function check(spec, step, ctx) {
       return result(ok, [{ text: spec.text, ok }], feedback)
     }
     case 'tour': {
-      const ok = Boolean(ctx.tour && ctx.tour.complete)
+      const ok = Boolean(ctx.stepPassed || (ctx.tour && ctx.tour.complete))
       return result(ok, [{ text: spec.text, ok }])
+    }
+    case 'event': {
+      // ctx.events counts what the learner did while this step was current: a
+      // Set of places for strip-hover, numbers for part-moved and part-returned.
+      const events = ctx.events || {}
+      const items = spec.items.map((item) => {
+        const value = events[item.event]
+        const count = value instanceof Set ? value.size : Number.isFinite(value) ? value : 0
+        return { text: item.text, ok: Boolean(ctx.stepPassed) || count >= item.count }
+      })
+      return result(items.every((item) => item.ok), items)
     }
     case 'circuit': {
       const { items, passed, mistake } = circuitResult(spec, step, ctx)
