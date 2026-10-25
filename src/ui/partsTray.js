@@ -5,8 +5,12 @@
 // while carrying, From and To while bending a part or drawing a wire.
 // setStep({ pulse, later }): parts of the current step pulse (an accent ring),
 // parts of later steps say Later and cannot be picked up.
+// After a tap on the board (touch, placement's touchReady) a floating row
+// above the tray offers Place, Turn (parts with more than one orientation)
+// and Cancel.
 import { isHole } from '../circuits/holes.js'
 import { isPinName } from '../circuits/netlist.js'
+import { orientationCount } from '../circuits/footprints.js'
 
 const SVG = 'http://www.w3.org/2000/svg'
 const RESET_CONFIRM_MS = 3000
@@ -75,6 +79,15 @@ function itemButton(type) {
   text.append(name, sub)
   button.append(icon(type), text)
   return { button, name, sub }
+}
+
+function touchButton(text, onClick) {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'tray-action tray-touch-button'
+  button.textContent = text
+  button.addEventListener('click', onClick)
+  return button
 }
 
 function field(id, labelText) {
@@ -150,7 +163,18 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
   row3.className = 'tray-row tray-keys'
   row3.hidden = true
 
-  tray.append(row1, row2, row3)
+  const touchRow = document.createElement('div')
+  touchRow.className = 'tray-touch'
+  touchRow.setAttribute('role', 'group')
+  touchRow.setAttribute('aria-label', 'Place the part')
+  touchRow.hidden = true
+  const touchPlace = touchButton('Place', () => placement.confirm())
+  touchPlace.classList.add('is-primary')
+  const touchTurn = touchButton('Turn', () => placement.rotate())
+  const touchCancel = touchButton('Cancel', () => placement.cancel())
+  touchRow.append(touchPlace, touchTurn, touchCancel)
+
+  tray.append(touchRow, row1, row2, row3)
   container.append(tray)
 
   let partButtons = new Map()
@@ -304,6 +328,9 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
     colourWrap.hidden = state.mode !== 'wire'
     colour.value = state.wireColor
     renderKeys(state)
+    touchRow.hidden = !state.touchReady
+    const part = state.id ? workbench.kitPart(state.id) : null
+    touchTurn.hidden = !(state.mode === 'carry' && part && orientationCount(part.type) > 1)
   }
 
   // A new lesson may bring a kit with the same ids but other labels.

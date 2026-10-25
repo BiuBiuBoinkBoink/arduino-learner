@@ -9,6 +9,8 @@ import * as THREE from 'three'
 import { createTour } from '../sim/tour.js'
 
 const CLICK_SLOP = 5
+// A finger moves a little more during a tap.
+const TOUCH_SLOP = 8
 const HIGHLIGHT = new THREE.Color(0x2f6fd6)
 const HIGHLIGHT_INTENSITY = 0.45
 const NO_GLOW = new THREE.Color(0x000000)
@@ -116,7 +118,7 @@ export function createBoardTour({ stage, board, course, container, onComplete })
     down = null
     if (!active || !enabled || !start || !start.zoneId) return
     const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y)
-    if (moved < CLICK_SLOP && zoneAt(event) === start.zoneId) open(start.zoneId)
+    if (moved < (event.pointerType === 'touch' ? TOUCH_SLOP : CLICK_SLOP) && zoneAt(event) === start.zoneId) open(start.zoneId)
   })
 
   function open(zoneId) {

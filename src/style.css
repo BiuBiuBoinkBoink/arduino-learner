@@ -2222,3 +2222,39 @@ summary:focus-visible {
 #app[data-layout='compact'] .dock-heading {
   font-size: 12px;
 }
+
+/* Touch placement: Place, Turn and Cancel float above the parts tray. */
+.tray-touch {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--overlay-shadow);
+}
+
+.tray-touch[hidden],
+.tray-touch-button[hidden] {
+  display: none;
+}
+
+.tray-touch-button {
+  min-width: 72px;
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+
+.tray-touch-button.is-primary {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.tray-touch-button.is-primary:hover:not(:disabled) {
+  background: #2a62bf;
+}

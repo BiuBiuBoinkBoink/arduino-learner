@@ -18,7 +18,15 @@
 // Modes: idle, carry (fixed shapes), bend (resistor, ldr: two clicks) and wire
 // (two clicks, repeating until turned off). The target is the hole or pin
 // under the pointer, or the one the keyboard moved to. A click is a pointer up
-// within 5 px of its pointer down; anything longer is an orbit drag.
+// within 5 px (mouse) or 8 px (touch) of its pointer down; anything longer is
+// an orbit drag, and a second finger leaves the gesture to the camera.
+//
+// Touch has no hover: a tap on a hole or pin moves the target there (the
+// carried part's anchor, or the next end of a bend or wire) and shows the
+// ghost and the hole tooltip for 2 s, but does not place. getState().touchReady
+// is true while a tapped target waits; the tray then shows Place (confirm),
+// Turn (rotate) and Cancel. In idle mode a tap picks up a placed part or
+// selects a wire as a click does. On hover only steps a tap counts as a hover.
 import * as THREE from 'three'
 import { buildCircuit } from '../circuits/buildCircuit.js'
 import { PART_TYPES, footprint, orientationCount, orientationOf, bendLegs } from '../circuits/footprints.js'
@@ -42,6 +50,8 @@ export const PLACEMENT_COPY = {
 }
 
 const CLICK_SLOP_PX = 5
+const TOUCH_SLOP_PX = 8
+const TOUCH_TIP_MS = 2000
 const BAD_COLOR = new THREE.Color(0xc0392b)
 // Where the keyboard starts when nothing is targeted yet.
 const START_HOLE = '15e'
@@ -108,6 +118,10 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   let marks = []
   let locked = []
   let hoverOnly = false
+  // The last pointer was a finger: placing waits for Place.
+  let touch = false
+  const touches = new Set()
+  let tipTimer = null
 
   function reset() {
     mode = 'idle'
@@ -159,7 +173,8 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
 
   function getState() {
     const c = candidate()
-    return { mode, id, candidate: c, step: step(), selectedWire, status: status(c), wireColor, target, first }
+    const touchReady = touch && enabled && mode !== 'idle' && target !== null && target !== first
+    return { mode, id, candidate: c, step: step(), selectedWire, status: status(c), wireColor, target, first, touch, touchReady }
   }
 
   function chosenColor(from) {
@@ -349,6 +364,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
       else if (isHole(target) ? !holeFree(target) : !pinFree(target)) message = REASONS.holeUsed
       else if (mode === 'wire' && workbench.tray().wires.used >= workbench.tray().wires.total) message = REASONS.noWires
       else first = target
+      if (touch && first) target = null
       update()
       return first !== null
     }
@@ -365,6 +381,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     }
     workbench.addWire(first, target, wireColor === 'auto' ? undefined : wireColor)
     first = null
+    if (touch) target = null
     message = null
     update()
     onChange()
@@ -502,27 +519,78 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     if (changed) update()
   }
 
+  // A tap: move the target to the hole or pin under the finger, show its
+  // tooltip for a while, and on hover only steps count it as a hover.
+  function tap(event) {
+    const name = targetUnderRay()
+    if (enabled && mode === 'idle') {
+      setTarget(name)
+      click()
+    } else {
+      if (name) setTarget(name)
+      const hole = name && isHole(name) ? name : null
+      if (!enabled && hole !== hoveredHole) {
+        hoveredHole = hole
+        onHover(hole)
+      }
+      update()
+    }
+    if (!tooltip) return
+    clearTimeout(tipTimer)
+    if (!name) {
+      tooltip.hide()
+      return
+    }
+    tooltip.show(name, event.clientX, event.clientY)
+    tipTimer = setTimeout(() => tooltip.hide(), TOUCH_TIP_MS)
+  }
+
   canvas.addEventListener('pointerdown', (event) => {
-    down = enabled && event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+    const isTouch = event.pointerType === 'touch'
+    if (isTouch) touches.add(event.pointerId)
+    else if (touch) {
+      touch = false
+      update()
+    }
+    const active = enabled || (hoverOnly && isTouch)
+    down = active && event.button === 0 && touches.size <= 1 ? { x: event.clientX, y: event.clientY } : null
   })
 
+  function endTouch(event) {
+    touches.delete(event.pointerId)
+  }
+
   canvas.addEventListener('pointerup', (event) => {
-    if (!enabled || !down) return
+    const isTouch = event.pointerType === 'touch'
+    if (isTouch) endTouch(event)
+    if (!down || (!enabled && !(hoverOnly && isTouch))) return
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y)
     down = null
-    if (moved > CLICK_SLOP_PX) return
+    if (moved > (isTouch ? TOUCH_SLOP_PX : CLICK_SLOP_PX)) return
     setRay(event)
+    if (isTouch) {
+      touch = true
+      tap(event)
+      return
+    }
     hover(event)
     click()
   })
 
+  canvas.addEventListener('pointercancel', (event) => {
+    endTouch(event)
+    down = null
+  })
+
   canvas.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch') return
     if ((!enabled && !hoverOnly) || event.buttons !== 0) return
     setRay(event)
     hover(event)
   })
 
-  canvas.addEventListener('pointerleave', () => {
+  canvas.addEventListener('pointerleave', (event) => {
+    if (event.pointerType === 'touch') return
     if (!enabled && !hoverOnly) return
     if (tooltip) tooltip.hide()
     if (hoveredHole) {
