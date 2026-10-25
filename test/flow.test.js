@@ -312,6 +312,18 @@ describe('lesson 1.2 built by hand', () => {
     expect(completions).toEqual(['1.2'])
   })
 
+  it('starts a new step with no attempts, so the old mistake does not carry over', () => {
+    const { flow, change } = setup12()
+    flow.answer('led-legs', 1)
+    flow.next()
+    change({ parts: [led], wires: [] })
+    // Continue without a fresh update: the wire step must not show a mistake yet.
+    flow.next()
+    flow.next()
+    expect(flow.getView().index).toBe(2)
+    expect(flow.getView().result.feedback).toBe(null)
+  })
+
   it('keeps the mistake targets in the view', () => {
     const { flow, change, next } = setup12()
     flow.answer('led-legs', 1)

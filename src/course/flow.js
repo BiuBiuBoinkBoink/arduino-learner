@@ -21,6 +21,8 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
   const marked = new Set()
   let view = null
   let viewKey = ''
+  // The lesson and step the context was last given for.
+  let ctxStep = null
   let syncing = false
   let again = false
 
@@ -58,6 +60,13 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
     const steps = stepsFor(lesson)
     const record = tracker.get(lesson.id)
     const current = steps[record.current]
+    // Workbench changes count per step: a new current step starts at none, so
+    // a mistake from the last step never shows on the new one.
+    const key = lesson.id + ':' + record.current
+    if (key !== ctxStep) {
+      if (ctxStep !== null) ctx = { ...ctx, attempts: 0 }
+      ctxStep = key
+    }
     if (current) {
       const progress = (ctx.sim && ctx.sim.progress) || {}
       for (const key of simKeys(current.check)) {
