@@ -11,7 +11,7 @@
 import { hasGeneratedSteps } from '../course/steps.js'
 import { splitGoal } from '../course/goalText.js'
 
-const KIND_LABELS = {
+export const KIND_LABELS = {
   learn: 'Learn',
   explore: 'Explore',
   build: 'Build',

@@ -2002,3 +2002,214 @@ summary:focus-visible {
 #app[data-layout='compact'] .tray-label {
   font-size: 0.75rem;
 }
+
+/* Bottom sheet (compact only): the guide and code panel move into its tab
+   panels. Heights: peek 132px, half 50%, full 100% less 8px. */
+#bottom-sheet {
+  position: absolute;
+  z-index: 6;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: var(--peek-h);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -2px 12px rgba(29, 35, 48, 0.16);
+  transition: height 0.2s ease;
+}
+
+#bottom-sheet[hidden] {
+  display: none;
+}
+
+#bottom-sheet[data-state='half'] {
+  height: 50%;
+}
+
+#bottom-sheet[data-state='full'] {
+  height: calc(100% - 8px);
+}
+
+#bottom-sheet.is-dragging {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bottom-sheet {
+    transition: none;
+  }
+}
+
+.sheet-handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.sheet-handle-bar {
+  width: 36px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.sheet-handle:focus-visible,
+.sheet-tab:focus-visible,
+.view-toggle:focus-visible,
+.dock-toggle:focus-visible,
+.sheet-expand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sheet-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 6px;
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sheet-tab {
+  min-height: 32px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.sheet-tab[aria-selected='true'] {
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.sheet-expand {
+  min-height: 32px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.sheet-peek {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 16px 8px;
+  overflow: hidden;
+}
+
+.sheet-peek[hidden],
+.sheet-panels[hidden],
+.sheet-panel[hidden],
+.peek-step[hidden],
+.peek-summary[hidden],
+.peek-success[hidden] {
+  display: none;
+}
+
+.peek-step {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.peek-step .step-kind {
+  flex: none;
+  padding: 0;
+}
+
+.peek-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.peek-summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.peek-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--good);
+}
+
+.peek-success .success-next {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sheet-panels {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.sheet-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-panel > #guide-panel,
+.sheet-panel > #code-panel {
+  flex: 1;
+  min-height: 0;
+  width: auto;
+  border: 0;
+}
+
+.sheet-panel > #code-panel .code-body {
+  display: block;
+  width: auto;
+}
+
+.sheet-panel > #code-panel .code-rail,
+.sheet-panel > #code-panel .code-collapse {
+  display: none;
+}
+
+#app[data-layout='compact'] .guide-eyebrow,
+#app[data-layout='compact'] .step-kind,
+#app[data-layout='compact'] .dock-heading {
+  font-size: 12px;
+}

@@ -17,6 +17,8 @@ import { createGuidePanel } from './ui/guidePanel.js'
 import { createViewControls } from './ui/viewControls.js'
 import { createInfoPanel } from './ui/infoPanel.js'
 import { createCodePanel } from './ui/codePanel.js'
+import { createBottomSheet } from './ui/bottomSheet.js'
+import { createSheetPeek } from './ui/sheetPeek.js'
 import { createBoardTour } from './ui/boardTour.js'
 import { createRunControls } from './ui/runControls.js'
 import { createPartPress, createHoldButton } from './ui/partPress.js'
@@ -46,6 +48,23 @@ import { sims } from './sim/sims.js'
 import { createSimRunner, checkCode } from './sim/runner.js'
 
 const layout = createLayout(document.querySelector('#app'))
+// Compact layout: the guide and the code panel move into a bottom sheet over
+// the workbench (Steps and Code tabs), and back to their columns in the other
+// layouts. Neither is rebuilt, so the editor keeps its text and caret. Done
+// before the scene exists, so the stage starts at its real size.
+const sheet = createBottomSheet({
+  container: layout.workbench,
+  tabs: [
+    { id: 'steps', label: 'Steps', element: layout.guide },
+    { id: 'code', label: 'Code', element: layout.codePanel }
+  ]
+})
+function applyLayout(mode) {
+  sheet.setActive(mode === 'compact')
+  if (mode !== 'compact') sheet.setState('peek')
+}
+applyLayout(layout.getMode())
+layout.subscribeMode(applyLayout)
 const { stage, board, breadboard, frameBox } = createScene(layout.stageEl)
 
 const course = createCourse({ lessons, storage: getStorage() })
@@ -142,6 +161,13 @@ function defaultCodeOpen(view) {
 defaultCodeOpen(flow.getView())
 flow.subscribe(defaultCodeOpen)
 
+createSheetPeek({ container: sheet.peekSlot, flow, course })
+// A step that opens the code panel picks the Code tab, and one that closes it
+// the Steps tab, unless the sheet is only peeking.
+layout.subscribeCode((open) => {
+  if (layout.getMode() === 'compact' && sheet.getState() !== 'peek') sheet.selectTab(open ? 'code' : 'steps')
+})
+
 // The Serial Monitor sits under the sketch editor, and moves with it to full screen.
 const serialMonitor = createSerialMonitor({
   container: codePanel.serialSlot,
@@ -174,6 +200,14 @@ const viewControls = createViewControls({
   getEditBox: frameBox,
   onEdit: setEditing
 })
+// The first camera is set for a wide screen; narrower layouts start framed in
+// the 3D view. A resize (a new layout, a phone turned) frames the top or 3D
+// view again; a view the learner orbited stays as it is.
+if (layout.getMode() !== 'wide') viewControls.setView('3d', { animate: false })
+new ResizeObserver(() => {
+  const kind = stage.getView()
+  if (kind === 'top' || kind === '3d') viewControls.setView(kind, { animate: false })
+}).observe(layout.stageEl)
 
 // The learner's build of the lesson circuit. The scene draws it, not the
 // reference table, which is the answer key. A lesson opens with its prebuilt
