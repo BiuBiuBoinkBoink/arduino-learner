@@ -3,9 +3,10 @@
 // passes when the lesson goal is met (a legacy check).
 import { splitGoal } from './goalText.js'
 
-// Build and wire steps stay hidden until learners can place parts (phase 5).
-export const BUILD_STEPS_ENABLED = false
-const BUILD_KINDS = ['build', 'wire']
+// Build and wire steps show while this is true; false hides them (and main.js
+// then opens every lesson with its whole circuit built).
+export const BUILD_STEPS_ENABLED = true
+export const BUILD_KINDS = ['build', 'wire']
 
 // Step kinds that open the code panel by default.
 export const CODE_OPEN_KINDS = ['predict', 'run', 'code']
@@ -30,4 +31,15 @@ export function stepsFor(lesson) {
 // True for a lesson whose steps are the one generated goal step.
 export function hasGeneratedSteps(lesson) {
   return !lesson.steps
+}
+
+// The step scope: the lesson's prebuilt ids, then the parts of this build or
+// wire step and every build or wire step before it, without repeats. diagnose and the level 0 hints look at these parts only.
+export function scopeFor(lesson, stepIndex) {
+  const steps = stepsFor(lesson)
+  const ids = [...(Array.isArray(lesson.prebuilt) ? lesson.prebuilt : [])]
+  steps.slice(0, Math.max(0, stepIndex + 1)).forEach((step) => {
+    if (BUILD_KINDS.includes(step.kind) && Array.isArray(step.parts)) ids.push(...step.parts)
+  })
+  return [...new Set(ids)]
 }

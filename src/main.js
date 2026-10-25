@@ -150,9 +150,9 @@ const viewControls = createViewControls({
 })
 
 // The learner's build of the lesson circuit. The scene draws it, not the
-// reference table, which is the answer key. Until build steps exist every
-// lesson opens with its whole circuit prebuilt (lesson prebuilt lists wait for
-// BUILD_STEPS_ENABLED).
+// reference table, which is the answer key. A lesson opens with its prebuilt
+// list placed (1.2 has none, so it opens empty) or, without a list, its whole
+// circuit (lesson prebuilt lists only count while BUILD_STEPS_ENABLED).
 const workbench = createWorkbench({ storage: getStorage() })
 let reference = null
 // Tray labels for the current kit: partLabel against the whole kit.
