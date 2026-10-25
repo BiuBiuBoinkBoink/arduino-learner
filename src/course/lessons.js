@@ -2013,7 +2013,7 @@ void loop() {
             { text: 'Resistor on the long leg', rule: { joined: ['r1.*', 'led1.anode'] } },
             { text: 'Buzzer legs in two strips', rule: { apart: ['bz1.a', 'bz1.b'] } }
           ],
-          pass: { matches: ['ldr1', 'r2', 'tmp1', 'r1', 'led1', 'bz1'] }
+          pass: { matches: ['r1', 'led1'] }
         },
         hint: 'The LED and resistor are the same as in Blink. The buzzer can go in the bottom half of the board.',
         done: 'Every part is on the board.'

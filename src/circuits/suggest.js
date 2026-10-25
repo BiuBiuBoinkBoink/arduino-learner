@@ -13,6 +13,9 @@
 // to gets a wire to the free hole nearest the reference end, in a build place
 // holding the parts that wire reaches; a learner wire from that pin going
 // somewhere wrong, or from a pin no reference wire uses, is taken out first.
+// When no one build net holds all the parts a wire reaches (P1: the LED and the
+// buzzer share one GND wire through a reference jumper), the pin goes to the
+// net holding most of them and jumpers join the others to it.
 //
 // Also: joinPlaces (the build places a build step's parts must join),
 // pendingPins (reference wire pins not joined yet) and suggestionLabels (the
@@ -233,6 +236,13 @@ function findLegs(build, reference, id, scope, wins) {
   return null
 }
 
+// A circuit without its wires from pins. Earlier parts of a build step are
+// checked this way: the step comes before its wires, and a pin can join parts
+// that share no strip (in P1 the GND pin joins the divider, TMP36 and LED).
+function withoutPinWires(circuit) {
+  return { ...circuit, wires: (circuit.wires || []).filter((wire) => !isPinName(wire.from)) }
+}
+
 function suggestParts(build, reference, step, scope) {
   const parts = Array.isArray(step.parts) ? step.parts : []
   if (parts.length === 0 || stepPasses(step, build, reference)) return []
@@ -245,7 +255,7 @@ function suggestParts(build, reference, step, scope) {
     // The last part must make the step pass; earlier ones must fit the parts so far.
     const wins = i === parts.length - 1
       ? (candidate) => stepPasses(step, candidate, reference)
-      : (candidate) => compare(candidate, reference, { only: subset }).match
+      : (candidate) => compare(withoutPinWires(candidate), withoutPinWires(reference), { only: subset }).match
     if (isPlaced(work, id) && wins(work)) return
     const legs = findLegs(work, reference, id, fullScope, wins)
     if (!legs) return
@@ -328,6 +338,14 @@ function suggestWires(build, reference) {
       const nets = netlist.nets.filter((net) => net.pins.length === 0 && net.places.length > 0)
       let targets = nets.filter((net) => partTokens(net, byId).join() === reaches.join())
       if (targets.length === 0) targets = nets.filter((net) => subset(reaches, partTokens(net, byId)))
+      if (targets.length === 0) {
+        const joined = joinWithJumpers(work, byId, goal, wire, reaches)
+        if (joined) {
+          work = joined.work
+          out.push(...joined.items)
+        }
+        continue
+      }
       const used = usedHoles(work)
       const holes = targets.flatMap((net) => net.places.flatMap(holesOfPlace)).filter((hole) => !used.has(hole))
       const taken = new Set(work.wires.map((item) => item.from))
@@ -340,6 +358,67 @@ function suggestWires(build, reference) {
     }
   }
   return out
+}
+
+// The free hole of from nearest a free hole of to: [a, b], or null.
+function nearestPair(fromHoles, toHoles) {
+  let best = null
+  for (const a of fromHoles) {
+    for (const b of toHoles) {
+      const distance = holeDistance(a, b)
+      if (!best || distance < best.distance) best = { pair: [a, b], distance }
+    }
+  }
+  return best ? best.pair : null
+}
+
+// The wires that give a pin the parts one reference wire reaches when they sit
+// in more than one build net: a wire from the pin to the net holding most of
+// them (none when the pin's net already holds some), then a jumper from that
+// net to each other net. Only nets whose parts all belong on this pin are used.
+// { work, items } or null when a part is not placed or a hole is missing.
+function joinWithJumpers(work, byId, goal, wire, reaches) {
+  const netlist = buildNetlist(work)
+  const pinNet = netlist.netOf('pin:' + goal.pin)
+  const have = pinNet && pinNet.pins.length === 1 && pinNet.places.length > 0 ? partTokens(pinNet, byId) : []
+  const pieces = netlist.nets.filter((net) => {
+    const tokens = partTokens(net, byId)
+    return net.pins.length === 0 && net.places.length > 0 && tokens.length > 0 && subset(tokens, goal.tokens)
+  })
+  const missing = reaches.filter((token) => !have.includes(token))
+  const chosen = []
+  for (const token of missing) {
+    if (chosen.some((net) => partTokens(net, byId).includes(token))) continue
+    const net = pieces.filter((item) => !chosen.includes(item) && partTokens(item, byId).includes(token))
+      .sort((a, b) => partTokens(b, byId).filter((t) => missing.includes(t)).length - partTokens(a, byId).filter((t) => missing.includes(t)).length)[0]
+    if (!net) return null
+    chosen.push(net)
+  }
+  if (chosen.length === 0) return null
+  const used = usedHoles(work)
+  const freeIn = (net) => net.places.flatMap(holesOfPlace).filter((hole) => !used.has(hole))
+  const items = []
+  let wires = work.wires.slice()
+  let primary = have.length > 0 ? pinNet : null
+  if (!primary) {
+    primary = chosen.shift()
+    const taken = new Set(wires.map((item) => item.from))
+    const names = SAME_PIN[goal.pin] || [wire.from]
+    const from = taken.has(wire.from) ? names.find((name) => !taken.has(name)) : wire.from
+    const holes = freeIn(primary).sort((a, b) => holeDistance(a, wire.to) - holeDistance(b, wire.to))
+    if (!from || holes.length === 0) return null
+    used.add(holes[0])
+    wires = [...wires, { id: 'suggest-pin', from, to: holes[0] }]
+    items.push({ kind: 'wire', from, to: holes[0] })
+  }
+  for (const net of chosen) {
+    const pair = nearestPair(freeIn(primary), freeIn(net))
+    if (!pair) return null
+    pair.forEach((hole) => used.add(hole))
+    wires = [...wires, { id: 'suggest-jumper' + items.length, from: pair[0], to: pair[1] }]
+    items.push({ kind: 'wire', from: pair[0], to: pair[1] })
+  }
+  return { work: { ...work, wires }, items }
 }
 
 export function suggest(build, reference, step, scope = []) {

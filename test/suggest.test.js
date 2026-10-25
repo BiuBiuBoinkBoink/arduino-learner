@@ -128,6 +128,46 @@ describe('suggest on wire steps', () => {
   })
 })
 
+describe('suggest on the P1 project', () => {
+  const p1 = lessons.find((item) => item.id === 'P1')
+  const ref = circuits.P1
+  const indexOf = (id) => p1.steps.findIndex((step) => step.id === id)
+  const passesP1 = (id, build) => {
+    const rules = createRuleContext(build, ref)
+    const { check } = p1.steps[indexOf(id)]
+    return check.items.every((item) => evaluateRule(item.rule, rules)) && (!check.pass || evaluateRule(check.pass, rules))
+  }
+  const sensors = { parts: ['ldr1', 'r2', 'tmp1'].map((id) => placed(ref, id)), wires: [] }
+  const allParts = { parts: ref.parts.map((part) => placed(ref, part.id)), wires: [] }
+
+  it('places the outputs next to sensors that only a GND pin joins', () => {
+    const step = p1.steps[indexOf('outputs')]
+    const items = suggest(sensors, ref, step, scopeFor(p1, indexOf('outputs')))
+    expect(items.map((item) => item.id)).toEqual(['r1', 'led1', 'bz1'])
+    expect(passesP1('outputs', apply(sensors, items, ref))).toBe(true)
+  })
+
+  it('joins the LED and buzzer to GND with jumpers when no strip holds both', () => {
+    const step = p1.steps[indexOf('wire-all')]
+    const items = suggest(allParts, ref, step, scopeFor(p1, indexOf('wire-all')))
+    const jumpers = items.filter((item) => item.kind === 'wire' && !/^[A-Z]/.test(item.from))
+    expect(jumpers.length).toBeGreaterThan(0)
+    expect(items.length).toBeLessThanOrEqual(12)
+    const built = apply(allParts, items, ref)
+    expect(passesP1('wire-all', built)).toBe(true)
+    expect(compare(built, ref).match).toBe(true)
+  })
+
+  it('adds only a jumper when GND already reaches the LED', () => {
+    const step = p1.steps[indexOf('wire-all')]
+    const start = { parts: allParts.parts, wires: [{ id: 'u1', from: 'GND', to: '23b', color: 'black' }] }
+    const items = suggest(start, ref, step, scopeFor(p1, indexOf('wire-all')))
+    expect(items.filter((item) => item.from === 'GND' || item.kind === 'unwire')).toEqual([])
+    expect(items).toContainEqual({ kind: 'wire', from: '23d', to: '20f' })
+    expect(passesP1('wire-all', apply(start, items, ref))).toBe(true)
+  })
+})
+
 describe('level 0 helpers', () => {
   it('names the strip of the long leg for the resistor step', () => {
     const build = { parts: [placed(reference, 'led1', ['20e', '21e'])], wires: [] }
