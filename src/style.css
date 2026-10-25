@@ -2154,7 +2154,16 @@ summary:focus-visible {
   text-overflow: ellipsis;
 }
 
+.peek-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
 .peek-summary {
+  flex: none;
   margin: 0;
   font-size: 0.875rem;
   color: var(--muted);

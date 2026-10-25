@@ -16,7 +16,11 @@ export function createSheetPeek({ container, flow, course }) {
   summary.className = 'peek-summary'
   const success = document.createElement('div')
   success.className = 'peek-success'
-  container.append(line, summary, success)
+  // The summary and the success line share a row, so the peek fits 132 px.
+  const row = document.createElement('div')
+  row.className = 'peek-row'
+  row.append(summary, success)
+  container.append(line, row)
 
   let successKey = null
 
