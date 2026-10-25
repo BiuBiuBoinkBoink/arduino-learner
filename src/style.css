@@ -856,6 +856,58 @@ button.guide-step-row:hover {
   font-weight: 600;
 }
 
+/* Labels pinned to 3D points (hints and mistakes), placed by src/ui/labels.js. */
+.pin-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pin-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 220px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+}
+
+.pin-label[hidden] {
+  display: none;
+}
+
+/* The pointer: a small square turned 45 deg under the bottom centre. */
+.pin-label::after {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  content: '';
+  background: #ffffff;
+  border-right: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.pin-label.is-bad,
+.pin-label.is-bad::after {
+  border-color: var(--bad);
+}
+
+.pin-label.is-good,
+.pin-label.is-good::after {
+  border-color: var(--good);
+}
+
 /* Code panel: open at --code-w, closed to a rail. */
 #code-panel {
   grid-row: 2;
