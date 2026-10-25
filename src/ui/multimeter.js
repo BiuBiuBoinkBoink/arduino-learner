@@ -26,6 +26,8 @@ export function createMultimeter({ container, stage, getItems, inputs }) {
   let targets = []
   let down = null
   let hovering = false
+  // Clicks are off while the circuit is being edited; the select still works.
+  let enabled = true
 
   // Target id owning a part id, or null.
   function targetOf(partId) {
@@ -62,7 +64,7 @@ export function createMultimeter({ container, stage, getItems, inputs }) {
   select.addEventListener('change', () => setProbe(select.value || null))
 
   canvas.addEventListener('pointerdown', (event) => {
-    down = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+    down = enabled && event.button === 0 ? { x: event.clientX, y: event.clientY } : null
   })
 
   canvas.addEventListener('pointerup', (event) => {
@@ -76,7 +78,7 @@ export function createMultimeter({ container, stage, getItems, inputs }) {
 
   canvas.addEventListener('pointermove', (event) => {
     if (targets.length === 0 || event.buttons !== 0) return
-    const on = targetAt(event) !== null
+    const on = enabled && targetAt(event) !== null
     if (on === hovering) return
     hovering = on
     canvas.style.cursor = on ? 'pointer' : ''
@@ -99,5 +101,14 @@ export function createMultimeter({ container, stage, getItems, inputs }) {
     setProbe(null)
   }
 
-  return { setTargets }
+  function setEnabled(on) {
+    enabled = Boolean(on)
+    down = null
+    if (!enabled && hovering) {
+      hovering = false
+      canvas.style.cursor = ''
+    }
+  }
+
+  return { setTargets, setEnabled }
 }

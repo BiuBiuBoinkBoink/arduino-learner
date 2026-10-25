@@ -12,6 +12,8 @@ export function createPartPress({ stage, getItems, inputs }) {
   let pressedId = null
   let pointerId = null
   let hovering = false
+  // Off while the circuit is being edited.
+  let enabled = true
 
   // Visible pressable items in the current circuit, as [id, item] pairs.
   function pressables() {
@@ -64,7 +66,7 @@ export function createPartPress({ stage, getItems, inputs }) {
 
   // Capture phase, so the orbit controls are off before their own pointerdown runs.
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || pressedId !== null) return
+    if (!enabled || event.button !== 0 || pressedId !== null) return
     const id = idAt(event)
     if (!id) return
     press(id)
@@ -82,14 +84,22 @@ export function createPartPress({ stage, getItems, inputs }) {
 
   canvas.addEventListener('pointermove', (event) => {
     if (pressedId !== null) return
-    setHovering(idAt(event) !== null)
+    setHovering(enabled && idAt(event) !== null)
   })
 
   canvas.addEventListener('pointerleave', () => {
     if (pressedId === null) setHovering(false)
   })
 
-  return { press, release, isPressed: () => pressedId !== null }
+  function setEnabled(on) {
+    enabled = Boolean(on)
+    if (!enabled) {
+      release()
+      setHovering(false)
+    }
+  }
+
+  return { press, release, isPressed: () => pressedId !== null, setEnabled }
 }
 
 // "Hold to press" button for the keyboard and for anyone who cannot aim at the

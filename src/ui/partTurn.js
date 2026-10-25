@@ -16,6 +16,8 @@ export function createPartTurn({ stage, getItems, inputs }) {
   let startValue = 0
   let startY = 0
   let hovering = false
+  // Off while the circuit is being edited.
+  let enabled = true
 
   // Visible turnable items in the current circuit, as [id, item] pairs.
   function turnables() {
@@ -62,7 +64,7 @@ export function createPartTurn({ stage, getItems, inputs }) {
 
   // Capture phase, so the orbit controls are off before their own pointerdown runs.
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || turningId !== null) return
+    if (!enabled || event.button !== 0 || turningId !== null) return
     const id = idAt(event)
     if (!id) return
     turningId = id
@@ -79,7 +81,7 @@ export function createPartTurn({ stage, getItems, inputs }) {
       setValue(turningId, startValue + (startY - event.clientY) / DRAG_RANGE_PX)
       return
     }
-    setHovering(idAt(event) !== null)
+    setHovering(enabled && idAt(event) !== null)
   })
 
   function onPointerEnd(event) {
@@ -94,7 +96,15 @@ export function createPartTurn({ stage, getItems, inputs }) {
     if (turningId === null) setHovering(false)
   })
 
-  return { setValue, release }
+  function setEnabled(on) {
+    enabled = Boolean(on)
+    if (!enabled) {
+      release()
+      setHovering(false)
+    }
+  }
+
+  return { setValue, release, setEnabled }
 }
 
 // "Knob" range slider for the keyboard and for anyone who cannot drag the 3D
