@@ -138,4 +138,78 @@ Curriculum section (1.1 title), and the event check.
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+Code:
+
+- 6.1: the flow passes `stepPassed` in the step context. Tour and event items of a step stored as
+  passed stay ticked, because opened zones and event counts live in memory only (a reload or the
+  next step would untick them in the done card otherwise).
+- 6.1: hover only placement also has a keyboard path: the arrow keys move the hovered hole (from
+  15e) while the page body or the canvas has focus, so tabs, the course map and option buttons
+  keep their own arrows. The hole tooltip shows only for the pointer.
+- 6.1: main.js counts the events itself (no new module): the placement `onHover` adds `placeOf`
+  of the hole, workbench `move` and `remove` events add to the counts, and a new current step
+  starts from empty counts, like `attempts`.
+- 6.2: `checks.js` treats a null reference as an empty one, so 1.1's item rules (placed, apart,
+  wired, noShorts) work. With an empty reference `diagnose` now reports `same-net` for a part the
+  reference does not have, and skips `loose-wire` (a power wire on a bare rail is the point of the
+  1.1 step), so only `short` and `same-net` can appear.
+- 6.2: main.js has `hasCircuit` (a reference circuit or a kit): edit mode, the tray, the Later
+  lock, the tray pulse and the mistake glow and label work on 1.1; the run lock, hint glows, pin
+  rings and ghosts still need a reference. The guide gets `canSuggest(lesson, step)`: Show me and
+  Do it for me appear only on build and wire steps with a circuit check in a lesson with a
+  reference circuit, so 1.1 (and its practice step, a build step with an event check) offers Hint
+  only.
+- 6.5: the tour card and the zone clicks are on only while the current step has a tour (or legacy)
+  check. On later 1.1 steps the card covered part of the breadboard and a click on an Uno pin
+  while wiring also opened a zone. The card's last line is now `All 6 parts opened.` (it said
+  `Lesson done.`). Start this lesson again also forgets the opened zones.
+- Check 3 needed a rule: a button with its legs in rows a and d works as a switch in the netlist,
+  so `apart` passed it and `diagnose` stayed quiet on the build step (the scoped compare matched).
+  `rules.js` gained `{ straddles: id }` (legs in rows e and f) and `button-gap` now fires whenever
+  the reference button straddles and the learner's does not, without the old "and the circuit
+  does not match" condition. Only 1.4 and 1.5 have buttons, both straddling.
+- Found while playing 1.8: with one resistor placed, `align` kept its id (it only swapped ids
+  among placed parts), so a resistor picked as r3 and put on the red leg made `diagnose` say the
+  RGB LED was the wrong way round. `align` now lets placed parts take any id of their group.
+- Found while playing 1.6: the run bar said `Goal met. Lesson done.` when the sim goal was met on a
+  step before the last. It now says `Goal met.`; the guide says when the lesson is done.
+- P1 Do it for me: `suggest` checked earlier parts of a build step with `compare` over the scope,
+  which can never match in P1 before wiring (the GND pin joins the divider, TMP36 and LED). Earlier
+  parts are now compared with the wires from pins left out of both circuits. For wire steps, when
+  no one build net holds every part a reference wire reaches (the P1 GND wire to the LED, joined
+  to the buzzer by the reference jumper w10), the pin goes to the net holding most of them and
+  hole to hole jumpers join the rest. Tests in `suggest.test.js` and a Do it for me pass over every
+  build and wire step of every lesson in `lessonFlows.test.js`.
+- `lessonFlows.test.js`: build steps place only `step.parts` (no wires), wire steps every reference
+  wire not yet placed; 1.1 places by hand (no reference). The 3 columns right test moves every part
+  of the first build step, and is skipped where the first part must join an earlier part (1.5's
+  pull down must share D2's strip); 1.1 uses 8c and 12c. "Empty build" is the starting build with
+  the prebuilt parts.
+- Removing the Goal sentences: a paragraph that was only the goal is dropped (so most overviews
+  have two paragraphs), 1.12 keeps the sentence before it. `goalText.test.js`, `steps.test.js` and
+  the overview test in `lessons.test.js` read the old sentences or the generated steps of 1.1 and
+  1.4; they now use small lessons of their own, and the overview test checks no `Goal:` is left.
+
+Content (lesson-steps.md matches lessons.js):
+
+- 1.4 place-button: `Across the centre gap` uses `{ straddles: 'btn1' }` instead of `apart`, so
+  rows a and d fail with the centre gap message (see above).
+- 1.4 wire-button, 1.5 wire-pull and 1.9 wire-divider: added `The GND pin next to D13 is in use,
+  so take one from the bottom header.` The prebuilt LED wire uses that pin, and clicking it only
+  says `That hole is already used.`
+- 1.10 place-tmp, 1.11 place-buzzer, 1.11 wire-buzzer and 1.12 wire-servo: added a hint. Without
+  one the Hint rung (and the 40 s nudge) only pointed at the checklist.
+- P1 outputs: the pass rule is `{ matches: ['r1', 'led1'] }` instead of all six parts. The
+  reference joins the divider resistor, the TMP36, the LED and (through w10) the buzzer to GND,
+  so a compare over them could never pass on a build step. The items still check the LED, its
+  resistor and the buzzer; the wire step's `matches: 'all'` checks the rest.
+- No reference circuit changed.
+
+Browser checks (preview at 1440 x 900, localStorage cleared first, every lesson played once):
+
+- Hovering three strips was done with pointer moves sent to the canvas: at pane size the holes are
+  a few pixels, and the tool's hover did not land on one. The hole tooltip and the tick were seen.
+- Parts, wires, presses (Hold to press with Space) and sliders went through the keyboard paths and
+  form controls; run steps were stepped with small screenshots because the pane runs no frames
+  between them.
+

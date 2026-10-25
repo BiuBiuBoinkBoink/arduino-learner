@@ -226,3 +226,16 @@ the final screenshot shows, anything not verified.
   tested with fake timers; the mistake nudge was seen), the pin rings and hint ghosts by eye (too
   small at pane size; the ring pool is unit tested and the ghost path is shared with placement),
   the tray pulse under reduced motion, and screen reader output.
+- 2026-10-25: phase 6 lessons converted, last code commit 8a650c9, 883 tests. Final screenshot at
+  1440 x 900 on P1 after a whole sim day: top bar with six green segments and Done, the guide with
+  all six steps ticked and Lesson done (You finished every lesson so far), the Run bar Stopped,
+  the hand built room monitor wired through the top - rail and a jumper, and the code panel with
+  Dark level 150 and Alarm temperature 30. All 13 lessons played once from cleared storage and
+  completed through their steps, none helped; the 7 checks done (1.1 tour, strips, gap, resistor,
+  rail wires, move and return; 1.3 D9 wire only and measurements latched across Stop and Run; 1.4
+  rows a and d give the centre gap message; 1.5 float then three presses; 1.8 resistors in swapped
+  order; 1.10 swapped 5V and GND give the TMP36 message; P1 no automatic hint, Need a hint? shows
+  it). No console errors in the play tab or in a fresh tab driven by real clicks (Start this lesson
+  again, a zone click, Next). Not verified: Do it for me in the browser (unit tested for every
+  step), strip hovering with the real mouse (synthetic pointer moves), the 3D mouse press and knob
+  drag (keyboard paths used), reduced motion and screen reader output.

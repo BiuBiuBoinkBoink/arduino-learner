@@ -95,7 +95,10 @@ src/
                    run frame, on Stop, lesson change, tour completion, every workbench change, a busy
                    change and 300 ms after a code edit; opens the code panel on predict, run and code
                    steps and closes it on the others; turns edit mode on for build and wire steps, and
-                   draws the step hints and mistakes (see "Build steps and hints")
+                   draws the step hints and mistakes (see "Build steps and hints"); counts the step events
+                   (hovered places, parts moved, parts put back) for event checks, turns hover only placement
+                   on for explore steps with an event check, turns the board tour on only on its step, and
+                   on Start this lesson again resets the lesson build and its tour
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
@@ -125,7 +128,8 @@ src/
     stepTracker.js pure createStepTracker({ storage, lessons, stepsFor }): get(lessonId) -> { current, passed,
                    helped, answers, latched, hintLevels }, has, setCurrent, markPassed, answer, latch,
                    setHintLevel, reset, completeAll, subscribe; key robo-learn:steps
-    checks.js      pure evaluate(step, ctx) -> { passed, items, feedback }; CHECK_TYPES; simKey, simKeys(check)
+    checks.js      pure evaluate(step, ctx) -> { passed, items, feedback }; CHECK_TYPES (event included);
+                   simKey, simKeys(check)
     flow.js        pure createFlow({ course, tracker, stepsFor, evaluate }): getView, update(ctx), answer, next,
                    toggleOpen, raiseHint(level), runLock, subscribe (see "Lesson steps and checks")
     nudge.js       pure createNudge({ flow, delayMs, setTimer, clearTimer }) -> { poke(), stop() }; NUDGE_MS
@@ -142,7 +146,11 @@ src/
                    choice ({ name, label, value, options: [{ value, label, code? }] }, an option code is the
                    text its slot shows instead of the value); a param with circuit: true is a part on the
                    breadboard (1.3 ohms, 1.5 pull), so it stays live after the code is edited; trace is a looping list
-                   of { line (1 based), ms (number or a range param name) }
+                   of { line (1 based), ms (number or a range param name) }; since phase 6 every lesson has
+                   steps (see "Lesson steps and checks") and prebuilt (reference part and wire ids placed
+                   when the lesson opens, marked Built earlier); kit ({ parts: [{ id, type, ...meta }], wires })
+                   for a lesson with no reference circuit (1.1); project: true (P1) hides hints until asked;
+                   overview carries no Goal sentence any more (the steps do)
   scene/           renderer, camera, lights, render loop
     stage.js       renderer, camera, orbit controls, lights, ground (no placeholder); returns invalidate(),
                    setDaylight(level), which scales the lights for a room light level (0.8 is the normal look),
@@ -201,7 +209,8 @@ src/
                    buttonHoles, potHoles, rgbHoles, buzzerHoles (see "Netlist and footprints")
     netlist.js     pure buildNetlist, canonical, compare, align, diagnose, normalizePin, placeOf, partLabel,
                    thingLabel, placeLabel, formatOhms (see "Netlist and footprints")
-    rules.js       pure createRuleContext(build, reference), evaluateRule(rule, ruleContext)
+    rules.js       pure createRuleContext(build, reference), evaluateRule(rule, ruleContext); rules listed under
+                   "Netlist and footprints"
     suggest.js     pure suggest(build, reference, step, scope) -> [{ kind: 'part', id, legs } | { kind: 'wire',
                    from, to } | { kind: 'unwire', id }]; joinPlaces, pendingPins, suggestionLabels;
                    SEARCH_LIMIT (see "Build steps and hints")
@@ -300,7 +309,8 @@ src/
                    dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
                    per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
                    Escape closes and refocuses the button, a click outside closes; lessons are never locked
-    guidePanel.js  createGuidePanel(container, { course, flow, tracker, onRestart, onHelp }) -> { referenceBody,
+    guidePanel.js  createGuidePanel(container, { course, flow, tracker, onRestart, onHelp, canSuggest }) ->
+                   { referenceBody,
                    setShowMe(texts) }: lesson header, an
                    ol.guide-steps from flow.getView() and a closed details.guide-reference hosting the info
                    tabs. One li per step: a row with an 18 px status icon (done tick, current ring and dot,
@@ -367,7 +377,9 @@ src/
     placement.js   createPlacement({ stage, board, breadboard, workbench, getItems, getValues, tooltip, onChange,
                    onHover }): edit mode picking, ghosts, strip highlights, wires and window keys (see
                    "Workbench and placement"); setMarks([{ place, tone }]) adds step highlights under its
-                   own, setLocked(ids) stops later parts being picked up; exports buildGhost({ table, board,
+                   own, setLocked(ids) stops later parts being picked up, setHoverOnly(on) keeps the hovered
+                   strip and the hole tooltip with edit mode off (no picking; the arrows move the hovered hole
+                   while the page has focus); exports buildGhost({ table, board,
                    breadboard, values, tint }) and disposeGroup(scene, group)
     partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render(),
                    setStep({ pulse, later }) }: #parts-tray with the kit, Jumper wires, Undo, Reset circuit,
@@ -387,8 +399,10 @@ src/
                    traceStepAt(trace, values, elapsedMs)
     boardTour.js   createBoardTour({ stage, board, course, container, onComplete }): board hover labels, zone
                    clicks and tour card checklist for lessons with a tour; the card sits inside the workbench
-                   below the view buttons; calls onComplete(lessonId) once every zone is opened (main.js marks
-                   1.1 done while its step is the generated one)
+                   below the view buttons; calls onComplete(lessonId) once every zone is opened (main.js feeds
+                   it to the tour step check; the flow marks 1.1 done once every step passed); returns
+                   { setEnabled(on), reset(lessonId) }: main.js enables it only while the current step has a
+                   tour (or legacy) check, and reset forgets the opened zones
 test/              vitest unit tests
 ```
 
@@ -507,19 +521,20 @@ the current lesson, and every panel updates from it.
   parts' tokens and drops pins. `compare(build, reference, { only })` ->
   `{ match, missing, extra }` after `align`, which swaps ids between parts with
   the same `interchangeKey` (`resistor:<ohms>`, `led:<color>`, else the type) to
-  fit the reference best (ties keep ids).
+  fit the reference best (ties keep ids); placed parts may take the ids of unplaced parts of
+  their group, so the first of three 220 ohm resistors fits whichever leg it went on.
 - `diagnose(build, reference, { only })` -> `[{ id, text, targets: { parts,
   holes, pins, places } }]`, most important first:
 
   | id | Found when |
   | --- | --- |
   | `short` | a net holds two different pins |
-  | `button-gap` | a button's sides share a net, or it does not straddle the channel where the reference one does and the circuit does not match |
+  | `button-gap` | a button's sides share a net, or it does not straddle the channel where the reference one does |
   | `same-net` | two terminals of a part share a net they do not share in the reference |
   | `reversed` | turning an LED, RGB LED or TMP36 round fits the reference better |
   | `wrong-pin` | a net with pin P fits a reference net with pin Q, and none with P |
   | `no-resistor` | an LED anode or RGB colour leg meets a pin other than GND that its reference net does not have |
-  | `loose-wire` | a pin's net has only places, unless the parts it should meet are unplaced |
+  | `loose-wire` | a pin's net has only places, unless the parts it should meet are unplaced or the reference is empty |
   | `missing` | a reference part is not placed |
   | `not-joined` | a reference net has no equal build net (names its first two tokens in different build nets) |
   | `loose` | a terminal is alone in its net and joined to something in the reference |
@@ -527,7 +542,10 @@ the current lesson, and every panel updates from it.
   The texts are in `netlist.js` and `03-netlist-footprints.md`. Wording helpers:
   `partLabel` (adds the value, colour or id only when needed), `thingLabel`,
   `placeLabel` (`strip 9 (rows a to e)`, `the top + rail`), `formatOhms`.
+- With an empty reference (1.1) only `short` and `same-net` can appear: a part the reference
+  does not have must never have two terminals in one net.
 - Step rules (`rules.js`): `{ placed: id }`, `{ apart: [x, y] }`, `{ allApart: id }`,
+  `{ straddles: id }` (a button with legs in rows e and f),
   `{ joined: [items] }` (`id.*` any terminal, `id.end` either outer leg, pins
   normalized), `{ wired: pin }`, `{ noShorts: true }`, `{ matches: 'all' | [ids] }`.
   `createRuleContext` aligns the build once and caches its netlist and diagnosis.
@@ -540,8 +558,10 @@ the current lesson, and every panel updates from it.
   (meta is every field but id, type and the positions `legs`, `anode`, `cathode`, `from`, `to`,
   `at`); wires `lesson.kit.wires`, else the reference wire count plus 2; prebuilt `lesson.prebuilt`
   when given and `prebuiltLists` is true, else every reference item. main.js passes
-  `BUILD_STEPS_ENABLED` (true since phase 5), so 1.2 (`prebuilt: []`) opens empty and lessons
-  without a list open with their whole circuit built.
+  `BUILD_STEPS_ENABLED` (true since phase 5), so every lesson opens with exactly its `prebuilt` list
+  (1.2, 1.6, 1.8, 1.10 to 1.12 and P1 open empty). 1.1 has no reference circuit: its kit is
+  `lesson.kit` (one 220 ohm resistor, 2 wires), it has edit mode and the tray, no run lock, and
+  no hint glows, ghosts or Show me (only the mistake glow and label).
 - Workbench rules: only kit ids, legs that `legsValid` accepts (any orientation), one leg or wire
   end per hole, one wire per pin; moving ignores the part's own holes; a wire runs from a pin or a
   hole to a hole, two different ends, while the kit has a wire left. Reasons: `That hole is already
@@ -556,7 +576,8 @@ the current lesson, and every panel updates from it.
 - Wire colours (`autoWireColor`): from 5V, 3.3V or VIN red, any GND black, A0 to A5 green, other
   pins yellow; from a hole the colour of the first pin in its net, else red on a + rail, black on a
   - rail, else blue.
-- Edit circuit (view controls, hidden on lessons without a circuit): on turns placement and the
+- Edit circuit (view controls, hidden on lessons with neither a reference circuit nor a kit): on
+  turns placement and the
   tray on and press, turn and meter clicks off, and moves the camera to the top view of both boards
   unless the learner orbited since the last view change; off reverses it and returns to the 3D view
   if edit mode moved the camera. It follows the step: each new current step turns it on for build
@@ -622,6 +643,8 @@ the current lesson, and every panel updates from it.
   A lesson change clears the output.
 - A board may return `readout()`, a short string. The runner `getReadout()` gives
   it while running, else `''`, and `runControls` shows it under the status.
+- The run bar says `Goal met.` once the sim goal is met (the lesson is done only when every step
+  passed).
 - Run first compiles the code (`checkCode`); an error stops there with its line.
   Then a fake upload of `UPLOAD_MS` (1500 ms), then the runner creates the board
   and starts the code runner. A runtime error stops the run in the `error` phase.
@@ -657,7 +680,7 @@ the current lesson, and every panel updates from it.
 
 ## Lesson steps and checks
 
-- A lesson may have `steps: [step, ...]` (1.2 now) and `prebuilt: [ids]`. A step
+- A lesson may have `steps: [step, ...]` (every lesson since phase 6) and `prebuilt: [ids]`. A step
   is `{ id, kind, title, body: [1 to 3 paragraphs], check, hint?, done?, showMe?, parts? }`.
   Ids are kebab case and unique in the lesson. Kinds: `learn`, `explore`, `build`,
   `wire`, `predict`, `run`, `code`. Build and wire steps have `parts` (the kit ids the
@@ -678,8 +701,15 @@ the current lesson, and every panel updates from it.
     `ctx.sim.progress` now or is latched for this step.
   - `code` `{ rule: 'compiles', text }`: `ctx.code.error` is null; else feedback
     `bad` `The sketch does not compile. <message>`.
-  - `tour` `{ text }`: `ctx.tour.complete`.
-  - `circuit` `{ items: [{ text, rule }], pass? }`: one `createRuleContext(build,
+  - `tour` `{ text }`: `ctx.tour.complete`, or `ctx.stepPassed`.
+  - `event` `{ items: [{ text, event, count }] }`: `ctx.events` holds what the learner did while the
+    step was current (memory only, reset on a step change): `strip-hover` a Set of places hovered,
+    `part-moved` and `part-returned` counts of workbench `move` and `remove` events. An item is ok
+    when its count (the Set size) is at least `count`, or the step is stored as passed
+    (`ctx.stepPassed`). Hovering works on explore steps with an event check through hover only
+    placement.
+  - `circuit` `{ items: [{ text, rule }], pass? }` (a null reference counts as an empty one, so
+    1.1's item rules work and its mistakes come from `diagnose` with an empty reference): one `createRuleContext(build,
     reference)` per evaluation; items are `{ text, ok: evaluateRule(rule) }`; passes when
     every item and `pass` (when given) are true. When not passed, `attempts > 0` and not
     `busy`, feedback is `{ tone: 'bad', text, targets }` from the first mistake of
@@ -688,7 +718,7 @@ the current lesson, and every panel updates from it.
     object and step.
   - `all` `{ checks }`: every inner check passes; items in order, the first non
     null feedback.
-- The context: `{ lessonId, lessonCompleted, answers, latched, sim: { phase,
+- The context: `{ lessonId, lessonCompleted, answers, latched, stepPassed, events, sim: { phase,
   progress }, code: { error }, tour: { complete }, build, reference, scope, attempts,
   busy }`. `main.js` builds `sim`, `code` (checkCode of the code panel source, cached
   by source), `tour`, `build` (one object per workbench state), `reference`, `scope`
@@ -735,12 +765,16 @@ the current lesson, and every panel updates from it.
   each reference wire whose parts the pin does not reach gets a wire from that pin to the
   free hole nearest the reference end in the build net holding those parts; wrong learner
   wires from that pin, and any from pins the reference does not use, come first as
-  `unwire`. `joinPlaces` gives the places a build step's parts must join, `pendingPins` the
+  `unwire`. When no one build net holds every part a reference wire reaches (P1: the LED and the
+  buzzer share GND through a reference jumper), the pin goes to the net holding most of them and
+  hole to hole jumpers join the others. Earlier parts of a build step are compared without wires
+  from pins. `joinPlaces` gives the places a build step's parts must join, `pendingPins` the
   pins still to wire, `suggestionLabels` the label text: `long leg: 9e`, `short leg: 10e`,
   `ends: 5c and 9c`, `<terminal label>: <holes>`, `D13 to 5a`.
 - Hint ladder, levels per step in the tracker (`hintLevels`, 0 to 3), shown in the current
   card until the step passes: a `Stuck?` row with `Hint` (`Need a hint?` on lessons with
-  `project: true`), then `Show me` from level 1 (build, wire, and code steps with `showMe`),
+  `project: true`), then `Show me` from level 1 (build and wire steps where `canSuggest`: a reference
+  circuit and a circuit check; code steps with `showMe`),
   then `Do it for me` from level 2 (build and wire). Buttons are `aria-pressed` once their
   level was used. Level 1 shows `Hint: <step.hint>`, or the current mistake, or
   `Look at the checklist: the first item without a tick is the next thing to do.` Level 2
@@ -777,6 +811,9 @@ the current lesson, and every panel updates from it.
   learn-arduino-red.vercel.app; never copy its code, text, layout or visuals.
 
 ## Curriculum
+
+Level 1 now: 1.1 Meet the Uno and breadboard (board tour, then breadboard basics), 1.2 Blink to
+1.12 Servo basics, and the project P1 Room monitor.
 
 Levels: 1 Basics (12 lessons), 2 Programming properly (8), 3 Communication (8),
 4 Robot hardware (8), 5 Beyond the Uno (7). Each level ends in a project. Every

@@ -220,6 +220,15 @@ for me) gives a hint, then a ghost of where things go with labels, then places t
 itself after a mistake or 40 seconds without progress. Run names a short circuit. Other lessons
 still open with their circuit built.
 
+**Lesson overhaul phase 6, lessons converted** (`feature/lesson-overhaul`, not merged): every
+Level 1 lesson and the P1 project now runs as steps. Lesson 1.1 is "Meet the Uno and breadboard":
+the board tour is its first step, then the learner points at holes to see the strips light up,
+answers a question on the centre gap, places a resistor, wires 5V and GND to the power rails and
+practises moving a part and putting it back. Later lessons start with the earlier circuit in
+place, marked Built earlier, and the learner builds and wires the new part by hand. Any layout
+that connects the same way passes. P1 starts from an empty breadboard and shows hints only when
+asked (Need a hint?). The overview tabs no longer carry a Goal sentence; the steps do.
+
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
 
