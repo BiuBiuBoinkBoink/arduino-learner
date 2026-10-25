@@ -169,7 +169,11 @@ export function createBottomSheet({ container, tabs }) {
     sheet.classList.remove('is-dragging')
     sheet.style.height = ''
     if (moved) {
+      // Swallows the click that follows this pointer up, and only that one.
       dragged = true
+      setTimeout(() => {
+        dragged = false
+      }, 0)
       setState(nextSheetState(state, { type: 'drag', dy: drag.dy, height: drag.height }))
     }
     drag = null
