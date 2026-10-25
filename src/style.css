@@ -824,6 +824,38 @@ button.guide-step-row:hover {
   border-radius: 6px;
 }
 
+.tray-item:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.tray-item:disabled:hover {
+  border-color: var(--line);
+}
+
+/* The parts of the current build step pulse an accent ring until placed. */
+.tray-item.is-pulsing {
+  border-color: var(--accent);
+  animation: tray-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tray-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 111, 214, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(47, 111, 214, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tray-item.is-pulsing {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(47, 111, 214, 0.45);
+  }
+}
+
 #parts-tray button:focus-visible,
 #parts-tray input:focus-visible,
 #parts-tray select:focus-visible {

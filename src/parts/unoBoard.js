@@ -288,6 +288,9 @@ const BUILDERS = {
   reset: buildReset
 }
 
+// Pin highlight: a thin accent ring just above the header hole.
+const PIN_RING_COLOR = 0x2f6fd6
+
 export function createUnoBoard() {
   const group = new THREE.Group()
   group.name = 'uno-board'
@@ -297,5 +300,28 @@ export function createUnoBoard() {
     zones[id] = BUILDERS[id]()
     group.add(zones[id])
   }
-  return { group, zones }
+
+  // Rings from a pool that only grows; callers invalidate.
+  const ringGeometry = new THREE.RingGeometry(0.1, 0.13, 24)
+  ringGeometry.rotateX(-Math.PI / 2)
+  const ringMaterial = new THREE.MeshBasicMaterial({ color: PIN_RING_COLOR, transparent: true, opacity: 0.9, depthWrite: false })
+  const rings = []
+  function highlightPins(names) {
+    const list = (names || []).filter((name) => UNO_PIN_NAMES.includes(name))
+    list.forEach((name, i) => {
+      if (!rings[i]) {
+        const mesh = new THREE.Mesh(ringGeometry, ringMaterial)
+        mesh.name = 'pin-ring'
+        mesh.renderOrder = 2
+        group.add(mesh)
+        rings[i] = mesh
+      }
+      const position = unoPinPosition(name)
+      rings[i].position.set(position.x, position.y + 0.02, position.z)
+      rings[i].visible = true
+    })
+    for (let i = list.length; i < rings.length; i++) rings[i].visible = false
+  }
+
+  return { group, zones, highlightPins }
 }

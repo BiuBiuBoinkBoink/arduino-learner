@@ -23,7 +23,7 @@ const RESTART = 'Start this lesson again'
 const RESTART_CONFIRM = 'Click again to start over'
 const CONFIRM_MS = 3000
 
-export function createGuidePanel(container, { course, flow, tracker }) {
+export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {} }) {
   const header = document.createElement('div')
   header.className = 'guide-header'
   const eyebrow = document.createElement('p')
@@ -316,6 +316,7 @@ export function createGuidePanel(container, { course, flow, tracker }) {
     cancelRestart()
     hintsShown = new Set()
     tracker.reset(course.getState().lesson.id)
+    onRestart()
   })
 
   renderHeader(course.getState())

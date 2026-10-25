@@ -5,7 +5,12 @@
 //   tooltip, onChange, onHover }) -> { setEnabled(on), isEnabled(), pick(id),
 //   toggleWire(on), setWireColor(color), cancel(), rotate(), moveBy(dColumn, dRow),
 //   placeAt(name), confirm(), deleteSelected(), showMessage(text), refresh(),
-//   getState(), subscribe(fn) }
+//   setMarks(list), setLocked(ids), getState(), subscribe(fn) }
+//
+// setMarks([{ place, tone }]) adds strip highlights under placement's own (the
+// step hints and mistakes); setLocked(ids) stops those kit parts being picked
+// up (parts of later steps). buildGhost and disposeGroup are shared with the
+// hint ghosts.
 //
 // Modes: idle, carry (fixed shapes), bend (resistor, ldr: two clicks) and wire
 // (two clicks, repeating until turned off). The target is the hole or pin
@@ -39,6 +44,38 @@ const BAD_COLOR = new THREE.Color(0xc0392b)
 const START_HOLE = '15e'
 const UP = new THREE.Vector3(0, 1, 0)
 
+// A see-through copy of a circuit table (0.5 opacity, no shadows), its colours
+// pulled towards tint when one is given; null when the table cannot be built.
+export function buildGhost({ table, board, breadboard, values, tint = null }) {
+  let built
+  try {
+    built = buildCircuit(table, { board, breadboard, values })
+  } catch {
+    return null
+  }
+  built.group.traverse((object) => {
+    if (!object.isMesh) return
+    const material = object.material.clone()
+    object.material.dispose()
+    material.transparent = true
+    material.opacity = 0.5
+    material.depthWrite = false
+    if (tint && material.color) material.color.lerp(tint, 0.6)
+    object.material = material
+    object.castShadow = false
+  })
+  return built.group
+}
+
+export function disposeGroup(scene, group) {
+  scene.remove(group)
+  group.traverse((object) => {
+    if (!object.isMesh) return
+    object.geometry.dispose()
+    object.material.dispose()
+  })
+}
+
 export function createPlacement({ stage, board, breadboard, workbench, getItems, getValues, tooltip = null, onChange = () => {}, onHover = () => {} }) {
   const canvas = stage.renderer.domElement
   const raycaster = new THREE.Raycaster()
@@ -65,6 +102,8 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   let ghost = null
   let ghostKey = null
   let hidden = null
+  let marks = []
+  let locked = []
 
   function reset() {
     mode = 'idle'
@@ -143,12 +182,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
 
   function disposeGhost() {
     if (!ghost) return
-    stage.scene.remove(ghost)
-    ghost.traverse((object) => {
-      if (!object.isMesh) return
-      object.geometry.dispose()
-      object.material.dispose()
-    })
+    disposeGroup(stage.scene, ghost)
     ghost = null
   }
 
@@ -169,24 +203,8 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     ghostKey = key
     disposeGhost()
     if (!table) return
-    let built
-    try {
-      built = buildCircuit(table, { board, breadboard, values: getValues() })
-    } catch {
-      return
-    }
-    built.group.traverse((object) => {
-      if (!object.isMesh) return
-      const material = object.material.clone()
-      object.material.dispose()
-      material.transparent = true
-      material.opacity = 0.5
-      material.depthWrite = false
-      if (!c.ok && material.color) material.color.lerp(BAD_COLOR, 0.6)
-      object.material = material
-      object.castShadow = false
-    })
-    ghost = built.group
+    ghost = buildGhost({ table, board, breadboard, values: getValues(), tint: c.ok ? null : BAD_COLOR })
+    if (!ghost) return
     ghost.name = 'ghost'
     stage.scene.add(ghost)
   }
@@ -208,8 +226,13 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   function update() {
     const c = candidate()
     syncHidden()
-    if (enabled) breadboard.highlightPlaces(places(c))
-    else breadboard.clearHighlights()
+    if (enabled) {
+      // Placement's own highlights win over a mark on the same place.
+      const own = places(c)
+      breadboard.highlightPlaces([...marks.filter((mark) => !own.some((entry) => entry.place === mark.place)), ...own])
+    } else {
+      breadboard.clearHighlights()
+    }
     updateGhost(c)
     canvas.style.cursor = enabled && mode !== 'idle' ? 'crosshair' : ''
     stage.invalidate()
@@ -284,7 +307,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   function pick(partId) {
     if (!enabled) return
     const part = workbench.kitPart(partId)
-    if (!part || !PART_TYPES[part.type]) return
+    if (!part || !PART_TYPES[part.type] || locked.includes(partId)) return
     reset()
     selectedWire = null
     id = partId
@@ -426,6 +449,19 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     update()
   }
 
+  function setMarks(list) {
+    marks = Array.isArray(list) ? list.slice() : []
+    update()
+  }
+
+  function setLocked(ids) {
+    locked = Array.isArray(ids) ? ids.slice() : []
+    if (id !== null && locked.includes(id) && (mode === 'carry' || mode === 'bend')) {
+      reset()
+      update()
+    }
+  }
+
   function click() {
     if (mode !== 'idle') {
       confirm()
@@ -551,6 +587,9 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     deleteSelected,
     showMessage,
     refresh,
+    setMarks,
+    setLocked,
+    isLocked: (partId) => locked.includes(partId),
     getState,
     subscribe
   }

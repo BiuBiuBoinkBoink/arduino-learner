@@ -3,7 +3,7 @@ import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
 import { createStepTracker } from './course/stepTracker.js'
 import { createFlow } from './course/flow.js'
-import { stepsFor, hasGeneratedSteps, scopeFor, CODE_OPEN_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
+import { stepsFor, hasGeneratedSteps, scopeFor, CODE_OPEN_KINDS, BUILD_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
 import { evaluate } from './course/checks.js'
 import { idFromHash, hashForId } from './course/hash.js'
 import { createScene } from './app/scene.js'
@@ -24,6 +24,8 @@ import { createMultimeter } from './ui/multimeter.js'
 import { createPlacement } from './ui/placement.js'
 import { createPartsTray } from './ui/partsTray.js'
 import { createHoleTooltip } from './ui/holeTooltip.js'
+import { createLabels } from './ui/labels.js'
+import { createStepMarks } from './ui/stepMarks.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
@@ -31,7 +33,9 @@ import { createSerial } from './sim/serial.js'
 import { createSerialMonitor, usesSerial } from './ui/serialMonitor.js'
 import { createCodeRunner } from './runner/codeRunner.js'
 import { circuits } from './circuits/circuits.js'
-import { compare, partLabel } from './circuits/netlist.js'
+import { compare, partLabel, placeOf } from './circuits/netlist.js'
+import { isHole } from './circuits/holes.js'
+import { joinPlaces, pendingPins } from './circuits/suggest.js'
 import { kitFor } from './build/kit.js'
 import { createWorkbench } from './build/workbench.js'
 import { createPins } from './sim/pins.js'
@@ -97,7 +101,8 @@ function toggleMap() {
   if (courseMap.isOpen()) courseMap.close()
   else courseMap.open()
 }
-const guide = createGuidePanel(layout.guide, { course, flow, tracker })
+// Starting a lesson again also puts its circuit back to the start.
+const guide = createGuidePanel(layout.guide, { course, flow, tracker, onRestart: () => workbench.reset() })
 createInfoPanel(guide.referenceBody, course, { heading: false })
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
@@ -163,12 +168,16 @@ let kitLabels = {}
 const tooltip = createHoleTooltip({ container: layout.workbench })
 const placement = createPlacement({ stage, board, breadboard, workbench, getItems: view.items, getValues, tooltip })
 const tray = createPartsTray({ container: layout.workbench, workbench, placement, kitLabels: () => kitLabels })
+// Step hints and mistakes in the scene: strip glows, pin rings, ghosts, labels.
+const labels = createLabels({ stage, container: layout.workbench })
+const marks = createStepMarks({ stage, board, breadboard, placement, labels, getValues })
 function setEditing(on) {
   placement.setEnabled(on)
   tray.setVisible(on)
   partPress.setEnabled(!on)
   partTurn.setEnabled(!on)
   multimeter.setEnabled(!on)
+  refreshMarks()
 }
 
 // Run stays locked while the build does not match the reference circuit.
@@ -235,7 +244,65 @@ function showCircuit({ lesson }) {
   viewControls.setEditAvailable(Boolean(reference))
   placement.setEnabled(viewControls.isEditing())
   drawBuild({ fresh: true })
+  defaultEditing(flow.getView())
+  refreshMarks()
 }
+
+// Edit mode follows the step: on for build and wire steps, off for the others.
+// The learner's own toggle sticks until the step changes.
+let editStepKey = null
+function defaultEditing(viewState) {
+  const entry = viewState.steps[viewState.index]
+  const key = viewState.lesson.id + ':' + viewState.index
+  // The lesson's circuit loads after the flow hears of a lesson change.
+  if (!entry || key === editStepKey || viewState.lesson.id !== circuitLessonId) return
+  editStepKey = key
+  viewControls.setEditing(Boolean(reference) && BUILD_KINDS.includes(entry.step.kind))
+}
+flow.subscribe(defaultEditing)
+
+// Kit parts that a later build or wire step adds: shown as Later, not pickable.
+function laterParts(lesson, index) {
+  const steps = stepsFor(lesson)
+  const now = scopeFor(lesson, index)
+  const later = steps.slice(index + 1).filter((step) => BUILD_KINDS.includes(step.kind)).flatMap((step) => step.parts || [])
+  return [...new Set(later)].filter((id) => !now.includes(id))
+}
+
+// Tray pulses, Later parts, and on a build or wire step that has not passed:
+// the places a new part must join (build) or the pins still to wire (wire),
+// and the current mistake in red with a label at its first hole or pin.
+function refreshMarks() {
+  const viewState = flow.getView()
+  const { lesson, index } = viewState
+  if (lesson.id !== circuitLessonId) return
+  const entry = viewState.steps[index]
+  const later = reference && entry ? laterParts(lesson, index) : []
+  placement.setLocked(later)
+  const kind = entry ? entry.step.kind : null
+  const building = Boolean(reference && entry && BUILD_KINDS.includes(kind) && !entry.passed)
+  tray.setStep({ pulse: building && kind === 'build' ? entry.step.parts || [] : [], later })
+  if (!building || !viewControls.isEditing()) {
+    marks.clear()
+    return
+  }
+  const build = currentBuild()
+  let places = []
+  const pins = []
+  const list = []
+  if (kind === 'build') places = joinPlaces(build, reference, entry.step, scopeFor(lesson, index)).map((place) => ({ place, tone: 'info' }))
+  else pins.push(...pendingPins(build, reference))
+  const feedback = viewState.result && viewState.result.feedback
+  const targets = viewState.targets
+  if (feedback && targets) {
+    const bad = new Set([...targets.places, ...targets.holes.filter(isHole).map(placeOf)])
+    places = [...places.filter((item) => !bad.has(item.place)), ...[...bad].map((place) => ({ place, tone: 'bad' }))]
+    const at = targets.holes[0] || targets.pins[0]
+    if (at) list.push({ id: 'mistake', at: [at], text: feedback.text, tone: 'bad' })
+  }
+  marks.set({ places, pins, labels: list })
+}
+flow.subscribe(refreshMarks)
 
 // The build the step checks see: one object per workbench state, so the
 // checks can cache their results until the next edit.
@@ -269,6 +336,7 @@ workbench.subscribe((event) => {
   if (!buildMatches && ['uploading', 'running'].includes(runner.getPhase())) run.stop()
   run.refreshLock()
   updateFlow()
+  refreshMarks()
 })
 
 showCircuit(course.getState())

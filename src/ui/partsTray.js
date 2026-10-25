@@ -3,6 +3,8 @@
 // wires (the wire tool), Undo and Reset circuit; row 2 the placement status
 // and, while wiring, the wire colour; row 3 the keyboard path: a Hole input
 // while carrying, From and To while bending a part or drawing a wire.
+// setStep({ pulse, later }): parts of the current step pulse (an accent ring),
+// parts of later steps say Later and cannot be picked up.
 import { isHole } from '../circuits/holes.js'
 import { isPinName } from '../circuits/netlist.js'
 
@@ -156,6 +158,7 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
   let keysKey = null
   let inputs = {}
   let resetTimer = null
+  let stepParts = { pulse: [], later: [] }
 
   function disarmReset() {
     clearTimeout(resetTimer)
@@ -284,7 +287,10 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
     for (const part of trayState.parts) {
       const item = partButtons.get(part.id)
       if (!item) continue
-      item.sub.textContent = !part.placed ? 'In the tray' : part.prebuilt ? 'Built earlier' : 'Placed'
+      const later = stepParts.later.includes(part.id)
+      item.sub.textContent = later ? 'Later' : !part.placed ? 'In the tray' : part.prebuilt ? 'Built earlier' : 'Placed'
+      item.button.disabled = later
+      item.button.classList.toggle('is-pulsing', stepParts.pulse.includes(part.id) && !part.placed && !later)
       const carried = state.id === part.id && (state.mode === 'carry' || state.mode === 'bend')
       item.button.classList.toggle('is-carried', carried)
       item.button.setAttribute('aria-pressed', String(carried))
@@ -316,5 +322,10 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
     }
   }
 
-  return { setVisible, render }
+  function setStep({ pulse = [], later = [] } = {}) {
+    stepParts = { pulse: pulse.slice(), later: later.slice() }
+    render()
+  }
+
+  return { setVisible, render, setStep }
 }
