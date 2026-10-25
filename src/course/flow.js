@@ -1,11 +1,14 @@
 // Lesson flow: ties the course, the step tracker and the checks together. Pure
 // module. update(ctx) evaluates the current step against the latest context
 // (sim progress, code error, tour), latches sim keys that are ok now, stores a
-// pass, and marks the lesson done in the course once every step has passed.
+// pass (as helped when the learner used Do it for me, hint level 3), and marks
+// the lesson done in the course once every step has passed.
 // The view is rebuilt on every change and subscribers hear only real changes.
 import { simKeys } from './checks.js'
 
 const GUESS_FIRST = 'Make a guess first.'
+// Hint level 3 is Do it for me: a step passed at that level is stored as helped.
+const HELPED_LEVEL = 3
 const IDLE_CTX = { sim: { phase: 'idle', progress: {} }, code: { error: null }, tour: { complete: false } }
 
 export function createFlow({ course, tracker, stepsFor, evaluate }) {
@@ -61,7 +64,8 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
         if (progress[key] === true) tracker.latch(lesson.id, current.id, key)
       }
       const result = evaluate(current, stepCtx(lesson, tracker.get(lesson.id), current))
-      if (result.passed) tracker.markPassed(lesson.id, current.id)
+      const level = tracker.get(lesson.id).hintLevels[current.id] || 0
+      if (result.passed) tracker.markPassed(lesson.id, current.id, { helped: level >= HELPED_LEVEL })
     }
     const passed = tracker.get(lesson.id).passed
     const allPassed = steps.length > 0 && steps.every((item) => passed.includes(item.id))
@@ -81,7 +85,16 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
       const status = i === index ? 'current' : passed ? 'done' : 'locked'
       const open = status === 'current' || (status === 'done' && opened.has(i))
       const result = status === 'locked' ? null : evaluate(item, stepCtx(lesson, record, item))
-      return { step: item, status, passed, helped: record.helped.includes(item.id), open, result, answer: record.answers[item.id] }
+      return {
+        step: item,
+        status,
+        passed,
+        helped: record.helped.includes(item.id),
+        open,
+        result,
+        answer: record.answers[item.id],
+        hintLevel: record.hintLevels[item.id] || 0
+      }
     })
     const currentEntry = entries[index]
     return {
@@ -100,7 +113,7 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
     return JSON.stringify({
       lessonId: next.lesson.id,
       index: next.index,
-      steps: next.steps.map(({ status, passed, helped, open, result, answer }) => [status, passed, helped, open, result, answer]),
+      steps: next.steps.map(({ status, passed, helped, open, result, answer, hintLevel }) => [status, passed, helped, open, result, answer, hintLevel]),
       passedNow: next.passedNow,
       lessonDone: next.lessonDone
     })
@@ -169,6 +182,15 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
     sync()
   }
 
+  // Raises the current step's hint level to at least level (0 to 3) while it
+  // has not passed; it never goes down.
+  function raiseHint(level) {
+    const { lesson, record, item } = currentStep()
+    if (!item || record.passed.includes(item.id) || !Number.isInteger(level)) return
+    if ((record.hintLevels[item.id] || 0) >= level) return
+    tracker.setHintLevel(lesson.id, item.id, level)
+  }
+
   // Why Run is locked on the current step, or null.
   function runLock() {
     const { record, item } = currentStep()
@@ -189,5 +211,5 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
   tracker.subscribe(() => sync())
   sync()
 
-  return { getView, update, answer, next, toggleOpen, runLock, subscribe }
+  return { getView, update, answer, next, toggleOpen, raiseHint, runLock, subscribe }
 }

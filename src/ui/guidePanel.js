@@ -3,7 +3,9 @@
 // step is a row (status icon, kind and title); the current step's card is
 // always open, done steps open read only, locked steps are dimmed text. The
 // current card shows the body, a question, the "To pass" checklist, feedback,
-// a hint and, once passed, a success box with Continue or the next lesson.
+// the hint ladder (a Stuck? row whose Hint, Show me and Do it for me buttons
+// appear one rung at a time) and, once passed, a success box with Continue or
+// the next lesson (plus a muted Helped line when Do it for me was used).
 // Re-rendering keeps keyboard focus on the same control, so a pass never
 // moves focus; feedback and success sit in polite status regions.
 import { hasGeneratedSteps } from '../course/steps.js'
@@ -22,8 +24,12 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const RESTART = 'Start this lesson again'
 const RESTART_CONFIRM = 'Click again to start over'
 const CONFIRM_MS = 3000
+const CHECKLIST_HINT = 'Look at the checklist: the first item without a tick is the next thing to do.'
+// Show me works on build, wire and code steps; Do it for me on build and wire.
+const SHOW_ME_KINDS = ['build', 'wire', 'code']
+const DO_IT_KINDS = ['build', 'wire']
 
-export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {} }) {
+export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {}, onHelp = () => {} }) {
   const header = document.createElement('div')
   header.className = 'guide-header'
   const eyebrow = document.createElement('p')
@@ -65,8 +71,8 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
   container.append(header, steps, restart, reference)
 
   let lessonId = null
-  // Steps whose hint the learner opened, by step id; cleared on a lesson change.
-  let hintsShown = new Set()
+  // What Show me shows, in words: set by main.js for the current step.
+  let showMeTexts = []
 
   function renderHeader({ lesson }) {
     eyebrow.textContent = 'Lesson ' + lesson.id
@@ -77,7 +83,6 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
   function render(view) {
     if (view.lesson.id !== lessonId) {
       lessonId = view.lesson.id
-      hintsShown = new Set()
       cancelRestart()
     }
     const focusKey = document.activeElement && steps.contains(document.activeElement)
@@ -149,7 +154,7 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     if (result) card.append(checklist(result.items))
     setFeedback(result ? result.feedback : null)
     card.append(feedbackRegion)
-    if (step.hint && !entry.passed) card.append(hintNodes(step, index))
+    if (!entry.passed) card.append(hintNodes(view, entry, index))
     setSuccess(view, entry)
     card.append(successRegion)
     return card
@@ -219,27 +224,53 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     return box
   }
 
-  function hintNodes(step, index) {
+  // The hint ladder: the texts of the levels used so far, then the Stuck? row.
+  function hintNodes(view, entry, index) {
+    const { step, hintLevel: level } = entry
     const box = document.createElement('div')
     box.className = 'step-hint'
-    if (hintsShown.has(step.id)) {
-      const text = document.createElement('p')
-      text.className = 'panel-text step-hint-text'
-      text.textContent = 'Hint: ' + step.hint
-      box.append(text)
-      return box
+    if (level >= 1) {
+      const feedback = entry.result && entry.result.feedback
+      const mistake = feedback && feedback.tone === 'bad' ? feedback.text : null
+      box.append(hintText('Hint: ' + (step.hint || mistake || CHECKLIST_HINT)))
     }
+    if (level >= 2 && SHOW_ME_KINDS.includes(step.kind) && showMeTexts.length > 0) {
+      box.append(hintText('Show me: ' + showMeTexts.join('. ') + '.'))
+    }
+    const row = document.createElement('div')
+    row.className = 'step-hint-row'
+    const label = document.createElement('span')
+    label.className = 'step-hint-label'
+    label.textContent = 'Stuck?'
+    row.append(label, rung(view.lesson.project ? 'Need a hint?' : 'Hint', 1, level, index))
+    const canShow = SHOW_ME_KINDS.includes(step.kind) && (step.kind !== 'code' || Boolean(step.showMe))
+    if (level >= 1 && canShow) row.append(rung('Show me', 2, level, index))
+    if (level >= 2 && DO_IT_KINDS.includes(step.kind)) row.append(rung('Do it for me', 3, level, index))
+    box.append(row)
+    return box
+  }
+
+  function hintText(text) {
+    const p = document.createElement('p')
+    p.className = 'panel-text step-hint-text'
+    p.textContent = text
+    return p
+  }
+
+  // One rung of the ladder; pressed once its level was used. Do it for me
+  // works again while the step has not passed.
+  function rung(text, level, used, index) {
     const button = document.createElement('button')
     button.type = 'button'
-    button.className = 'guide-text-button'
-    button.textContent = 'Hint'
-    button.dataset.focusKey = 'hint-' + index
+    button.className = 'guide-text-button hint-rung'
+    button.textContent = text
+    button.dataset.focusKey = 'hint-' + index + '-' + level
+    button.setAttribute('aria-pressed', String(used >= level))
     button.addEventListener('click', () => {
-      hintsShown.add(step.id)
-      render(flow.getView())
+      flow.raiseHint(level)
+      onHelp(level)
     })
-    box.append(button)
-    return box
+    return button
   }
 
   function setFeedback(feedback) {
@@ -258,7 +289,7 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
 
   function setSuccess(view, entry) {
     const last = view.index === view.steps.length - 1
-    const key = entry.passed ? view.lesson.id + ':' + view.index : ''
+    const key = entry.passed ? view.lesson.id + ':' + view.index + ':' + entry.helped : ''
     if (key === successKey) return
     successKey = key
     if (!entry.passed) {
@@ -271,6 +302,12 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     strong.textContent = last ? 'Lesson done' : 'Milestone done'
     box.append(strong)
     if (entry.step.done) box.append(paragraph(entry.step.done))
+    if (entry.helped) {
+      const helped = document.createElement('p')
+      helped.className = 'success-helped'
+      helped.textContent = 'Helped'
+      box.append(helped)
+    }
     if (!last) {
       box.append(actionButton('Continue', 'continue', () => {
         flow.next()
@@ -314,7 +351,6 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
       return
     }
     cancelRestart()
-    hintsShown = new Set()
     tracker.reset(course.getState().lesson.id)
     onRestart()
   })
@@ -323,7 +359,16 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
   course.subscribe(renderHeader)
   render(flow.getView())
   flow.subscribe(render)
-  return { referenceBody }
+
+  // The words of the current Show me suggestion (each label's text).
+  function setShowMe(texts) {
+    const next = Array.isArray(texts) ? texts.slice() : []
+    if (next.join('\n') === showMeTexts.join('\n')) return
+    showMeTexts = next
+    render(flow.getView())
+  }
+
+  return { referenceBody, setShowMe }
 }
 
 function paragraph(text) {

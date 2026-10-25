@@ -130,6 +130,9 @@ export function createCodePanel(panel, course, { setOpen }) {
   let lines = []
   let activeLine = -1
   let errorAt = -1
+  // Show me marks: 0 based line indexes and a note after the first one.
+  let hintLines = []
+  let hintNote = ''
   let timer = null
   let edited = false
   let editable = false
@@ -152,6 +155,31 @@ export function createCodePanel(panel, course, { setOpen }) {
       line.classList.toggle('is-active', i === activeLine)
       line.classList.toggle('has-error', i === errorAt)
     })
+    applyMarks()
+  }
+
+  function applyMarks() {
+    lines.forEach((line, i) => line.classList.toggle('is-hint', hintLines.includes(i)))
+    for (const note of code.querySelectorAll('.code-hint-note')) note.remove()
+    const first = lines[hintLines[0]]
+    if (first && hintNote) {
+      const note = document.createElement('span')
+      note.className = 'code-hint-note'
+      note.textContent = '  ' + hintNote
+      first.append(note)
+    }
+  }
+
+  // Marks sketch lines (1 based) with an accent background and puts the note
+  // at the end of the first one; the marks stay until clearMarks or a lesson change.
+  function markLines(list, note = '') {
+    hintLines = (Array.isArray(list) ? list : []).filter((n) => Number.isInteger(n) && n >= 1).map((n) => n - 1)
+    hintNote = typeof note === 'string' ? note : ''
+    applyMarks()
+  }
+
+  function clearMarks() {
+    markLines([], '')
   }
 
   function setActive(index) {
@@ -255,6 +283,8 @@ export function createCodePanel(panel, course, { setOpen }) {
     lessonId = lesson.id
     stopTrace()
     errorAt = -1
+    hintLines = []
+    hintNote = ''
     setError(null)
     fullTitle.textContent = 'Code: ' + lesson.id + ' ' + lesson.title
 
@@ -375,7 +405,9 @@ export function createCodePanel(panel, course, { setOpen }) {
     onInput,
     getSource: () => input.value,
     isEdited: () => edited,
-    setError
+    setError,
+    markLines,
+    clearMarks
   }
 }
 

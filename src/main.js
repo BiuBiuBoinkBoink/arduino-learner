@@ -3,6 +3,7 @@ import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
 import { createStepTracker } from './course/stepTracker.js'
 import { createFlow } from './course/flow.js'
+import { createNudge } from './course/nudge.js'
 import { stepsFor, hasGeneratedSteps, scopeFor, CODE_OPEN_KINDS, BUILD_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
 import { evaluate } from './course/checks.js'
 import { idFromHash, hashForId } from './course/hash.js'
@@ -35,7 +36,8 @@ import { createCodeRunner } from './runner/codeRunner.js'
 import { circuits } from './circuits/circuits.js'
 import { compare, diagnose, partLabel, placeOf } from './circuits/netlist.js'
 import { isHole } from './circuits/holes.js'
-import { joinPlaces, pendingPins } from './circuits/suggest.js'
+import { suggest, joinPlaces, pendingPins, suggestionLabels } from './circuits/suggest.js'
+import { autoWireColor } from './build/wireColor.js'
 import { kitFor } from './build/kit.js'
 import { createWorkbench } from './build/workbench.js'
 import { createPins } from './sim/pins.js'
@@ -101,8 +103,19 @@ function toggleMap() {
   if (courseMap.isOpen()) courseMap.close()
   else courseMap.open()
 }
-// Starting a lesson again also puts its circuit back to the start.
-const guide = createGuidePanel(layout.guide, { course, flow, tracker, onRestart: () => workbench.reset() })
+// Starting a lesson again also puts its circuit back to the start. Do it for
+// me (hint level 3) applies the suggestion through the workbench.
+const guide = createGuidePanel(layout.guide, {
+  course,
+  flow,
+  tracker,
+  onRestart: () => workbench.reset(),
+  onHelp: (level) => {
+    if (level === 3) doItForMe()
+  }
+})
+// The hint box opens by itself after a mistake or 40 s without progress.
+const nudge = createNudge({ flow })
 createInfoPanel(guide.referenceBody, course, { heading: false })
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
@@ -288,15 +301,30 @@ function refreshMarks() {
   const kind = entry ? entry.step.kind : null
   const building = Boolean(reference && entry && BUILD_KINDS.includes(kind) && !entry.passed)
   tray.setStep({ pulse: building && kind === 'build' ? entry.step.parts || [] : [], later })
-  if (!building || !viewControls.isEditing()) {
+  // Show me on a code step marks the lines to change in the editor.
+  const showMe = entry && kind === 'code' && !entry.passed && entry.hintLevel >= 2 ? entry.step.showMe : null
+  if (showMe) codePanel.markLines(showMe.lines, showMe.note)
+  else codePanel.clearMarks()
+  if (!building) {
+    guide.setShowMe(showMe ? [codeShowMeText(showMe)] : [])
     marks.clear()
     return
   }
   const build = currentBuild()
+  const scope = scopeFor(lesson, index)
+  // Show me on a build or wire step: the suggestion as ghosts and labels,
+  // recomputed after every change so it never goes stale.
+  const suggestion = entry.hintLevel >= 2 ? suggest(build, reference, entry.step, scope) : []
+  const texts = suggestionLabels(suggestion, reference)
+  guide.setShowMe(texts.map((item) => item.text))
+  if (!viewControls.isEditing()) {
+    marks.clear()
+    return
+  }
   let places = []
   const pins = []
-  const list = []
-  if (kind === 'build') places = joinPlaces(build, reference, entry.step, scopeFor(lesson, index)).map((place) => ({ place, tone: 'info' }))
+  const list = texts.map((item, i) => ({ id: 'hint-' + i, at: item.at, text: item.text, tone: 'info' }))
+  if (kind === 'build') places = joinPlaces(build, reference, entry.step, scope).map((place) => ({ place, tone: 'info' }))
   else pins.push(...pendingPins(build, reference))
   const feedback = viewState.result && viewState.result.feedback
   const targets = viewState.targets
@@ -306,9 +334,48 @@ function refreshMarks() {
     const at = targets.holes[0] || targets.pins[0]
     if (at) list.push({ id: 'mistake', at: [at], text: feedback.text, tone: 'bad' })
   }
-  marks.set({ places, pins, labels: list })
+  marks.set({ places, pins, ghost: ghostTable(suggestion, build), labels: list })
 }
 flow.subscribe(refreshMarks)
+
+// The suggested parts and wires as a circuit table for the hint ghosts.
+function ghostTable(items, build) {
+  const parts = []
+  const wires = []
+  items.forEach((item, i) => {
+    if (item.kind === 'part') {
+      const part = workbench.kitPart(item.id)
+      if (part) parts.push({ ...part, legs: item.legs })
+    } else if (item.kind === 'wire') {
+      wires.push({ id: 'hint-' + i, from: item.from, to: item.to, color: autoWireColor(item.from, build) })
+    }
+  })
+  return parts.length + wires.length > 0 ? { parts, wires } : null
+}
+
+// 'Lines 10 and 12: try 200' for a code step's showMe.
+function codeShowMeText({ lines, note }) {
+  const list = lines.map(String)
+  const words = list.length > 1 ? 'Lines ' + list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : 'Line ' + list[0]
+  return note ? words + ': ' + note : words
+}
+
+// Do it for me: take out wrong wires, place the parts and add the wires the
+// suggestion names. Whatever is in the learner's hand is put back first.
+function doItForMe() {
+  const viewState = flow.getView()
+  const entry = viewState.steps[viewState.index]
+  if (!reference || !entry || entry.passed || !BUILD_KINDS.includes(entry.step.kind)) return
+  if (!viewControls.isEditing()) viewControls.setEditing(true)
+  placement.cancel()
+  placement.cancel()
+  const items = suggest(currentBuild(), reference, entry.step, scopeFor(viewState.lesson, viewState.index))
+  for (const item of items) {
+    if (item.kind === 'unwire') workbench.removeWire(item.id)
+    else if (item.kind === 'part') workbench.place(item.id, item.legs)
+    else if (item.kind === 'wire') workbench.addWire(item.from, item.to)
+  }
+}
 
 // The build the step checks see: one object per workbench state, so the
 // checks can cache their results until the next edit.
@@ -343,6 +410,7 @@ workbench.subscribe((event) => {
   run.refreshLock()
   updateFlow()
   refreshMarks()
+  nudge.poke()
 })
 
 showCircuit(course.getState())
