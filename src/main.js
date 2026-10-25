@@ -312,10 +312,10 @@ function refreshMarks() {
   const later = hasCircuit && entry ? laterParts(lesson, index) : []
   placement.setLocked(later)
   const kind = entry ? entry.step.kind : null
-  const pulsing = Boolean(hasCircuit && entry && kind === 'build' && !entry.passed)
-  tray.setStep({ pulse: pulsing ? entry.step.parts || [] : [], later })
-  // Hint glows, rings and ghosts need the reference circuit.
-  const building = Boolean(reference && entry && BUILD_KINDS.includes(kind) && !entry.passed)
+  const building = Boolean(hasCircuit && entry && BUILD_KINDS.includes(kind) && !entry.passed)
+  tray.setStep({ pulse: building && kind === 'build' ? entry.step.parts || [] : [], later })
+  // Hint glows, rings and ghosts come from the reference circuit; without one
+  // (1.1) only the mistake glow and label show.
   // Show me on a code step marks the lines to change in the editor.
   const showMe = entry && kind === 'code' && !entry.passed && entry.hintLevel >= 2 ? entry.step.showMe : null
   if (showMe) codePanel.markLines(showMe.lines, showMe.note)
