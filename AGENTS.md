@@ -79,15 +79,18 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/sim/fade.js`, `src/sim/ohm.js`, `src/sim/ohms.js`, `src/ui/multimeter.js`, `src/parts/rgbLed.js`, `src/sim/rgb.js`, `src/sim/room.js`, `src/ui/roomControls.js`, `src/parts/ldr.js`,
 `src/parts/tmp36.js`, `src/sim/light.js`, `src/sim/temp.js`, `src/parts/buzzer.js`, `src/sim/tune.js`,
 `src/ui/sound.js`, `src/parts/servo.js`, `src/sim/sweep.js`, `src/sim/monitor.js`, `src/sim/serial.js`, `src/ui/serialMonitor.js`, `src/runner/lexer.js`, `src/runner/parser.js`, `src/runner/interpreter.js`, `src/runner/session.js`,
-`src/runner/worker.js`, `src/runner/codeRunner.js`, `src/runner/codeChecks.js`, `src/sim/responseTimer.js`. The other
+`src/runner/worker.js`, `src/runner/codeRunner.js`, `src/runner/codeChecks.js`, `src/sim/responseTimer.js`,
+`src/build/kit.js`, `src/build/workbench.js`, `src/build/wireColor.js`, `src/ui/placement.js`, `src/ui/partsTray.js`,
+`src/ui/holeTooltip.js`. The other
 folders are the target for later jobs.
 
 ```
 src/
   main.js          boot: composes the layout, scene, course engine, step tracker and flow, stores, runner
-                   and UI; on every lesson change shows the lesson circuit through the circuit view, then
-                   points the per lesson controls (hold button, knob, meter, room, sound, servo centring) at
-                   its parts; builds the step check context (currentContext) and feeds it to the flow each
+                   and UI; on every lesson change loads the lesson build into the workbench and draws it
+                   through the circuit view (fresh), and redraws it after every workbench change, then
+                   points the per lesson controls (hold button, knob, meter, room, sound) at its parts;
+                   runs Edit circuit mode and the build run lock (see "Workbench and placement"); builds the step check context (currentContext) and feeds it to the flow each
                    run frame, on Stop, lesson change, tour completion and 300 ms after a code edit; opens
                    the code panel on predict, run and code steps and closes it on the others
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
@@ -100,10 +103,11 @@ src/
                    breadboard right, 1 cm apart, centred on x = 0; frameBox() is the box around both as
                    plain { min, max } objects
     circuitView.js createCircuitView({ stage, board, breadboard, pins, servos, tones, getValues }) ->
-                   { show(table | null), items(), table(), relight(name?), showParts(values) }: show removes
-                   and disposes the old circuit group, builds the table, lights its LEDs and applies
-                   showWhen, returning the new items; LEDs follow pins, the servo horn servos and the
-                   buzzer ring tones
+                   { show(table | null, { fresh }), items(), table(), relight(name?), showParts(values) }: show
+                   removes and disposes the old circuit group, builds the table with the code panel values,
+                   lights its LEDs and applies showWhen, returning the new items; fresh (a lesson change)
+                   centres the servo at 90 deg, a rebuild after an edit keeps its angle and the buzzer ring;
+                   LEDs follow pins, the servo horn servos and the buzzer ring tones
     storage.js     getStorage(): localStorage, or an in memory stand in when it is blocked
   course/          lessons data, state, goTo(id), progress; 1.1 to 1.12 then the Level 1 project P1
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
@@ -143,10 +147,16 @@ src/
     renderLoop.js  pure render on demand loop (dirty flag, one frame per invalidate burst)
   parts/           one module per procedural 3D part (board, led, resistor, wire...)
     unoBoard.js    createUnoBoard() -> { group, zones }, 1 unit = 1 cm; UNO_ZONE_IDS for the six clickable zones;
-                   PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top
-    breadboard.js  createBreadboard() -> { group }, half size, 30 columns, four power rails with red and blue
-                   stripes (hole marks named 'hole', stripes 'stripe'); re-exports the grid from
-                   src/circuits/holes.js; holePosition(hole) local Vector3, rails included
+                   PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top;
+                   PIN_TOP_Y and nearestPin(localX, localZ, maxDistance = 0.6 * PITCH) -> pin name or null
+    breadboard.js  createBreadboard() -> { group, highlightPlaces(list), clearHighlights() }, half size, 30
+                   columns, four power rails with red and blue stripes (the 420 hole marks are one
+                   InstancedMesh named 'hole', stripes 'stripe'); highlightPlaces([{ place: 'strip:9-top' |
+                   'rail:T+', tone: 'hover' | 'info' | 'good' | 'bad' }]) draws flat see-through boxes over
+                   those holes from a pool (HIGHLIGHT_TONES), callers invalidate; re-exports the grid from
+                   src/circuits/holes.js; holePosition(hole) local Vector3, rails included; HOLE_TOP_Y and
+                   nearestHole(localX, localZ, maxDistance = 0.6 * PITCH) -> hole within the distance on both
+                   axes, or null
     led.js         createLed({ color, anode, cathode }) -> { group, setLit(on), setBrightness(b) }; red, green, yellow,
                    blue; anode leg kinked; setBrightness(b) for b from 0 to 1 glows the lens in its own colour
                    (emissive only) at LIT_INTENSITY * b, none at 0; setLit(on) is setBrightness(on ? 1 : 0);
@@ -170,17 +180,26 @@ src/
     wire.js        WIRE_COLORS, wireCurve(from, to) vertical ended Bezier arch, createWire({ color, from, to }) -> { group, curve }
   circuits/        per lesson circuit tables: which parts sit where on the breadboard
     circuits.js    circuits keyed by lesson id (1.2 to 1.12 and P1 now); plain data, no three.js
-    buildCircuit.js buildCircuit(circuit, { board, breadboard }) -> { group, items }; pins and holes
-                   to world positions, one factory result per id, item group name = id; a wire end is a
-                   hole when isHole(name) (rails included); re-exports buttonHoles, potHoles, rgbHoles and
-                   buzzerHoles from footprints.js
+    buildCircuit.js buildCircuit(circuit, { board, breadboard, values }) -> { group, items }; parts by
+                   legsOf (legs or the reference fields), pins and holes to world positions, one factory
+                   result per id, item group name = id with userData.partId or userData.wireId; a resistor
+                   with ohmsParam takes its ohms and bands from values[ohmsParam]; an unplaced part throws;
+                   a wire end is a hole when isHole(name) (rails included); re-exports buttonHoles,
+                   potHoles, rgbHoles and buzzerHoles from footprints.js
     holes.js       pure hole grid: BREADBOARD_COLUMNS, BREADBOARD_ROWS, RAIL_ROWS, ALL_ROWS, ALL_HOLES (420),
                    parseHole, isHole, holeName(column, row), rowPitchZ(row), rowAt(row, pitches), holeStrip
     footprints.js  pure PART_TYPES, TERMINAL_LABELS, legsOf, terminalHoles, footprint, orientationCount,
-                   bendLegs, buttonHoles, potHoles, rgbHoles, buzzerHoles (see "Netlist and footprints")
+                   bendLegs, legsValid(type, legs), orientationOf(type, legs) -> { anchor, orientation } | null,
+                   buttonHoles, potHoles, rgbHoles, buzzerHoles (see "Netlist and footprints")
     netlist.js     pure buildNetlist, canonical, compare, align, diagnose, normalizePin, placeOf, partLabel,
                    thingLabel, placeLabel, formatOhms (see "Netlist and footprints")
     rules.js       pure createRuleContext(build, reference), evaluateRule(rule, ruleContext)
+  build/           the learner's build (pure; see "Workbench and placement")
+    kit.js         kitFor(lesson, reference, { prebuiltLists }) -> { parts: [{ id, type, meta }], wires, prebuilt }
+    workbench.js   createWorkbench({ storage }): load, getBuild, tray, occupancy, canPlace, place, remove, canWire,
+                   addWire, removeWire, canUndo, undo, reset, placeReference, kitPart, subscribe; REASONS;
+                   key robo-learn:build
+    wireColor.js   autoWireColor(from, build), pinColor(pin), WIRE_COLOR_NAMES
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
     pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
@@ -282,8 +301,10 @@ src/
                    persistent role="status" regions; a re-render keeps focus on the same control. 'Start this
                    lesson again' needs a second click within 3 s ('Click again to start over') and calls
                    tracker.reset
-    viewControls.js createViewControls({ container, stage, getFrameBox }) -> { setView(kind, opts) }: Top view,
-                   3D view and Reset view buttons; Top and 3D follow stage.getView() with aria-pressed
+    viewControls.js createViewControls({ container, stage, getFrameBox, getEditBox, onEdit }) -> { setView(kind,
+                   opts), setEditing(on), setEditAvailable(on), isEditing() }: an Edit circuit toggle
+                   (aria-pressed) in its own group, then Top view, 3D view and Reset view buttons; Top and 3D
+                   follow stage.getView() with aria-pressed
     infoPanel.js   createInfoPanel(panel, course, { heading = true }): lesson heading (left out with heading
                    false, as in the guide's Reference drawer) plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
@@ -306,12 +327,12 @@ src/
                    the runner on lesson change; .run-readout line shows runner.getReadout(); main.js puts it
                    in #run-bar, a floating bar at the top left of the workbench; options getLock() (a string
                    disables Run and shows as the status; refreshLock() re-checks it) and onFrame() (after
-                   every loop frame, on Stop and on an error); returns { noticeError, refreshLock }
-    partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed() }: raycast
+                   every loop frame, on Stop and on an error); returns { noticeError, refreshLock, stop }
+    partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed(), setEnabled(on) }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
                    "Hold to press" keyboard path in the Controls dock, aria-pressed follows inputs
-    partTurn.js    createPartTurn({ stage, getItems, inputs }) -> { setValue(id, v), release() }: vertical drag on
+    partTurn.js    createPartTurn({ stage, getItems, inputs }) -> { setValue(id, v), release(), setEnabled(on) }: vertical drag on
                    visible turnable circuit items (200 px for the full range), orbit off while turning, ns-resize
                    cursor on hover; createKnobSlider({ container, partTurn, inputs }) -> { setTarget(id) }, the
                    "Knob" range input (0 to 1023) in the Controls dock, following the knob both ways
@@ -325,9 +346,17 @@ src/
                    createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; #serial-panel sits
                    in the code panel serialSlot under the editor; main.js sends lines to the running sketch
                    through the code runner: Clear, a scrolling non live role="log" output and a Send form
-    multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets) }: "Meter on"
+    multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets), setEnabled(on) }: "Meter on"
                    select in the Controls dock and click to probe a visible part of a target (a pointer up within
                    5 px of its down); both write inputs.setProbe(id); hidden with no targets
+    placement.js   createPlacement({ stage, board, breadboard, workbench, getItems, getValues, tooltip, onChange,
+                   onHover }): edit mode picking, ghosts, strip highlights, wires and window keys (see
+                   "Workbench and placement")
+    partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render() }:
+                   #parts-tray with the kit, Jumper wires, Undo, Reset circuit, status, colour and the
+                   keyboard row
+    holeTooltip.js createHoleTooltip({ container }) -> { show(name, clientX, clientY), hide() }: aria-hidden
+                   label with the hole and its place, or a pin name
     tabKeys.js     pure nextTabIndex(key, current, count) for the tab keyboard logic
     highlight.js   pure tokenize(code) -> [{ type, text }] for Arduino C++ colouring (tok-<type> classes)
     sketch.js      pure defaultValues(params), slotValues(params, values), fillSketch(code, values), stepDuration(step, values),
@@ -417,9 +446,13 @@ the current lesson, and every panel updates from it.
   that code panel param has that value (through the code panel `subscribe`).
   Hidden parts are not pressable.
 - `src/app/scene.js` places the Uno left and the breadboard right, 1 cm apart, centred on
-  x = 0. On every lesson change it removes and disposes the old circuit group,
-  builds `circuits[lesson.id]` if there is one, and calls `invalidate()`. A held
-  button is released first.
+  x = 0. On every lesson change main.js loads the lesson build (see "Workbench and
+  placement"), the circuit view removes and disposes the old circuit group, builds the
+  build if the lesson has a reference circuit, and calls `invalidate()`. A held button
+  is released first.
+- Lesson 1.3 has one resistor `{ id: 'r1', type: 'resistor', ohms: 220, ohmsParam: 'ohms',
+  from: '5c', to: '9c' }` whose ohms and bands follow the Resistor choice; its meter target
+  `resistor` lists `parts: ['r1']`.
 
 ## Netlist and footprints
 
@@ -474,6 +507,58 @@ the current lesson, and every panel updates from it.
   `{ joined: [items] }` (`id.*` any terminal, `id.end` either outer leg, pins
   normalized), `{ wired: pin }`, `{ noShorts: true }`, `{ matches: 'all' | [ids] }`.
   `createRuleContext` aligns the build once and caches its netlist and diagnosis.
+
+## Workbench and placement
+
+- The reference circuit in `circuits.js` is the answer key. The scene draws the learner's build,
+  held by the workbench (`src/build/workbench.js`), plus the reference `meter` and `roomDriven`.
+- Kit (`kitFor`): parts from `lesson.kit.parts`, else every reference part, each `{ id, type, meta }`
+  (meta is every field but id, type and the positions `legs`, `anode`, `cathode`, `from`, `to`,
+  `at`); wires `lesson.kit.wires`, else the reference wire count plus 2; prebuilt `lesson.prebuilt`
+  when given and `prebuiltLists` is true, else every reference item. main.js passes
+  `BUILD_STEPS_ENABLED`, so for now every lesson opens with its whole circuit built.
+- Workbench rules: only kit ids, legs that `legsValid` accepts (any orientation), one leg or wire
+  end per hole, one wire per pin; moving ignores the part's own holes; a wire runs from a pin or a
+  hole to a hole, two different ends, while the kit has a wire left. Reasons: `That hole is already
+  used.`, `That part does not fit there.`, `Wires go from a pin or a hole to a hole.`, `A wire needs
+  two different ends.`, `You have used every wire in the kit.` Learner wires are `u1`, `u2` ...
+  (first free); prebuilt wires keep their ids. Undo keeps 50 snapshots; load and reset clear it.
+  Events `load`, `place`, `move`, `remove`, `wire`, `unwire`, `undo`, `reset`.
+- Storage `robo-learn:build`: `{ [lessonId]: { parts: [{ id, legs }], wires: [{ id, from, to,
+  color }] } }`, saved after every change. Loading validates each item (known ids, valid legs, free
+  holes, wire ids `u<n>` or reference ids, known colours, the wire count) and drops what fails; no
+  record (or a broken one) starts from the prebuilt items.
+- Wire colours (`autoWireColor`): from 5V, 3.3V or VIN red, any GND black, A0 to A5 green, other
+  pins yellow; from a hole the colour of the first pin in its net, else red on a + rail, black on a
+  - rail, else blue.
+- Edit circuit (view controls, hidden on lessons without a circuit): on turns placement and the
+  tray on and press, turn and meter clicks off, and moves the camera to the top view of both boards
+  unless the learner orbited since the last view change; off reverses it and returns to the 3D view
+  if edit mode moved the camera.
+- Placement modes: `idle`, `carry` (fixed shapes, `R` cycles orientations), `bend` (resistor, ldr:
+  two clicks) and `wire` (two clicks, repeats). A click is a pointer up within 5 px of its down. The
+  ray meets the breadboard and Uno header planes, then `nearestHole` / `nearestPin`. In idle,
+  clicking a part picks it up, clicking a wire (or the hole or pin it ends in) selects it; Delete
+  or Backspace removes the selection, Escape steps back. The ghost is the part or wire at 0.5
+  opacity, tinted towards red when it does not fit; strips under the legs light `info` or `bad`,
+  the hovered strip `hover`. The hole tooltip shows the hole and `placeLabel` of its place.
+- Status copy (in the tray): `Pick a part from the tray, or click a placed part to move it.`,
+  `Click a hole for the long leg. R turns it. Escape puts it back.` (LED), `Click to place. R turns
+  it. Escape puts it back.`, `Click to place. Escape puts it back.`, `Click a hole for one end.`,
+  `Click a hole for the other end.`, `Click a pin on the Uno or a hole.`, `Press Delete to remove
+  this wire.`, or the reason a candidate does not fit.
+- Tray (`#parts-tray`, bottom centre): `Parts`, one button per kit part (icon, `partLabel` against
+  the kit, `In the tray` / `Placed` / `Built earlier`), `Jumper wires` (`3 of 4 left`,
+  aria-pressed), `Undo`, `Reset circuit` (second click within 3 s: `Click again to reset`), the
+  status line (role="status"), a `Colour` select in wire mode, and the keyboard row: `Hole`
+  (`#place-hole`) and `Place` while carrying, `From` (a pin for wires) and `To` while bending or
+  wiring; a bad name shows `There is no hole called <text>.`
+- Window keys while placing: arrows move the target a column or row, `R` turns, `Enter` places,
+  `Escape` cancels, `Delete` removes; ignored in inputs, selects and textareas except Escape in
+  the tray, and Enter is left to a focused button.
+- Run lock: the flow's lock first, then `Finish the circuit to unlock Run.` while the lesson has a
+  reference and `compare(build, reference).match` is false; re-checked after every workbench change,
+  and a running sketch stops when the build stops matching.
 
 ## Sims and goal checks
 

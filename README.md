@@ -201,6 +201,15 @@ part's legs go (`footprints.js`), work out what is joined to what and compare a 
 lesson's reference circuit in any working layout (`netlist.js`), name mistakes in plain words, and
 check build and wire step rules (`rules.js`). Nothing uses them in the UI yet.
 
+**Lesson overhaul phase 4, placement** (`feature/lesson-overhaul`, not merged): the scene now
+draws the learner's own build, held by a workbench and saved under `robo-learn:build`, instead of
+the reference table. An Edit circuit button opens a parts tray with the lesson kit: pick a part
+up, see a see-through ghost and the strips its legs will join, place it in a hole, draw jumper
+wires from a pin or hole, undo and reset. Everything also works from the keyboard (hole names
+typed into the tray, arrows, R, Enter, Escape, Delete). Lessons still open with the whole circuit
+built; Run stays locked while the build does not match the lesson circuit. Lesson 1.3 now has one
+resistor whose bands follow the choice.
+
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
 

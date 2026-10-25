@@ -205,3 +205,14 @@ the final screenshot shows, anything not verified.
   (covered by test/lessonGoals.test.js, the 24 s day was not run because the pane throttled
   frames), and the rail check was done at the pane's own size (about 800 x 670) because
   screenshots under 1440 x 900 emulation came back scaled.
+- 2026-10-25: phase 4 placement, last code commit 56e8afa, 654 tests. Final screenshot at 1440 x 900
+  on 1.2 in edit mode: Edit circuit and Top view pressed, the Uno and breadboard from above with the
+  LED, resistor and two wires, and the parts tray at the bottom centre with resistor and LED
+  (Built earlier), Jumper wires (2 of 4 left), Undo, Reset circuit and the idle status line. All 10
+  browser checks done; no console errors in a fresh tab driven by real input (setPointerCapture
+  errors appeared only in a tab where synthetic pointer events were used to scan for holes).
+  Not verified: the camera tween and the blink were not watched frame by frame (the pane ran no
+  frames unless a screenshot forced one); resistor band colours per choice were checked by the
+  unit test, not by eye (too small at pane size); the hover tint (opacity 0.12) was not seen,
+  only the info and bad tints; pointer checks 2 to 5 ran at 1440 x 900 emulation, 3 and 4 also at
+  the pane's own size; screen reader output was not tested.

@@ -318,4 +318,43 @@ keyboard path, edit mode and the run lock. Update the architecture tree and the
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+- Lesson 1.2 already had `prebuilt: []` from phase 2, which would open it empty and break browser
+  check 1. `kitFor` takes `{ prebuiltLists }`; main.js passes `BUILD_STEPS_ENABLED` (false), so
+  lesson prebuilt lists only count once phase 5 turns build steps on. Until then every reference
+  item is prebuilt.
+- `getBuild()` lists only placed parts (in kit order). An unplaced kit part is simply absent, which
+  `compare` and `diagnose` already treat as missing.
+- A pin already used by a wire gives `That hole is already used.` (the phase lists no separate pin
+  text).
+- `canWire` checks the ends' shape, then two different ends, then the wire count, then free holes.
+  `addWire` uses `autoWireColor` when no colour is given.
+- The workbench also has `canUndo()` (the tray disables Undo with it), `kitPart(id)` (the ghost
+  needs the part meta) and `lessonId()`. `placeReference` emits one `place` or `wire` event per
+  item it placed.
+- `tray()` marks a part `prebuilt` only while it is in the prebuilt list and still at its reference
+  legs, so the tray says `Built earlier` until it is moved.
+- `legsValid` and a new `orientationOf(type, legs)` live in footprints.js; picking up a placed part
+  starts from its own orientation and anchor.
+- `createPlacement` also takes `getItems` (to hit placed parts and wires with the ray) and
+  `tooltip`, and returns `isEnabled`, `placeAt(name)` (holes and pins), `showMessage`, `refresh`
+  (main.js calls it after each rebuild) and `subscribe` (the tray re-renders from it).
+  `getState().status` holds the status line copy.
+- Wires are about 1.5 px wide at desktop size, so clicking the hole or pin a wire ends in also
+  selects that wire.
+- The hole tooltip shows in every mode while editing, not only in idle, since it helps when
+  placing and wiring too.
+- A carried part that was already placed is hidden while it is carried; the ghost stands in for
+  it. Placing returns to idle; wiring stays in wire mode.
+- In wire mode with the pointer still on the first end there is no candidate (no error shown).
+- Enter on a focused button is left to the button, so the window keys do not also confirm.
+- After a tray pick done with the keyboard (click detail 0), focus moves to the first tray input;
+  when placing ends, focus goes back to that part's tray button.
+- The edit mode top view frames both boards (the scene frame box), not the breadboard alone: with
+  only the breadboard in view the Uno pins were off screen, so wires could not start at a pin.
+- "Orbited since the last view change" is tracked in viewControls (OrbitControls start sets it, any
+  view button clears it), because the stage reports `custom` both on first load and after an orbit.
+- Edit circuit is hidden on lessons without a reference circuit (1.1); hiding it leaves edit mode.
+- `createRunControls` returns `stop()`, used to stop a running sketch when an edit breaks the match.
+- The meter keeps its probe across rebuilds after an edit; only a lesson change resets it.
+- The tray keeps the phase's `max-width: calc(100% - 340px)`; on a workbench under about 700 px the
+  part buttons get squeezed out of view. Phase 7 (narrow screens) owns that layout.
