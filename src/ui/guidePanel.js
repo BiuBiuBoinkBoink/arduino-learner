@@ -91,8 +91,8 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     steps.replaceChildren(...view.steps.map((entry, index) => stepItem(view, entry, index)))
     if (focusKey) {
       // A hint rung is gone once its step passed (Do it for me): go to Continue.
-      const target = steps.querySelector(`[data-focus-key="${focusKey}"]`) ||
-        (focusKey.startsWith('hint-') ? steps.querySelector('[data-focus-key="continue"], [data-focus-key="next-lesson"], [data-focus-key="current"]') : null)
+      const fallbacks = focusKey.startsWith('hint-') ? ['continue', 'next-lesson', 'current'] : []
+      const target = [focusKey, ...fallbacks].map((key) => steps.querySelector(`[data-focus-key="${key}"]`)).find(Boolean)
       if (target) target.focus()
     }
   }
