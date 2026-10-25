@@ -2,9 +2,13 @@
 // a lesson step passes, the checklist under "To pass" ([{ text, ok }]) and an
 // optional feedback line ({ tone: 'good' | 'bad' | 'info', text }). Pure module.
 // ctx: { lessonId, lessonCompleted, answers, latched, sim: { phase, progress },
-// code: { error }, tour: { complete } }. Sim items latch: a key reported once
-// while the step was current (ctx.latched) stays ok after Stop.
-export const CHECK_TYPES = ['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'all']
+// code: { error }, tour: { complete }, build, reference, scope, attempts, busy }.
+// Sim items latch: a key reported once while the step was current
+// (ctx.latched) stays ok after Stop.
+import { createRuleContext, evaluateRule } from '../circuits/rules.js'
+import { diagnose } from '../circuits/netlist.js'
+
+export const CHECK_TYPES = ['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'circuit', 'all']
 
 const RUN_AND_WATCH = 'Now press Run and watch.'
 
@@ -24,6 +28,41 @@ export function simKeys(spec) {
   if (spec.type === 'predict') return simKeys(spec.then)
   if (spec.type === 'all') return spec.checks.flatMap(simKeys)
   return []
+}
+
+// Circuit results by build object, then by step and scope: the flow evaluates
+// done steps on every run frame, and the build object only changes on an edit.
+const circuitCache = new WeakMap()
+
+function circuitResult(spec, step, ctx) {
+  const build = ctx.build || { parts: [], wires: [] }
+  const reference = ctx.reference || null
+  const scope = Array.isArray(ctx.scope) ? ctx.scope : []
+  const key = step.id + '|' + scope.join()
+  let byStep = circuitCache.get(build)
+  if (!byStep || byStep.reference !== reference) {
+    byStep = { reference, results: new Map() }
+    circuitCache.set(build, byStep)
+  }
+  if (byStep.results.has(key)) return byStep.results.get(key)
+  let entry
+  if (!reference) {
+    entry = { items: spec.items.map((item) => ({ text: item.text, ok: false })), passed: false, mistake: () => null }
+  } else {
+    // One rule context per evaluation: the build is aligned once.
+    const rules = createRuleContext(build, reference)
+    const items = spec.items.map((item) => ({ text: item.text, ok: evaluateRule(item.rule, rules) }))
+    const passed = items.every((item) => item.ok) && (!spec.pass || evaluateRule(spec.pass, rules))
+    let first
+    // Build steps name mistakes in the scope only; wire steps look at everything.
+    const mistake = () => {
+      if (first === undefined) first = diagnose(build, reference, step.kind === 'build' ? { only: scope } : {})[0] || null
+      return first
+    }
+    entry = { items, passed, mistake }
+  }
+  byStep.results.set(key, entry)
+  return entry
 }
 
 function result(passed, items, feedback = null) {
@@ -69,6 +108,17 @@ function check(spec, step, ctx) {
     case 'tour': {
       const ok = Boolean(ctx.tour && ctx.tour.complete)
       return result(ok, [{ text: spec.text, ok }])
+    }
+    case 'circuit': {
+      const { items, passed, mistake } = circuitResult(spec, step, ctx)
+      let feedback = null
+      // A mistake shows only after the learner changed the build on this step,
+      // and not while a part or wire is in their hand.
+      if (!passed && ctx.attempts > 0 && !ctx.busy) {
+        const found = mistake()
+        if (found) feedback = { tone: 'bad', text: found.text, targets: found.targets }
+      }
+      return result(passed, items.map((item) => ({ ...item })), feedback)
     }
     case 'all': {
       const inner = spec.checks.map((item) => check(item, step, ctx))

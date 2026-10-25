@@ -3,7 +3,7 @@ import { lessons, levels } from './course/lessons.js'
 import { createCourse } from './course/state.js'
 import { createStepTracker } from './course/stepTracker.js'
 import { createFlow } from './course/flow.js'
-import { stepsFor, hasGeneratedSteps, CODE_OPEN_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
+import { stepsFor, hasGeneratedSteps, scopeFor, CODE_OPEN_KINDS, BUILD_STEPS_ENABLED } from './course/steps.js'
 import { evaluate } from './course/checks.js'
 import { idFromHash, hashForId } from './course/hash.js'
 import { createScene } from './app/scene.js'
@@ -237,14 +237,38 @@ function showCircuit({ lesson }) {
   drawBuild({ fresh: true })
 }
 
-// Every edit redraws the build in place and re-checks the run lock; a build
-// that stops matching stops a running sketch.
+// The build the step checks see: one object per workbench state, so the
+// checks can cache their results until the next edit.
+let checkedBuild = null
+function currentBuild() {
+  if (!checkedBuild) checkedBuild = workbench.getBuild()
+  return checkedBuild
+}
+// Workbench changes since the current step became current; a mistake shows
+// only once the learner changed something on this step.
+let attempts = 0
+let attemptsKey = null
+function stepKey(viewState) {
+  return viewState.lesson.id + ':' + viewState.index
+}
+flow.subscribe((viewState) => {
+  if (stepKey(viewState) === attemptsKey) return
+  attemptsKey = stepKey(viewState)
+  attempts = 0
+})
+attemptsKey = stepKey(flow.getView())
+
+// Every edit redraws the build in place, re-checks the run lock and the step;
+// a build that stops matching stops a running sketch.
 workbench.subscribe((event) => {
+  checkedBuild = null
   if (event.type === 'load') return
+  attempts += 1
   drawBuild({ fresh: false })
   checkBuild()
   if (!buildMatches && ['uploading', 'running'].includes(runner.getPhase())) run.stop()
   run.refreshLock()
+  updateFlow()
 })
 
 showCircuit(course.getState())
@@ -283,9 +307,26 @@ function currentContext() {
     lessonId: lesson.id,
     sim: { phase: runner.getPhase(), progress: runner.getProgress() },
     code: { error: checkedError },
-    tour: { complete: toursDone.has(lesson.id) }
+    tour: { complete: toursDone.has(lesson.id) },
+    build: currentBuild(),
+    reference,
+    scope: scopeFor(lesson, tracker.get(lesson.id).current),
+    attempts,
+    busy: isBusy()
   }
 }
+// True while a part is in the learner's hand or a bend or wire is half drawn.
+function isBusy(state = placement.getState()) {
+  return state.mode === 'carry' || state.mode === 'bend' || (state.mode === 'wire' && state.first !== null)
+}
+// Picking up or putting down changes busy, which hides or shows the mistake.
+let wasBusy = false
+placement.subscribe((state) => {
+  const busy = isBusy(state)
+  if (busy === wasBusy) return
+  wasBusy = busy
+  updateFlow()
+})
 function updateFlow() {
   flow.update(currentContext())
 }

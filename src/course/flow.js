@@ -89,6 +89,8 @@ export function createFlow({ course, tracker, stepsFor, evaluate }) {
       steps: entries,
       index,
       result: currentEntry ? currentEntry.result : null,
+      // The 3D places, holes, pins and parts the current mistake is about, or null.
+      targets: (currentEntry && currentEntry.result && currentEntry.result.feedback && currentEntry.result.feedback.targets) || null,
       passedNow: Boolean(currentEntry && currentEntry.passed),
       lessonDone: entries.length > 0 && entries.every((entry) => entry.passed)
     }

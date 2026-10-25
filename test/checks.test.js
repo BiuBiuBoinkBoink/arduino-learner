@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { evaluate, simKeys, CHECK_TYPES } from '../src/course/checks.js'
+import { circuits } from '../src/circuits/circuits.js'
+import { lessons } from '../src/course/lessons.js'
 
 function ctx(overrides = {}) {
   return {
@@ -50,7 +52,7 @@ const codeStep = {
 
 describe('evaluate', () => {
   it('knows its check types', () => {
-    expect(CHECK_TYPES).toEqual(['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'all'])
+    expect(CHECK_TYPES).toEqual(['legacy', 'quiz', 'predict', 'sim', 'code', 'tour', 'circuit', 'all'])
   })
 
   it('legacy passes when the lesson is completed', () => {
@@ -140,6 +142,85 @@ describe('evaluate', () => {
 
   it('an unknown check type never passes', () => {
     expect(evaluate({ id: 'x', check: { type: 'nope' } }, ctx())).toEqual({ passed: false, items: [], feedback: null })
+  })
+})
+
+describe('circuit checks', () => {
+  const reference = circuits['1.2']
+  const steps = lessons.find((lesson) => lesson.id === '1.2').steps
+  const stepOf = (id) => steps.find((step) => step.id === id)
+  const led = (anode, cathode) => ({ id: 'led1', type: 'led', color: 'red', pin: 'D13', legs: [anode, cathode] })
+  const resistor = (a, b) => ({ id: 'r1', type: 'resistor', ohms: 220, legs: [a, b] })
+  const circuitCtx = (build, overrides = {}) => ctx({ build, reference, scope: ['led1'], attempts: 1, busy: false, ...overrides })
+
+  it('ticks items from their rules and passes when every item is true', () => {
+    const step = stepOf('place-led')
+    expect(evaluate(step, circuitCtx({ parts: [], wires: [] }, { attempts: 0 }))).toEqual({
+      passed: false,
+      items: [{ text: 'LED is on the breadboard', ok: false }, { text: 'Legs in two different strips', ok: false }],
+      feedback: null
+    })
+    const good = evaluate(step, circuitCtx({ parts: [led('9e', '10e')], wires: [] }))
+    expect(good.passed).toBe(true)
+    expect(good.items.every((item) => item.ok)).toBe(true)
+    expect(good.feedback).toBe(null)
+  })
+
+  it('names the first mistake in the scope, with its targets', () => {
+    const step = stepOf('place-led')
+    const result = evaluate(step, circuitCtx({ parts: [led('9c', '9d')], wires: [] }))
+    expect(result.passed).toBe(false)
+    expect(result.items).toEqual([{ text: 'LED is on the breadboard', ok: true }, { text: 'Legs in two different strips', ok: false }])
+    expect(result.feedback.tone).toBe('bad')
+    expect(result.feedback.text).toBe('Both legs of the LED are in strip 9 (rows a to e), so the current goes round it.')
+    expect(result.feedback.targets.places).toEqual(['strip:9-top'])
+    expect(result.feedback.targets.holes).toEqual(['9c', '9d'])
+  })
+
+  it('gives feedback only after an attempt and while nothing is in hand', () => {
+    const step = stepOf('place-led')
+    const build = { parts: [led('9c', '9d')], wires: [] }
+    expect(evaluate(step, circuitCtx(build, { attempts: 0 })).feedback).toBe(null)
+    expect(evaluate(step, circuitCtx(build, { busy: true })).feedback).toBe(null)
+    expect(evaluate(step, circuitCtx(build)).feedback).not.toBe(null)
+  })
+
+  it('never names a part a later step adds', () => {
+    const step = stepOf('place-led')
+    expect(evaluate(step, circuitCtx({ parts: [], wires: [] })).feedback.text).toBe('Place the LED from the tray.')
+  })
+
+  it('needs the pass rule as well as the items', () => {
+    const step = stepOf('add-resistor')
+    const scope = ['led1', 'r1']
+    const short = evaluate(step, circuitCtx({ parts: [led('9e', '10e'), resistor('9c', '9a')], wires: [] }, { scope }))
+    expect(short.passed).toBe(false)
+    expect(short.feedback.text).toBe('Both legs of the resistor are in strip 9 (rows a to e), so the current goes round it.')
+    const notJoined = evaluate(step, circuitCtx({ parts: [led('9e', '10e'), resistor('5c', '8c')], wires: [] }, { scope }))
+    expect(notJoined.feedback.text).toBe('The long leg of the LED and the resistor are not joined yet.')
+    const good = evaluate(step, circuitCtx({ parts: [led('9e', '10e'), resistor('5c', '9c')], wires: [] }, { scope }))
+    expect(good.passed).toBe(true)
+    expect(good.items.map((item) => item.ok)).toEqual([true, true, true])
+  })
+
+  it('looks at the whole circuit on wire steps', () => {
+    const step = stepOf('wire-up')
+    const parts = [led('9e', '10e'), resistor('5c', '9c')]
+    const halfway = evaluate(step, circuitCtx({ parts, wires: [{ id: 'u1', from: 'D13', to: '5a', color: 'yellow' }] }, { scope: ['led1', 'r1'] }))
+    expect(halfway.passed).toBe(false)
+    expect(halfway.items.map((item) => item.ok)).toEqual([true, false, true])
+    expect(halfway.feedback.text).toBe('The GND and the short leg of the LED are not joined yet.')
+    const shorted = evaluate(step, circuitCtx({ parts, wires: [{ id: 'u1', from: 'D13', to: '5a', color: 'yellow' }, { id: 'u2', from: 'GND', to: '5b', color: 'black' }] }))
+    expect(shorted.items[2].ok).toBe(false)
+    expect(shorted.feedback.text).toBe('This joins D13 straight to GND. On a real board that is a short circuit.')
+    const done = evaluate(step, circuitCtx({ parts, wires: [{ id: 'u1', from: 'D13', to: '5a', color: 'yellow' }, { id: 'u2', from: 'GND', to: '10b', color: 'black' }] }))
+    expect(done.passed).toBe(true)
+  })
+
+  it('never passes without a reference circuit', () => {
+    const result = evaluate(stepOf('place-led'), circuitCtx({ parts: [led('9e', '10e')], wires: [] }, { reference: null }))
+    expect(result.passed).toBe(false)
+    expect(result.feedback).toBe(null)
   })
 })
 
