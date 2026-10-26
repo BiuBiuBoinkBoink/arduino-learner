@@ -8,7 +8,11 @@
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
 //   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit,
 //   hasCircuit, pins, meter, codePanel, getLessonId })
-//   -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id), measureAt(name) }
+//   -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id), measureAt(name),
+//   setLabels(owner, list), pointOf(name) }
+// setLabels(owner, list) sets one owner's pinned labels on the explain label
+// layer (the help chat pins its notes as 'chat'); pointOf(name) is the world
+// point of a hole or Uno pin, or null.
 // The last measured point keeps its label up to date as the pins change. In
 // slow motion the running line is lit in the editor, at most once a frame.
 import { createExplainTools } from '../explain/tools.js'
@@ -271,5 +275,5 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     menu.setStatus(result.text)
   }
 
-  return { tools, menu, cards, reset, refresh, onFrame, about, measureAt }
+  return { tools, menu, cards, reset, refresh, onFrame, about, measureAt, setLabels, pointOf }
 }

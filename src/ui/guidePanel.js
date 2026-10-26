@@ -8,8 +8,14 @@
 // the next lesson (plus a muted Helped line when Do it for me was used).
 // Re-rendering keeps keyboard focus on the same control, so a pass never
 // moves focus; feedback and success sit in polite status regions.
+// With askHost (the help chat is on) the guide gets WAI-ARIA tabs at the top,
+// Steps and Ask: everything above goes in the Steps pane and askHost, the
+// element the Ask tab shows, is the Ask pane. askHost may already sit in the
+// bottom sheet (compact); it stays there. selectTab(id) and getTab() follow
+// the tabs; openReference() opens the Reference drawer on the Steps tab.
 import { hasGeneratedSteps } from '../course/steps.js'
 import { splitGoal } from '../course/goalText.js'
+import { nextTabIndex } from './tabKeys.js'
 
 export const KIND_LABELS = {
   learn: 'Learn',
@@ -31,7 +37,7 @@ const CHECKLIST_HINT = 'Look at the checklist: the first item without a tick is 
 const SHOW_ME_KINDS = ['build', 'wire', 'code']
 const DO_IT_KINDS = ['build', 'wire']
 
-export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {}, onHelp = () => {}, canSuggest = () => true }) {
+export function createGuidePanel(container, { course, flow, tracker, onRestart = () => {}, onHelp = () => {}, canSuggest = () => true, askHost = null }) {
   const header = document.createElement('div')
   header.className = 'guide-header'
   const eyebrow = document.createElement('p')
@@ -70,7 +76,65 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
   referenceBody.className = 'guide-reference-body'
   reference.append(referenceSummary, referenceBody)
 
-  container.append(header, steps, restart, reference)
+  const tabs = askHost ? createTabs() : null
+  if (tabs) tabs.stepsPane.append(header, steps, restart, reference)
+  else container.append(header, steps, restart, reference)
+
+  // Steps and Ask tabs, made only when the help chat is on.
+  function createTabs() {
+    container.classList.add('has-tabs')
+    const list = document.createElement('div')
+    list.className = 'guide-tabs'
+    list.setAttribute('role', 'tablist')
+    list.setAttribute('aria-label', 'Lesson guide')
+    const stepsPane = document.createElement('div')
+    stepsPane.className = 'guide-pane'
+    askHost.classList.add('guide-ask')
+    const entries = [
+      { id: 'steps', label: 'Steps', pane: stepsPane },
+      { id: 'ask', label: 'Ask', pane: askHost }
+    ].map((entry) => {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'guide-tab'
+      button.id = 'guide-tab-' + entry.id
+      button.textContent = entry.label
+      button.setAttribute('role', 'tab')
+      button.setAttribute('aria-controls', 'guide-pane-' + entry.id)
+      entry.pane.id = 'guide-pane-' + entry.id
+      entry.pane.setAttribute('role', 'tabpanel')
+      entry.pane.setAttribute('aria-labelledby', button.id)
+      list.append(button)
+      return { ...entry, button }
+    })
+    let selected = 'steps'
+    function select(id) {
+      if (!entries.some((entry) => entry.id === id)) return
+      selected = id
+      for (const entry of entries) {
+        const on = entry.id === id
+        entry.button.setAttribute('aria-selected', String(on))
+        entry.button.tabIndex = on ? 0 : -1
+        // The Ask pane in the bottom sheet is the sheet's to show.
+        entry.pane.hidden = !on && container.contains(entry.pane)
+      }
+    }
+    entries.forEach((entry, i) => {
+      entry.button.addEventListener('click', () => select(entry.id))
+      entry.button.addEventListener('keydown', (event) => {
+        const next = nextTabIndex(event.key, i, entries.length)
+        if (next === null) return
+        event.preventDefault()
+        select(entries[next].id)
+        entries[next].button.focus()
+      })
+    })
+    // The Ask pane (or its placeholder in compact) stays after the tabs.
+    container.prepend(list, stepsPane)
+    if (!askHost.parentNode) container.append(askHost)
+    select('steps')
+    return { stepsPane, select, get: () => selected }
+  }
 
   let lessonId = null
   // What Show me shows, in words: set by main.js for the current step.
@@ -374,7 +438,20 @@ export function createGuidePanel(container, { course, flow, tracker, onRestart =
     render(flow.getView())
   }
 
-  return { referenceBody, setShowMe }
+  // The Reference drawer, open, on the Steps tab.
+  function openReference() {
+    if (tabs) tabs.select('steps')
+    reference.open = true
+    reference.scrollIntoView({ block: 'nearest' })
+  }
+
+  return {
+    referenceBody,
+    setShowMe,
+    openReference,
+    selectTab: (id) => (tabs ? tabs.select(id) : undefined),
+    getTab: () => (tabs ? tabs.get() : 'steps')
+  }
 }
 
 function paragraph(text) {

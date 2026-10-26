@@ -256,6 +256,228 @@ body {
   border-right: 1px solid var(--line);
 }
 
+/* With the help chat on, the guide has Steps and Ask tabs; each pane scrolls
+   on its own under them. */
+#guide-panel.has-tabs {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.guide-tabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-pane {
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.guide-pane[hidden],
+.ask-pane[hidden],
+.ask-empty[hidden],
+.ask-thinking[hidden] {
+  display: none;
+}
+
+/* The Ask pane: New chat, the log and the question box. */
+.ask-pane {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.ask-top {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 0;
+}
+
+.ask-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 16px 12px;
+  overflow-y: auto;
+}
+
+.ask-log:focus-visible,
+#ask-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ask-empty,
+.ask-suggestions,
+.ask-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ask-suggestions {
+  align-items: flex-start;
+}
+
+.ask-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 88%;
+  min-width: 0;
+}
+
+.ask-turn.is-learner {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.ask-turn.is-helper {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.ask-bubble {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 10px;
+}
+
+.is-learner .ask-bubble {
+  color: #ffffff;
+  background: var(--ink);
+}
+
+.is-helper .ask-bubble {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.is-muted .ask-bubble,
+.ask-note,
+.ask-thinking {
+  color: var(--muted);
+}
+
+.ask-note,
+.ask-thinking {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-chip {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.ask-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.ask-card-question,
+.ask-card-why,
+.ask-recall .panel-text {
+  margin: 0;
+}
+
+.ask-recall {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+}
+
+.ask-recall-title {
+  font-weight: 600;
+}
+
+.ask-form {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.ask-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ask-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+#ask-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.ask-send {
+  flex: none;
+}
+
+.ask-send:disabled,
+#ask-input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .guide-eyebrow,
 .step-kind,
 .dock-heading {
@@ -2304,6 +2526,7 @@ summary:focus-visible {
 
 .sheet-handle:focus-visible,
 .sheet-tab:focus-visible,
+.guide-tab:focus-visible,
 .view-toggle:focus-visible,
 .dock-toggle:focus-visible,
 .sheet-expand:focus-visible {
@@ -2324,7 +2547,8 @@ summary:focus-visible {
   gap: 4px;
 }
 
-.sheet-tab {
+.sheet-tab,
+.guide-tab {
   min-height: 32px;
   padding: 4px 12px;
   font: inherit;
@@ -2336,7 +2560,8 @@ summary:focus-visible {
   cursor: pointer;
 }
 
-.sheet-tab[aria-selected='true'] {
+.sheet-tab[aria-selected='true'],
+.guide-tab[aria-selected='true'] {
   font-weight: 600;
   color: var(--ink);
   border-bottom-color: var(--accent);
@@ -2441,6 +2666,11 @@ summary:focus-visible {
   min-height: 0;
   width: auto;
   border: 0;
+}
+
+/* In the sheet the Ask pane is its own tab, so the guide shows only steps. */
+.sheet-panel > #guide-panel .guide-tabs {
+  display: none;
 }
 
 .sheet-panel > #code-panel .code-body {

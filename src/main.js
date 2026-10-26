@@ -30,6 +30,7 @@ import { createHoleTooltip } from './ui/holeTooltip.js'
 import { createLabels } from './ui/labels.js'
 import { createStepMarks } from './ui/stepMarks.js'
 import { createExplain } from './app/explain.js'
+import { createTutor } from './app/tutor.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
@@ -49,20 +50,35 @@ import { sims } from './sim/sims.js'
 import { createSimRunner, checkCode } from './sim/runner.js'
 
 const layout = createLayout(document.querySelector('#app'))
+// The help chat is off unless the build turns it on (VITE_TUTOR=on). Its Ask
+// pane is made here, inside the guide, so the sheet can take it in compact.
+const TUTOR = import.meta.env.VITE_TUTOR === 'on'
+const askHost = TUTOR ? document.createElement('div') : null
+if (askHost) layout.guide.append(askHost)
 // Compact layout: the guide and the code panel move into a bottom sheet over
-// the workbench (Steps and Code tabs), and back to their columns in the other
-// layouts. Neither is rebuilt, so the editor keeps its text and caret. Done
-// before the scene exists, so the stage starts at its real size.
+// the workbench (Steps and Code tabs, and Ask with the help chat), and back to
+// their columns in the other layouts. None is rebuilt, so the editor keeps its
+// text and caret. Done before the scene exists, so the stage starts at its
+// real size.
 const sheet = createBottomSheet({
   container: layout.workbench,
   tabs: [
     { id: 'steps', label: 'Steps', element: layout.guide },
-    { id: 'code', label: 'Code', element: layout.codePanel }
+    { id: 'code', label: 'Code', element: layout.codePanel },
+    ...(askHost ? [{ id: 'ask', label: 'Ask', element: askHost }] : [])
   ]
 })
+// The guide's Steps and Ask tabs hand over to the sheet's and back.
+let guideTabs = null
 function applyLayout(mode) {
-  sheet.setActive(mode === 'compact')
-  if (mode !== 'compact') sheet.setState('peek')
+  const compact = mode === 'compact'
+  const askOpen = guideTabs && (sheet.isActive() ? sheet.getTab() === 'ask' : guideTabs.getTab() === 'ask')
+  sheet.setActive(compact)
+  if (guideTabs) {
+    if (compact && askOpen) sheet.selectTab('ask')
+    guideTabs.selectTab(!compact && askOpen ? 'ask' : 'steps')
+  }
+  if (!compact) sheet.setState('peek')
 }
 applyLayout(layout.getMode())
 layout.subscribeMode(applyLayout)
@@ -140,11 +156,13 @@ const guide = createGuidePanel(layout.guide, {
   },
   onHelp: (level) => {
     if (level === 3) doItForMe()
-  }
+  },
+  askHost
 })
+if (askHost) guideTabs = guide
 // The hint box opens by itself after a mistake or 40 s without progress.
 const nudge = createNudge({ flow })
-createInfoPanel(guide.referenceBody, course, { heading: false })
+const info = createInfoPanel(guide.referenceBody, course, { heading: false })
 
 // Created before the circuit swap so its lesson values are current when a new circuit is built.
 const codePanel = createCodePanel(layout.codePanel, course, { setOpen: layout.setCodeOpen })
@@ -498,8 +516,10 @@ subscribeValues((values) => {
   view.relight()
 })
 
-// The run status while a slow motion run is a demo.
+// The run status while a slow motion run is a demo, and for any other demo
+// run (the help chat's demo input, or after slow motion was turned off).
 const SLOW_NOTE = 'Slow motion. Goals are paused until you press Run again.'
+const DEMO_NOTE = 'Demo run. Goals are paused until you press Run again.'
 
 // One runner over the shared pin levels and inputs. A sim goal marks a lesson
 // with a generated step done; a lesson with its own steps is done when the
@@ -514,12 +534,16 @@ const runner = createSimRunner({ sims, pins, inputs, room, tones, servos, serial
 const toursDone = new Set()
 let checkedSource = null
 let checkedError = null
-function currentContext() {
+function codeError() {
   const source = codePanel.getSource()
   if (source !== checkedSource) {
     checkedSource = source
     checkedError = checkCode(source)
   }
+  return checkedError
+}
+function currentContext() {
+  codeError()
   const { lesson } = course.getState()
   return {
     lessonId: lesson.id,
@@ -562,7 +586,7 @@ const run = createRunControls({
     updateFlow()
     explain.onFrame()
   },
-  getNote: () => (runner.isDemo() ? SLOW_NOTE : null)
+  getNote: () => (runner.getSlowMotion() !== null ? SLOW_NOTE : runner.isDemo() ? DEMO_NOTE : null)
 })
 flow.subscribe(() => run.refreshLock())
 course.subscribe(updateFlow)
@@ -623,4 +647,44 @@ course.subscribe(({ lesson }) => {
   explain.reset()
 })
 workbench.subscribe(() => explain.refresh())
-updateFlow()
+
+// Help chat: the Ask tab, the tutor tools and the chat, one conversation per
+// lesson. No chat tool changes the build, the code or progress.
+const tutor = TUTOR
+  ? createTutor({
+    askHost,
+    stage,
+    board,
+    breadboard,
+    placement,
+    viewControls,
+    explain,
+    codePanel,
+    layout,
+    sheet,
+    guide,
+    flow,
+    course,
+    lessons,
+    runner,
+    inputs,
+    room,
+    partPress,
+    partTurn,
+    getBuild: currentBuild,
+    getReference: () => reference,
+    getCodeError: codeError,
+    restoreMarks: refreshMarks,
+    selectReferenceTab: info.select
+  })
+  : null
+if (tutor) {
+  let tutorLessonId = course.getState().lesson.id
+  course.subscribe(({ lesson }) => {
+    if (lesson.id === tutorLessonId) return
+    tutorLessonId = lesson.id
+    tutor.reset()
+  })
+  // The suggestions follow the step (a code error changes a code step's view).
+  flow.subscribe(tutor.refresh)
+}updateFlow()
