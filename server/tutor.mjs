@@ -7,19 +7,24 @@
 //
 // npm run tutor. TUTOR_PORT (default 7300). Credentials come from
 // ANTHROPIC_API_KEY (read from .env.local when it is there) or an
-// `ant auth login` profile. TUTOR_FAKE=1 answers with fixed replies and makes
-// no API calls.
+// `ant auth login` profile. TUTOR_PROVIDER=gemini asks Gemini instead
+// (GEMINI_API_KEY, GEMINI_MODEL; server/gemini.mjs translates the messages).
+// TUTOR_FAKE=1 answers with fixed replies and makes no API calls.
 import http from 'node:http'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenAI, ApiError } from '@google/genai'
 import { validateRequest, buildApiRequest, createRateLimiter, fakeReply, MAX_BODY_BYTES, MODEL } from './tutorCore.mjs'
+import { buildGeminiRequest, fromGeminiResponse, GEMINI_MODEL } from './gemini.mjs'
 
 const envFile = fileURLToPath(new URL('../.env.local', import.meta.url))
 if (existsSync(envFile)) process.loadEnvFile(envFile)
 
 const PORT = Number(process.env.TUTOR_PORT) || 7300
 const FAKE = process.env.TUTOR_FAKE === '1'
+const PROVIDER = process.env.TUTOR_PROVIDER === 'gemini' ? 'gemini' : 'claude'
+const GEMINI = process.env.GEMINI_MODEL || GEMINI_MODEL
 const limiter = createRateLimiter({ perTenMinutes: 20, perDay: 300 })
 
 function log(status, stopReason = '-', usage = null) {
@@ -32,10 +37,15 @@ function log(status, stopReason = '-', usage = null) {
 // The client, or null when there are no credentials. A cheap model lookup at
 // start tells; it uses no tokens.
 let client = null
+let gemini = null
 let configured = false
 async function setUp() {
   if (FAKE) {
     console.log(`Tutor server on port ${PORT}, fake replies (TUTOR_FAKE=1), no API calls.`)
+    return
+  }
+  if (PROVIDER === 'gemini') {
+    await setUpGemini()
     return
   }
   try {
@@ -48,6 +58,53 @@ async function setUp() {
     configured = error instanceof Anthropic.APIConnectionError
     if (configured) console.log(`Tutor server on port ${PORT}, model ${MODEL}. The API could not be reached at start.`)
     else console.log(`Tutor server on port ${PORT}: no API credentials. Set ANTHROPIC_API_KEY in .env.local or run ant auth login. Every request answers not_configured.`)
+  }
+}
+
+async function setUpGemini() {
+  const apiKey = process.env.GEMINI_API_KEY
+  const missing = `Tutor server on port ${PORT}: no Gemini key. Set GEMINI_API_KEY in .env.local. Every request answers not_configured.`
+  if (!apiKey) {
+    console.log(missing)
+    return
+  }
+  gemini = new GoogleGenAI({ apiKey })
+  try {
+    await gemini.models.get({ model: GEMINI })
+    configured = true
+    console.log(`Tutor server on port ${PORT}, Gemini model ${GEMINI}.`)
+  } catch (error) {
+    // A rejected key is a 400, 401 or 403; anything else may pass later.
+    configured = !(error instanceof ApiError && [400, 401, 403].includes(error.status))
+    console.log(configured ? `Tutor server on port ${PORT}, Gemini model ${GEMINI}. The API could not be reached at start.` : missing)
+  }
+}
+
+function geminiErrorReply(error) {
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) return [500, 'not_configured']
+    if (error.status === 429 || error.status === 503) return [503, 'busy']
+  }
+  return [502, 'failed']
+}
+
+// One reply from the provider: { content, stop_reason, usage } or { status, error }.
+async function ask(messages) {
+  if (PROVIDER === 'gemini') {
+    try {
+      const reply = fromGeminiResponse(await gemini.models.generateContent(buildGeminiRequest(messages, GEMINI)), nextFakeId)
+      return reply.error ? { status: 502, error: reply.error } : reply
+    } catch (error) {
+      const [status, code] = geminiErrorReply(error)
+      return { status, error: code, name: error && error.constructor ? error.constructor.name : 'error' }
+    }
+  }
+  try {
+    const response = await client.beta.messages.create(buildApiRequest(messages))
+    return { content: response.content, stop_reason: response.stop_reason, usage: response.usage }
+  } catch (error) {
+    const [status, code] = errorReply(error)
+    return { status, error: code, name: error && error.constructor ? error.constructor.name : 'error' }
   }
 }
 
@@ -65,6 +122,7 @@ function errorReply(error) {
   return [502, 'failed']
 }
 
+// Ids for fake tool uses and for Gemini calls that come without one.
 let fakeCount = 0
 const nextFakeId = () => `toolu_fake_${++fakeCount}`
 
@@ -94,7 +152,7 @@ async function handle(req, res) {
     log(400)
     return
   }
-  const checked = validateRequest(body)
+  const checked = validateRequest(body, { provider: PROVIDER })
   if (!checked.ok) {
     send(res, 400, { error: 'bad_request' })
     log(400)
@@ -116,15 +174,14 @@ async function handle(req, res) {
     log(500)
     return
   }
-  try {
-    const response = await client.beta.messages.create(buildApiRequest(checked.messages))
-    send(res, 200, { content: response.content, stop_reason: response.stop_reason })
-    log(200, response.stop_reason, response.usage)
-  } catch (error) {
-    const [status, code] = errorReply(error)
-    send(res, status, { error: code })
-    log(status, error && error.constructor ? error.constructor.name : 'error')
+  const reply = await ask(checked.messages)
+  if (reply.error) {
+    send(res, reply.status, { error: reply.error })
+    log(reply.status, reply.name || reply.error)
+    return
   }
+  send(res, 200, { content: reply.content, stop_reason: reply.stop_reason })
+  log(200, reply.stop_reason, reply.usage)
 }
 
 await setUp()

@@ -2,7 +2,7 @@
 // and a rate limiter. Pure (no network, no clock unless one is passed in), so
 // it is unit tested; server/tutor.mjs does the HTTP side.
 //
-// validateRequest(body) -> { ok: true, messages } | { ok: false, error }
+// validateRequest(body, { provider }) -> { ok: true, messages } | { ok: false, error }
 // buildApiRequest(messages) -> the client.beta.messages.create request
 // createRateLimiter({ perTenMinutes, perDay, now }) -> { allow(key) }
 import { TOOL_DEFINITIONS, TOOL_NAMES } from '../src/tutor/toolDefs.js'
@@ -36,6 +36,9 @@ Staying on topic
 // server side fallback model took over (non streaming replies leave out the
 // declined part, so the content can be echoed as it is).
 const ASSISTANT_TYPES = ['text', 'tool_use', 'thinking', 'redacted_thinking', 'fallback']
+// With TUTOR_PROVIDER=gemini a model turn also carries Gemini's raw parts
+// (server/gemini.mjs), sent back to Gemini unchanged.
+const GEMINI_TYPES = ['gemini_parts']
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const onlyKeys = (value, keys) => Object.keys(value).every((key) => keys.includes(key))
@@ -58,8 +61,10 @@ function checkUserBlock(block) {
   return 'a user block has an unknown type'
 }
 
-function checkAssistantBlock(block) {
-  if (!isObject(block) || !ASSISTANT_TYPES.includes(block.type)) return 'an assistant block has an unknown type'
+function checkAssistantBlock(block, provider) {
+  const types = provider === 'gemini' ? [...ASSISTANT_TYPES, ...GEMINI_TYPES] : ASSISTANT_TYPES
+  if (!isObject(block) || !types.includes(block.type)) return 'an assistant block has an unknown type'
+  if (block.type === 'gemini_parts' && !Array.isArray(block.parts)) return 'gemini_parts needs a parts list'
   if (block.type === 'tool_use') {
     if (typeof block.id !== 'string' || !TOOL_NAMES.includes(block.name) || !isObject(block.input)) return 'a tool use names an unknown tool'
   }
@@ -70,8 +75,9 @@ function checkAssistantBlock(block) {
 // The body is { messages } and nothing else: 1 to 80 messages starting with
 // the learner. Roles alternate. The last message is the learner's, except a
 // paused turn, which is sent back ending on the assistant to resume it. Every
-// tool use is answered in the next learner message.
-export function validateRequest(body) {
+// tool use is answered in the next learner message. provider 'gemini' also
+// takes gemini_parts blocks in assistant messages.
+export function validateRequest(body, { provider = 'claude' } = {}) {
   if (!isObject(body) || !onlyKeys(body, ['messages'])) return fail('the body must be { messages }')
   let size
   try {
@@ -99,7 +105,7 @@ export function validateRequest(body) {
     } else {
       if (JSON.stringify(message.content).length > MAX_ASSISTANT_JSON) return fail('an assistant message is too long')
       for (const block of message.content) {
-        const error = checkAssistantBlock(block)
+        const error = checkAssistantBlock(block, provider)
         if (error) return fail(error)
       }
       const ids = message.content.filter((block) => block.type === 'tool_use').map((block) => block.id)
