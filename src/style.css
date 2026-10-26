@@ -627,7 +627,7 @@ button.guide-step-row:hover {
 #run-bar {
   top: 12px;
   left: 12px;
-  max-width: calc(100% - 440px);
+  max-width: calc(100% - 420px);
 }
 
 #view-controls {
@@ -643,16 +643,11 @@ button.guide-step-row:hover {
 
 /* A narrow workbench has no room for the run bar beside the view buttons, so
    it moves below them at full width, and the tour card below it. */
-@container workbench (max-width: 760px) {
+@container workbench (max-width: 640px) {
   #run-bar {
     top: 56px;
     right: 12px;
     max-width: none;
-  }
-
-  .explain-cards {
-    top: 132px;
-    max-height: calc(100% - 144px);
   }
 
   .tour-card {
@@ -1936,7 +1931,8 @@ summary:focus-visible {
   display: none;
 }
 
-/* Explain cards: stacked at the top right of the workbench, under the view buttons. */
+/* Explain cards: stacked at the top right of the workbench, under the view
+   buttons (and under the run bar once it moves below them). */
 .explain-cards {
   position: absolute;
   z-index: 3;
@@ -2042,7 +2038,7 @@ summary:focus-visible {
 }
 
 #app[data-layout='medium'] #run-bar {
-  max-width: calc(100% - 200px);
+  max-width: calc(100% - 420px);
 }
 
 /* Compact: one column, the guide and code in a bottom sheet over the
@@ -2762,4 +2758,13 @@ summary:focus-visible {
 
 .whatif-sentence {
   margin-top: 6px;
+}
+
+/* A narrow workbench moves the run bar under the view buttons; the cards go
+   below it. After the base card rule, so it wins. */
+@container workbench (max-width: 640px) {
+  .explain-cards {
+    top: 132px;
+    max-height: calc(100% - 144px);
+  }
 }
