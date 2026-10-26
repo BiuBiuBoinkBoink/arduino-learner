@@ -1,6 +1,6 @@
 // Main thread client for the sketch worker. createCodeRunner({ onBatch, onError,
 // createWorker, startTimeoutMs }) -> { start(source), stop(), setInputs(levels),
-// sendSerial(text) }. One worker is made on first start and reused; stop
+// sendSerial(text), setTrace(on), setTimeScale(scale) }. One worker is made on first start and reused; stop
 // leaves it idle. A worker that fails to load, or does not confirm a start
 // within startTimeoutMs, reports an error with line null instead of leaving
 // Run silently doing nothing. createWorker is injectable for tests.
@@ -71,6 +71,13 @@ export function createCodeRunner({ onBatch, onError, createWorker = moduleWorker
     },
     sendSerial(text) {
       if (worker) worker.postMessage({ type: 'serial', text })
+    },
+    // Slow motion: line events on or off, and the sketch clock speed.
+    setTrace(on) {
+      if (worker) worker.postMessage({ type: 'trace', on: Boolean(on) })
+    },
+    setTimeScale(scale) {
+      if (worker) worker.postMessage({ type: 'timeScale', scale })
     }
   }
 }

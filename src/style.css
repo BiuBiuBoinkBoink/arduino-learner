@@ -2720,3 +2720,10 @@ summary:focus-visible {
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+/* Slow motion: the running line keeps the trace highlight, made stronger. */
+.is-executing .code-line.is-active {
+  background: var(--accent-soft);
+  box-shadow: inset 4px 0 0 var(--accent);
+  font-weight: 600;
+}

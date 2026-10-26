@@ -7,9 +7,10 @@
 //
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
 //   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit,
-//   hasCircuit, pins, meter })
+//   hasCircuit, pins, meter, codePanel })
 //   -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id), measureAt(name) }
-// The last measured point keeps its label up to date as the pins change.
+// The last measured point keeps its label up to date as the pins change. In
+// slow motion the running line is lit in the editor, at most once a frame.
 import { createExplainTools } from '../explain/tools.js'
 import { createExplainMenu } from '../ui/explainMenu.js'
 import { createExplainCards } from '../ui/explainCards.js'
@@ -23,7 +24,7 @@ import { holePosition } from '../parts/breadboard.js'
 import { unoPinPosition, UNO_PIN_NAMES } from '../parts/unoBoard.js'
 import { isHole } from '../circuits/holes.js'
 
-export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter }) {
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter, codePanel }) {
   const cards = createExplainCards({ container: workbench })
   // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
   const labels = createLabels({ stage, container: workbench })
@@ -72,6 +73,8 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     getLevels: () => (isRunning()
       ? { pinLevels: pins.snapshot(), inputLevels: runner.getInputLevels() }
       : { pinLevels: Object.fromEntries(tools.signalPins().map((pin) => [pin, 0])), inputLevels: {} }),
+    setSlowMotion: (speed) => (speed ? runner.setSlowMotion(true, speed) : runner.setSlowMotion(false)),
+    getSlowMotion: () => runner.getSlowMotion(),
     showMeasure({ at, text }) {
       const point = pointOf(at)
       setLabels('meter', point ? [{ id: 'meter', position: point.setY(point.y + 0.3), text, tone: 'info' }] : [])
@@ -109,6 +112,18 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
   }
   pins.subscribe(remeasure)
 
+  // The line the slow sketch runs now, shown once a frame.
+  let runningLine = null
+  let lineFrame = null
+  runner.subscribeLine((line) => {
+    runningLine = line
+    if (lineFrame !== null) return
+    lineFrame = requestAnimationFrame(() => {
+      lineFrame = null
+      codePanel.setExecutingLine(runner.getSlowMotion() !== null ? runningLine : null)
+    })
+  })
+
   const why = (id) => () => tools.reasons()[id]
   const pinOptions = () => (getReference() ? tools.wiredPins() : []).map((pin) => ({ value: pin, label: pin }))
   const signalOptions = () => tools.signalPins().map((pin) => ({ value: pin, label: pin }))
@@ -136,6 +151,14 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       reason: why('part')
     },
     { id: 'measure', label: 'Measure voltage at', kind: 'input', placeholder: '9e, D13 or led1.anode', run: (text) => measureAt(text), reason: why('measure') },
+    {
+      id: 'slow',
+      label: 'Slow motion',
+      kind: 'toggle',
+      pressed: () => runner.getSlowMotion() !== null,
+      run: (on) => tools.slow_motion(on ? 0.1 : 1),
+      reason: why('slow')
+    },
     { id: 'scope', label: 'Scope on', kind: 'choice', options: signalOptions, run: (pin) => tools.scope(pin, 5), reason: why('scope') }
   ]
   const menu = createExplainMenu({
@@ -165,10 +188,21 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
   // A new run starts the scope again; a phase change re-checks the rows.
   let phase = runner.getPhase()
   function onFrame() {
+    followSlow()
     const next = runner.getPhase()
     if (next === phase) return
     if (next === 'uploading' || (next === 'running' && phase !== 'uploading')) scopeBuffer.clear()
     phase = next
+    menu.refresh()
+  }
+
+  // Slow motion ended (toggle, Stop, an error): the editor goes back to the trace.
+  let wasSlow = false
+  function followSlow() {
+    const slow = runner.getSlowMotion() !== null
+    if (slow === wasSlow) return
+    wasSlow = slow
+    if (!slow) codePanel.setExecutingLine(null)
     menu.refresh()
   }
 

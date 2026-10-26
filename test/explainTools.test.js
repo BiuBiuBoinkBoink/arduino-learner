@@ -26,6 +26,11 @@ function setup(overrides = {}) {
     hasCircuit: () => true,
     getLevels: () => levels,
     showMeasure: (label) => calls.push(['measure', label]),
+    setSlowMotion: (speed) => {
+      calls.push(['slow', speed])
+      return true
+    },
+    getSlowMotion: () => null,
     ...overrides
   }
   return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next }, setLevels: (next) => { levels = next } }
@@ -112,6 +117,19 @@ describe('explain tools', () => {
     expect((await tools.measure('9e')).text).toBe('9e reads 0.0 V.')
     expect(await tools.measure('led1.leg')).toEqual({ ok: false, text: 'There is no hole, pin or leg called led1.leg.' })
     expect((await setup({ hasCircuit: () => false }).tools.measure('9e')).ok).toBe(false)
+  })
+
+  it('slows a running sketch to 0.1 or 0.25 and turns it off with 1', async () => {
+    const { tools, calls } = setup()
+    expect(await tools.slow_motion(0.1)).toEqual({ ok: true, text: 'The sketch now runs at a tenth of its speed, with the running line lit up. Goals are paused.' })
+    expect(calls.at(-1)).toEqual(['slow', 0.1])
+    expect((await tools.slow_motion(0.25)).text).toBe('The sketch now runs at a quarter of its speed, with the running line lit up. Goals are paused.')
+    expect(await tools.slow_motion(1)).toEqual({ ok: true, text: 'Slow motion is off. Goals stay paused until you press Run again.' })
+    expect(calls.at(-1)).toEqual(['slow', null])
+    expect((await tools.slow_motion(0.5)).ok).toBe(false)
+    const stopped = setup({ isRunning: () => false })
+    expect(await stopped.tools.slow_motion(0.1)).toEqual({ ok: false, text: RUN_FIRST })
+    expect(stopped.tools.reasons().slow).toBe(RUN_FIRST)
   })
 
   it('lists the wired pins without GND', () => {

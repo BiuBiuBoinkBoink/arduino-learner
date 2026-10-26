@@ -8,12 +8,13 @@
 // only through the injected deps, so the tools themselves stay testable.
 //
 // createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds),
-//   connections(compare), part_card(part), measure(target), reasons(), wiredPins(),
-//   signalPins() }
+//   connections(compare), part_card(part), measure(target), slow_motion(speed),
+//   reasons(), wiredPins(), signalPins() }
 // deps: { setXray(on), getBuild(), getReference(), getPressed(), showTrace(path),
 //   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows),
 //   getKit() -> [{ id, type, label }], openPartCard(type), hasCircuit(),
-//   getLevels() -> { pinLevels, inputLevels }, showMeasure({ at, text }) }
+//   getLevels() -> { pinLevels, inputLevels }, showMeasure({ at, text }),
+//   setSlowMotion(speed | null) -> boolean, getSlowMotion() -> speed | null }
 import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
 import { PART_TYPES, TERMINAL_LABELS, terminalHoles } from '../circuits/footprints.js'
 import { isHole } from '../circuits/holes.js'
@@ -27,6 +28,8 @@ export const XRAY_OFF = 'X-ray is off.'
 export const NO_CIRCUIT = 'This lesson has no circuit to explain.'
 export const WIRE_FIRST = 'Wire a pin first.'
 export const RUN_FIRST = 'Run the sketch first.'
+export const SLOW_SPEEDS = { 0.1: 'a tenth', 0.25: 'a quarter' }
+export const SLOW_OFF = 'Slow motion is off. Goals stay paused until you press Run again.'
 
 // Pins the build wires to something, GND left out: the places current can start.
 export function wiredPins(build) {
@@ -124,6 +127,19 @@ export function createExplainTools(deps) {
     return { ok: true, text: `${sentence} reads ${volts.toFixed(1)} V.` }
   }
 
+  // speed 0.1 or 0.25 slows the running sketch; 1 turns slow motion off.
+  async function slow_motion(speed = 0.1) {
+    const value = Number(speed)
+    if (value === 1) {
+      deps.setSlowMotion(null)
+      return { ok: true, text: SLOW_OFF }
+    }
+    if (!Object.hasOwn(SLOW_SPEEDS, String(value))) return { ok: false, text: 'Slow motion runs at 0.1 or 0.25 of the speed.' }
+    if (!deps.isRunning()) return { ok: false, text: RUN_FIRST }
+    if (!deps.setSlowMotion(value)) return { ok: false, text: RUN_FIRST }
+    return { ok: true, text: `The sketch now runs at ${SLOW_SPEEDS[value]} of its speed, with the running line lit up. Goals are paused.` }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
     const reference = hasReference()
@@ -134,9 +150,10 @@ export function createExplainTools(deps) {
       connections: reference ? null : NO_CIRCUIT,
       part: deps.getKit().length > 0 ? null : 'This lesson has no parts.',
       measure: deps.hasCircuit() ? null : 'This lesson has no circuit to measure.',
+      slow: deps.isRunning() || deps.getSlowMotion() !== null ? null : RUN_FIRST,
       scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, scope, connections, part_card, measure, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
+  return { xray, trace, scope, connections, part_card, measure, slow_motion, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }

@@ -187,6 +187,29 @@ export function createCodePanel(panel, course, { setOpen }) {
     lines.forEach((line, i) => line.classList.toggle('is-active', i === index))
   }
 
+  // Slow motion: the line the sketch is running gets the same is-active
+  // highlight as the trace, made stronger by is-executing on the editor; the
+  // trace loop waits meanwhile. null hands the highlight back to the trace.
+  let executing = false
+  function setExecutingLine(n) {
+    const on = Number.isInteger(n) && n >= 1
+    if (on) {
+      if (!executing) {
+        executing = true
+        clearTimeout(timer)
+        timer = null
+        code.classList.add('is-executing')
+      }
+      if (activeLine !== n - 1) setActive(n - 1)
+      return
+    }
+    if (!executing) return
+    executing = false
+    code.classList.remove('is-executing')
+    if (edited) stopTrace()
+    else startTrace()
+  }
+
   function stopTrace() {
     clearTimeout(timer)
     timer = null
@@ -194,6 +217,7 @@ export function createCodePanel(panel, course, { setOpen }) {
   }
 
   function playTrace(step) {
+    if (executing) return
     setActive(trace[step].line - 1)
     timer = setTimeout(() => playTrace((step + 1) % trace.length), stepDuration(trace[step], values))
   }
@@ -281,6 +305,8 @@ export function createCodePanel(panel, course, { setOpen }) {
   function render({ lesson }) {
     if (lesson.id === lessonId) return
     lessonId = lesson.id
+    executing = false
+    code.classList.remove('is-executing')
     stopTrace()
     errorAt = -1
     hintLines = []
@@ -407,7 +433,8 @@ export function createCodePanel(panel, course, { setOpen }) {
     isEdited: () => edited,
     setError,
     markLines,
-    clearMarks
+    clearMarks,
+    setExecutingLine
   }
 }
 

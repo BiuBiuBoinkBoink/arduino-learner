@@ -5,7 +5,8 @@
 // and shows the sim readout line under the status while it runs.
 // getLock() returns null or why Run is locked (shown as the status, Run
 // disabled); refreshLock() re-checks it. onFrame() runs after every loop frame,
-// on Stop and on an error, so the lesson steps can follow the run.
+// on Stop and on an error, so the lesson steps can follow the run. getNote()
+// returns null or a line shown as the status while running (slow motion).
 const STATUS_IDLE = 'Press Run to upload the sketch.'
 const STATUS_UPLOADING = 'Uploading sketch...'
 const STATUS_RUNNING = 'Running.'
@@ -13,7 +14,7 @@ const STATUS_STOPPED = 'Stopped.'
 // The sim goal is one check among the lesson steps, so it does not end the lesson.
 const STATUS_GOAL = 'Goal met.'
 
-export function createRunControls({ container, course, runner, getValues, getSource, onError, getLock = () => null, onFrame = () => {} }) {
+export function createRunControls({ container, course, runner, getValues, getSource, onError, getLock = () => null, onFrame = () => {}, getNote = () => null }) {
   const row = document.createElement('div')
   row.className = 'run-controls'
   const runButton = document.createElement('button')
@@ -48,6 +49,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
   let shownPhase = 'idle'
   let shownGoal = false
   let shownReadout = ''
+  let shownNote = null
   // The status shows the run lock text while it is true.
   let lockShown = false
 
@@ -57,6 +59,7 @@ export function createRunControls({ container, course, runner, getValues, getSou
     status.textContent = text
     shownPhase = 'idle'
     shownGoal = false
+    shownNote = null
     lockShown = false
     showReadout('')
     refreshLock()
@@ -106,6 +109,11 @@ export function createRunControls({ container, course, runner, getValues, getSou
     if (runner.isGoalMet() && !shownGoal) {
       shownGoal = true
       status.textContent = STATUS_GOAL
+    }
+    const note = phase === 'running' ? getNote() : null
+    if (note !== shownNote) {
+      shownNote = note
+      status.textContent = note || (shownGoal ? STATUS_GOAL : STATUS_RUNNING)
     }
     showReadout(runner.getReadout())
     if (phase === 'uploading' || phase === 'running') frame = requestAnimationFrame(loop)

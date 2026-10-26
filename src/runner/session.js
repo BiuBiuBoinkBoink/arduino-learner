@@ -1,7 +1,12 @@
 // A running sketch with its hardware state: the glue between the interpreter
 // and the outside world, kept free of Worker APIs so it can be unit tested.
-// createSession(source, { random }) parses (throwing a CodeError) and returns
-// { advance(untilMs) -> batch, setInputs(levels), sendSerial(text) }.
+// createSession(source, { random, trace, timeScale }) parses (throwing a
+// CodeError) and returns { advance(untilMs) -> batch, setInputs(levels),
+// sendSerial(text), setTrace(on), setTimeScale(scale) }.
+// untilMs is real time since the start; the sketch clock moves at timeScale
+// times real time (1 unless slow motion changes it). With trace on, each
+// statement start adds [ms, 'line', null, line] to the events; normal runs
+// have no line events.
 // Input levels are 0 to 1 per pin name, set by the circuit; null means the
 // circuit does not drive the pin, so it reads its INPUT_PULLUP state (HIGH)
 // or LOW. A batch holds what happened since the last advance:
@@ -12,7 +17,7 @@
 // serial text, millis and error.
 import { createProgram } from './interpreter.js'
 
-export function createSession(source, { random = Math.random } = {}) {
+export function createSession(source, { random = Math.random, trace = false, timeScale = 1 } = {}) {
   const modes = {}
   const last = {}
   const toneEnds = {}
@@ -20,6 +25,13 @@ export function createSession(source, { random = Math.random } = {}) {
   let input = ''
   let batch = null
   let program = null
+  let tracing = Boolean(trace)
+  let scale = timeScale
+  // Real time and sketch time at the last scale change.
+  let realBase = 0
+  let sketchBase = 0
+  let lastReal = 0
+  const sketchTime = (real) => sketchBase + (real - realBase) * scale
 
   function fresh() {
     batch = { pins: {}, tones: {}, servos: {}, events: [], serial: '' }
@@ -93,13 +105,17 @@ export function createSession(source, { random = Math.random } = {}) {
       input = input.slice(1)
       return code
     },
-    random
+    random,
+    onLine(line) {
+      if (tracing) batch.events.push([program.millis(), 'line', null, line])
+    }
   }
 
   program = createProgram(source, hw)
 
   function advance(untilMs) {
-    const error = program.advance(untilMs)
+    lastReal = untilMs
+    const error = program.advance(sketchTime(untilMs))
     // Tones whose time ran out in this slice end at their own time.
     flushToneEnds(program.millis())
     const out = { ...batch, millis: program.millis(), error: error ? { message: error.message, line: error.line } : null }
@@ -119,6 +135,14 @@ export function createSession(source, { random = Math.random } = {}) {
     },
     sendSerial(text) {
       input += text + '\n'
+    },
+    setTrace(on) {
+      tracing = Boolean(on)
+    },
+    setTimeScale(next) {
+      sketchBase = sketchTime(lastReal)
+      realBase = lastReal
+      scale = next
     }
   }
 }

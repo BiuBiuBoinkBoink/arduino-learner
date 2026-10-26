@@ -10,6 +10,7 @@
 // digitalRead(pin) -> 0 | 1, analogRead(pin) -> 0 to 1023, tone(pin, hz, ms),
 // noTone(pin), servoWrite(pin, deg), serialWrite(text), serialAvailable(),
 // serialRead() -> char code or -1, random() -> [0, 1). Pins are names: 'D13', 'A0'.
+// Optional onLine(line) is called each time a statement starts (slow motion).
 import { parse } from './parser.js'
 import { CodeError } from './lexer.js'
 
@@ -172,6 +173,7 @@ export function createProgram(source, hw) {
   // exec returns undefined, 'break', 'continue' or { ret: value }.
 
   function* exec(node, scope) {
+    if (hw.onLine && node.type !== 'Block') hw.onLine(node.line)
     yield* tick(node)
     switch (node.type) {
       case 'Block': {

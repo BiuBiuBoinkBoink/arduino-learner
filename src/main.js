@@ -498,6 +498,9 @@ subscribeValues((values) => {
   view.relight()
 })
 
+// The run status while a slow motion run is a demo.
+const SLOW_NOTE = 'Slow motion. Goals are paused until you press Run again.'
+
 // One runner over the shared pin levels and inputs. A sim goal marks a lesson
 // with a generated step done; a lesson with its own steps is done when the
 // flow has seen every step pass.
@@ -558,7 +561,8 @@ const run = createRunControls({
   onFrame: () => {
     updateFlow()
     explain.onFrame()
-  }
+  },
+  getNote: () => (runner.isDemo() ? SLOW_NOTE : null)
 })
 flow.subscribe(() => run.refreshLock())
 course.subscribe(updateFlow)
@@ -608,7 +612,8 @@ const explain = createExplain({
   getKit: () => workbench.tray().parts.map((part) => ({ id: part.id, type: part.type, label: kitLabels[part.id] || part.id })),
   hasCircuit: () => hasCircuit,
   pins,
-  meter: multimeter
+  meter: multimeter,
+  codePanel
 })
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {

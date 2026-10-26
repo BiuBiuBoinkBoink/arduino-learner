@@ -18,6 +18,11 @@
 // as of the last tick or the latest event, whichever is later.
 // getInputLevels() is what the board last sent to the sketch's input pins
 // ({} unless running).
+// setSlowMotion(on, speed = 0.1), while running: the code runner's clock runs
+// at speed with line events on (subscribeLine(fn) hears each running line),
+// and the run becomes a demo: onGoal is not called and getProgress() is {} for
+// the rest of the run. Off: speed 1, no line events; the run stays a demo
+// until the next Run. Stop and Run turn it off.
 import { createProgram } from '../runner/interpreter.js'
 import { analyzeCode } from '../runner/codeChecks.js'
 
@@ -56,6 +61,10 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   let timeScale = 1
   let lastEventAt = -Infinity
   const outputListeners = new Set()
+  const lineListeners = new Set()
+  // Slow motion speed, or null; a demo run never meets its goal.
+  let slow = null
+  let demo = false
 
   function setAnchor(now) {
     anchorClock = clockAt(now)
@@ -79,6 +88,8 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
       phase = 'error'
       return false
     }
+    endSlowMotion()
+    demo = false
     lessonId = options.lessonId
     getValues = options.getValues
     source = options.source
@@ -138,7 +149,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   }
 
   function checkGoal() {
-    if (!goalMet && typeof sim.checkGoal === 'function' && sim.checkGoal()) {
+    if (!goalMet && !demo && typeof sim.checkGoal === 'function' && sim.checkGoal()) {
       goalMet = true
       onGoal(lessonId)
     }
@@ -150,6 +161,10 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   function receive(batch) {
     if (phase !== 'running') return
     for (const [ms, kind, pin, value] of batch.events || eventsFromLastValues(batch)) {
+      if (kind === 'line') {
+        lineListeners.forEach((fn) => fn(value))
+        continue
+      }
       if (kind === 'input') {
         // Seen by the board only; the stores hold the sketch's outputs.
       } else if (kind === 'pin') pins.set(pin, value)
@@ -178,6 +193,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   function fail(codeError) {
     if (phase !== 'running' && phase !== 'uploading') return
     error = { message: codeError.message, line: codeError.line || null }
+    endSlowMotion()
     halt()
     phase = 'error'
   }
@@ -190,7 +206,35 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     sim = null
   }
 
+  // Slow motion back to normal speed, without ending the demo.
+  function endSlowMotion() {
+    if (slow === null) return
+    setAnchor(lastTick)
+    timeScale = 1
+    slow = null
+    if (typeof codeRunner.setTimeScale === 'function') codeRunner.setTimeScale(1)
+    if (typeof codeRunner.setTrace === 'function') codeRunner.setTrace(false)
+  }
+
+  // True when the speed changed.
+  function setSlowMotion(on, speed = 0.1) {
+    if (!on) {
+      const was = slow !== null
+      endSlowMotion()
+      return was
+    }
+    if (phase !== 'running') return false
+    demo = true
+    setAnchor(lastTick)
+    timeScale = speed
+    slow = speed
+    if (typeof codeRunner.setTimeScale === 'function') codeRunner.setTimeScale(speed)
+    if (typeof codeRunner.setTrace === 'function') codeRunner.setTrace(true)
+    return true
+  }
+
   function stop() {
+    endSlowMotion()
     if (phase === 'running') halt()
     else if (phase === 'uploading') sim = null
     phase = 'idle'
@@ -200,7 +244,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   // Named sub goals for lesson steps: {} unless running; ran once the board has
   // run for RAN_MS, goal the lesson goal, plus the board's own progress().
   function getProgress() {
-    if (phase !== 'running') return {}
+    if (phase !== 'running' || demo) return {}
     const own = typeof sim.progress === 'function' ? sim.progress() : {}
     return { ran: lastTick - startedAt >= RAN_MS, goal: goalMet, ...own }
   }
@@ -219,6 +263,13 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     getProgress,
     getClock: () => Math.max(clockAt(lastTick), lastEventAt),
     getInputLevels: () => (phase === 'running' ? { ...sentLevels } : {}),
+    setSlowMotion,
+    getSlowMotion: () => slow,
+    isDemo: () => demo,
+    subscribeLine(fn) {
+      lineListeners.add(fn)
+      return () => lineListeners.delete(fn)
+    },
     subscribeOutput(fn) {
       outputListeners.add(fn)
       return () => outputListeners.delete(fn)
