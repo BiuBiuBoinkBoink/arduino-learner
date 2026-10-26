@@ -31,6 +31,8 @@ function setup(overrides = {}) {
       return true
     },
     getSlowMotion: () => null,
+    runWhatIfCode: () => ({ pin: 'D13', before: { changed: true, summary: { pwm: false, transitions: 4, periodMs: 1000, level: 0 }, text: 'a', samples: [] }, after: { changed: true, summary: { pwm: false, transitions: 6, periodMs: 700, level: 0 }, text: 'b', samples: [] }, error: null }),
+    showWhatIf: (view) => calls.push(['whatif', view]),
     ...overrides
   }
   return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next }, setLevels: (next) => { levels = next } }
@@ -130,6 +132,21 @@ describe('explain tools', () => {
     const stopped = setup({ isRunning: () => false })
     expect(await stopped.tools.slow_motion(0.1)).toEqual({ ok: false, text: RUN_FIRST })
     expect(stopped.tools.reasons().slow).toBe(RUN_FIRST)
+  })
+
+  it('compares a pretend change with the phase texts and never touches the build', async () => {
+    const { tools, calls } = setup()
+    expect(await tools.what_if('flip', 'led1')).toEqual({ ok: true, text: 'Now: the LED lights. With the change: the LED stays dark, because the current cannot get through it backwards.' })
+    expect(calls.at(-1)[1]).toMatchObject({ kind: 'flip', title: 'Flip the LED', changed: { id: 'led1', legs: ['10e', '9e'] } })
+    expect((await tools.what_if('ohms', 'r1', '10000')).text).toBe('Now: the LED lights. With the change: the LED lights very dimly.')
+    expect(calls.at(-1)[1].title).toBe('Use 10 kohm')
+    expect((await tools.what_if('remove', 'r1')).text).toBe('Now: the LED lights. With the change: the LED stays dark, because the current has no way through it to GND.')
+    expect(await tools.what_if('code', '10', '  delay(200);')).toEqual({ ok: true, text: 'Now: one cycle every 1000 ms. With line 10 changed: one cycle every 700 ms.' })
+    expect((await tools.what_if('flip', 'r1')).ok).toBe(false)
+    expect(circuits['1.2'].parts[1].anode).toBe('9e')
+    expect(tools.whatIfChoices().map((choice) => choice.label)).toEqual(['Flip the LED', 'Use 1 kohm', 'Use 10 kohm', 'Take out the resistor', 'Take out the LED'])
+    expect(tools.reasons().whatif).toBe(null)
+    expect(setup({ getReference: () => null }).tools.reasons().whatif).toBe(NO_CIRCUIT)
   })
 
   it('lists the wired pins without GND', () => {

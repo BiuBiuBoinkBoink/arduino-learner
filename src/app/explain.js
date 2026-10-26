@@ -7,7 +7,7 @@
 //
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
 //   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit,
-//   hasCircuit, pins, meter, codePanel })
+//   hasCircuit, pins, meter, codePanel, getLessonId })
 //   -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id), measureAt(name) }
 // The last measured point keeps its label up to date as the pins change. In
 // slow motion the running line is lit in the editor, at most once a frame.
@@ -23,8 +23,15 @@ import { createScopeBuffer } from '../explain/scopeBuffer.js'
 import { holePosition } from '../parts/breadboard.js'
 import { unoPinPosition, UNO_PIN_NAMES } from '../parts/unoBoard.js'
 import { isHole } from '../circuits/holes.js'
+import { openWhatIfCard } from '../ui/whatIfCard.js'
+import { buildGhost, disposeGroup } from '../ui/placement.js'
+import { whatIfCode } from '../explain/whatIf.js'
+import * as THREE from 'three'
 
-export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter, codePanel }) {
+const GHOST_TINT = new THREE.Color(0x2f6fd6)
+const REMOVED_OPACITY = 0.2
+
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter, codePanel, getLessonId }) {
   const cards = createExplainCards({ container: workbench })
   // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
   const labels = createLabels({ stage, container: workbench })
@@ -75,12 +82,51 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       : { pinLevels: Object.fromEntries(tools.signalPins().map((pin) => [pin, 0])), inputLevels: {} }),
     setSlowMotion: (speed) => (speed ? runner.setSlowMotion(true, speed) : runner.setSlowMotion(false)),
     getSlowMotion: () => runner.getSlowMotion(),
+    runWhatIfCode: ({ line, text }) => whatIfCode({ lessonId: getLessonId(), source: codePanel.getSource(), values: codePanel.getValues(), line, text }),
+    showWhatIf,
     showMeasure({ at, text }) {
       const point = pointOf(at)
       setLabels('meter', point ? [{ id: 'meter', position: point.setY(point.y + 0.3), text, tone: 'info' }] : [])
       meter.setReading(text)
     }
   })
+
+  // The What if card, and while it is open the changed part as an accent
+  // ghost: the turned LED, the new bands, or the part faded to 20% with the
+  // real one hidden. The build itself never changes.
+  function showWhatIf(view) {
+    let ghost = null
+    let hidden = null
+    const table = view.kind === 'remove' ? getBuild().parts.find((part) => part.id === view.change.target) : view.changed
+    if (table) {
+      ghost = buildGhost({ table: { parts: [table], wires: [] }, board, breadboard, values: codePanel.getValues(), tint: GHOST_TINT })
+      if (ghost) {
+        ghost.name = 'whatif-ghost'
+        if (view.kind === 'remove') {
+          ghost.traverse((object) => {
+            if (object.isMesh) object.material.opacity = REMOVED_OPACITY
+          })
+          const item = (getItems() || {})[table.id]
+          if (item && item.group.visible) {
+            hidden = item.group
+            hidden.visible = false
+          }
+        }
+        stage.scene.add(ghost)
+      }
+    }
+    stage.invalidate()
+    openWhatIfCard({
+      cards,
+      title: view.title,
+      columns: view.columns,
+      onClose: () => {
+        if (ghost) disposeGroup(stage.scene, ghost)
+        if (hidden) hidden.visible = true
+        stage.invalidate()
+      }
+    })
+  }
 
   function pointOf(name) {
     if (isHole(name)) {
@@ -159,6 +205,17 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       run: (on) => tools.slow_motion(on ? 0.1 : 1),
       reason: why('slow')
     },
+    {
+      id: 'whatif',
+      label: 'What if',
+      kind: 'choice',
+      options: () => (getReference() ? tools.whatIfChoices() : []),
+      run: (choice) => {
+        const [kind, target, value] = String(choice).split(':')
+        return tools.what_if(kind, target, value)
+      },
+      reason: why('whatif')
+    },
     { id: 'scope', label: 'Scope on', kind: 'choice', options: signalOptions, run: (pin) => tools.scope(pin, 5), reason: why('scope') }
   ]
   const menu = createExplainMenu({
@@ -170,6 +227,8 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
 
   // The menu rows follow the build, and an open connections card shows it again.
   function refresh() {
+    // A changed build makes the comparison stale.
+    cards.close('whatif')
     if (cards.has('connections')) tools.connections(true)
     remeasure()
     menu.refresh()

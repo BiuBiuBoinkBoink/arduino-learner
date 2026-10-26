@@ -613,7 +613,8 @@ const explain = createExplain({
   hasCircuit: () => hasCircuit,
   pins,
   meter: multimeter,
-  codePanel
+  codePanel,
+  getLessonId: () => course.getState().lesson.id
 })
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {

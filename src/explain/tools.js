@@ -9,16 +9,20 @@
 //
 // createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds),
 //   connections(compare), part_card(part), measure(target), slow_motion(speed),
-//   reasons(), wiredPins(), signalPins() }
+//   what_if(kind, target, value), reasons(), wiredPins(), signalPins(),
+//   whatIfChoices() }
 // deps: { setXray(on), getBuild(), getReference(), getPressed(), showTrace(path),
 //   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows),
 //   getKit() -> [{ id, type, label }], openPartCard(type), hasCircuit(),
 //   getLevels() -> { pinLevels, inputLevels }, showMeasure({ at, text }),
-//   setSlowMotion(speed | null) -> boolean, getSlowMotion() -> speed | null }
-import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
-import { PART_TYPES, TERMINAL_LABELS, terminalHoles } from '../circuits/footprints.js'
+//   setSlowMotion(speed | null) -> boolean, getSlowMotion() -> speed | null,
+//   runWhatIfCode({ line, text }) -> whatIfCode result, showWhatIf(view) }
+// showWhatIf gets { kind, title, columns, change, changed } for the card and ghost.
+import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel, formatOhms } from '../circuits/netlist.js'
+import { PART_TYPES, TERMINAL_LABELS, terminalHoles, legsOf } from '../circuits/footprints.js'
 import { isHole } from '../circuits/holes.js'
 import { netVoltages, pinVoltage } from './voltages.js'
+import { whatIfCircuit, cyclePhrase, WHAT_IF_MS } from './whatIf.js'
 import { tracePath } from './currentPath.js'
 import { describeNets } from './connections.js'
 import { PART_INFO } from '../course/partInfo.js'
@@ -41,6 +45,37 @@ export function wiredPins(build) {
 export function signalPins(build) {
   return wiredPins(build).filter((pin) => /^(D\d{1,2}|A[0-5])$/.test(pin))
 }
+
+// The what if circuit changes the menu offers for a build.
+export function whatIfChoices(build) {
+  const parts = (build.parts || []).filter((part) => legsOf(part).length > 0)
+  const all = build.parts || []
+  const resistors = parts.filter((part) => part.type === 'resistor')
+  const choices = []
+  for (const part of parts) {
+    if (part.type === 'led' || part.type === 'rgbLed') choices.push({ value: `flip:${part.id}`, label: `Flip the ${partLabel(part, all)}` })
+  }
+  for (const part of resistors) {
+    const suffix = resistors.length > 1 ? ` for the ${partLabel(part, all)}` : ''
+    for (const ohms of [1000, 10000]) choices.push({ value: `ohms:${part.id}:${ohms}`, label: `Use ${formatOhms(ohms)}${suffix}` })
+  }
+  for (const part of parts) choices.push({ value: `remove:${part.id}`, label: `Take out the ${partLabel(part, all)}` })
+  return choices
+}
+
+// 'the LED lights', 'the LED stays dark, because ...'
+export function ledSentence(state, label) {
+  if (state.removed) return `the ${label} is out of the circuit`
+  if (state.lit) {
+    if (state.brightness >= 0.75) return `the ${label} lights`
+    if (state.brightness >= 0.2) return `the ${label} lights dimly`
+    return `the ${label} lights very dimly`
+  }
+  if (state.blocked) return `the ${label} stays dark, because the current cannot get through it backwards`
+  return `the ${label} stays dark, because the current has no way through it to GND`
+}
+
+const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 
 // 'the resistor, then the LED'
 function partList(ids, parts) {
@@ -140,6 +175,59 @@ export function createExplainTools(deps) {
     return { ok: true, text: `The sketch now runs at ${SLOW_SPEEDS[value]} of its speed, with the running line lit up. Goals are paused.` }
   }
 
+  // kind 'code' (target the line number as text, value the new line), 'flip',
+  // 'remove' or 'ohms' (value the ohms as text). A pretend copy only.
+  async function what_if(kind, target, value) {
+    if (!hasReference()) return { ok: false, text: NO_CIRCUIT }
+    if (kind === 'code') {
+      const line = Number.parseInt(target, 10)
+      const result = deps.runWhatIfCode({ line, text: value === undefined ? '' : String(value) })
+      if (result.error && !result.before) return { ok: false, text: result.error.message }
+      if (result.error) return { ok: false, text: `With line ${line} changed the sketch does not run. ${result.error.message}` }
+      const text = `Now: ${cyclePhrase(result.pin, result.before)}. With line ${line} changed: ${cyclePhrase(result.pin, result.after)}.`
+      deps.showWhatIf({
+        kind,
+        title: `line ${line} changed`,
+        columns: [
+          { heading: 'Now', sentence: result.before.text, samples: result.before.samples, ms: WHAT_IF_MS },
+          { heading: 'With the change', sentence: result.after.text, samples: result.after.samples, ms: WHAT_IF_MS }
+        ],
+        change: { kind, target: line },
+        changed: null
+      })
+      return { ok: true, text }
+    }
+    const build = deps.getBuild()
+    const parts = build.parts || []
+    const result = whatIfCircuit(build, { kind, target, value })
+    if (result.error) return { ok: false, text: result.error }
+    const ids = Object.keys(result.before)
+    if (ids.length === 0) return { ok: false, text: 'Place an LED first.' }
+    const differs = (id) => JSON.stringify(result.before[id]) !== JSON.stringify(result.after[id])
+    const id = ids.includes(target) ? target : ids.find(differs) || ids[0]
+    const led = parts.find((part) => part.id === id)
+    const label = partLabel(led, parts)
+    const part = parts.find((item) => item.id === target)
+    const resistors = parts.filter((item) => item.type === 'resistor' && legsOf(item).length > 0)
+    const title = kind === 'flip' ? `Flip the ${partLabel(part, parts)}`
+      : kind === 'ohms' ? `Use ${formatOhms(Number(value))}${resistors.length > 1 ? ` for the ${partLabel(part, parts)}` : ''}`
+        : `Take out the ${partLabel(part, parts)}`
+    const now = ledSentence(result.before[id], label)
+    const then = ledSentence(result.after[id], label)
+    const color = led.type === 'led' ? led.color : 'white'
+    deps.showWhatIf({
+      kind,
+      title,
+      columns: [
+        { heading: 'Now', sentence: capital(now) + '.', led: { color, ...result.before[id] } },
+        { heading: 'With the change', sentence: capital(then) + '.', led: { color, ...result.after[id] } }
+      ],
+      change: { kind, target, value },
+      changed: result.changed
+    })
+    return { ok: true, text: `Now: ${now}. With the change: ${then}.` }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
     const reference = hasReference()
@@ -151,9 +239,10 @@ export function createExplainTools(deps) {
       part: deps.getKit().length > 0 ? null : 'This lesson has no parts.',
       measure: deps.hasCircuit() ? null : 'This lesson has no circuit to measure.',
       slow: deps.isRunning() || deps.getSlowMotion() !== null ? null : RUN_FIRST,
+      whatif: !reference ? NO_CIRCUIT : whatIfChoices(deps.getBuild()).some((choice) => choice.value.startsWith('flip:')) ? null : 'Place an LED first.',
       scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, scope, connections, part_card, measure, slow_motion, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
+  return { xray, trace, scope, connections, part_card, measure, slow_motion, what_if, reasons, whatIfChoices: () => whatIfChoices(deps.getBuild()), wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }
