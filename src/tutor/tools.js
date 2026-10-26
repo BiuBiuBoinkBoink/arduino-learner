@@ -36,9 +36,9 @@ export const TOO_MANY = 'Too many tools in one reply.'
 export const WAIT_FOR_ANSWER = 'Shown. Wait for the learner to answer.'
 const REFERENCE_TABS = { overview: 'Overview', pinout: 'Pinout', example: 'Example', specs: 'Specs' }
 
-// Printable ASCII only, trimmed and cut to max characters.
+// Printable ASCII only, single spaces, trimmed and cut to max characters.
 export function plainText(value, max) {
-  return String(value).replace(/[^\x20-\x7e]/g, '').trim().slice(0, max)
+  return String(value).replace(/[^\x20-\x7e]/g, '').replace(/ +/g, ' ').trim().slice(0, max)
 }
 
 const typeOk = {

@@ -71,7 +71,7 @@ describe('checkInput', () => {
 
 describe('plainText', () => {
   it('keeps printable ASCII and cuts to length', () => {
-    expect(plainText('  Long leg → here \u{1F600}  ', 40)).toBe('Long leg  here')
+    expect(plainText('  Long leg → here \u{1F600}  ', 40)).toBe('Long leg here')
     expect(plainText('x'.repeat(50), 40)).toHaveLength(40)
   })
 })
