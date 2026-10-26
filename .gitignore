@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Secrets for the tutor server (see .env.example)
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
