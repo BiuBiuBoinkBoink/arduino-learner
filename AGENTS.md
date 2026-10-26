@@ -87,7 +87,9 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/explain/scopeBuffer.js`, `src/explain/connections.js`, `src/explain/voltages.js`,
 `src/explain/whatIf.js`, `src/sim/headless.js`, `src/course/partInfo.js`, `src/ui/explainMenu.js`,
 `src/ui/explainCards.js`, `src/ui/currentTrace.js`, `src/ui/scope.js`, `src/ui/connectionsCard.js`,
-`src/ui/partCard.js`, `src/ui/whatIfCard.js`. The other
+`src/ui/partCard.js`, `src/ui/whatIfCard.js`, `src/app/tutor.js`, `src/tutor/toolDefs.js`,
+`src/tutor/context.js`, `src/tutor/tools.js`, `src/tutor/chat.js`, `src/ui/askPanel.js`,
+`server/tutorCore.mjs`, `server/tutor.mjs`, `vite.config.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -106,7 +108,9 @@ src/
                    on Start this lesson again resets the lesson build and its tour; makes the bottom sheet before the scene and moves the guide
                    and code panel into it in the compact layout (see "Layouts and touch"), starts narrower
                    layouts in the framed 3D view and frames the top or 3D view again on a stage resize;
-                   makes the explain tools (src/app/explain.js) last and resets them on a lesson change
+                   makes the explain tools (src/app/explain.js) last and resets them on a lesson change;
+                   with VITE_TUTOR=on makes the Ask pane before the sheet (an Ask tab in it) and the
+                   help chat (src/app/tutor.js) after the explain tools, reset on a lesson change
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
@@ -128,7 +132,14 @@ src/
     explain.js     createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement,
                    getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter, codePanel,
                    getLessonId }) -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id),
-                   measureAt(name) }: wires the explain tools to the scene, cards and menu (see "Explain tools")
+                   measureAt(name), setLabels(owner, list), pointOf(name) }: wires the explain tools to the
+                   scene, cards and menu (see "Explain tools"); setLabels sets one owner's pinned labels on
+                   the explain label layer ('trace', 'meter', 'chat'), pointOf a hole or pin's world point
+    tutor.js       createTutor({ askHost, stage, board, breadboard, placement, viewControls, explain, codePanel,
+                   layout, sheet, guide, flow, course, lessons, runner, inputs, room, partPress, partTurn,
+                   getBuild, getReference, getCodeError, restoreMarks, selectReferenceTab }) -> { reset(),
+                   refresh(), chat, tools }: the help chat's tools wired to the scene and panels, the chat
+                   and the Ask panel (see "Help chat")
   course/          lessons data, state, goTo(id), progress; 1.1 to 1.12 then the Level 1 project P1
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
     goalText.js    pure splitGoal(paragraphs) -> { intro, goal }: goal is the text after 'Goal: ' in the first
@@ -298,7 +309,8 @@ src/
                    uploadMs }): hasSim, run({ lessonId, getValues, source, now }), reload(source, now), tick(now),
                    receive(batch), fail(error), stop, getPhase (idle, uploading, running, error), getError,
                    isGoalMet, getReadout, getProgress, getClock, getInputLevels, subscribeOutput(fn),
-                   subscribeLine(fn), setSlowMotion(on, speed), getSlowMotion, isDemo; checkCode(source)
+                   subscribeLine(fn), setSlowMotion(on, speed), getSlowMotion, isDemo, beginDemo() (the
+                   same demo flag at full speed, for the help chat's demo_input); checkCode(source)
                    compiles without running; UPLOAD_MS (1500); RAN_MS (1000)
     headless.js    pure createHeadless({ lessonId, values, source, edit }) (the lessonGoals drive pattern) and
                    runHeadless({ lessonId, source, values, ms, actions }) -> { events, progress, goalMet, error }
@@ -362,9 +374,11 @@ src/
                    dialog popover under the top bar with 'N of 13 lessons done', a progress bar and one button
                    per lesson by level (Done, Up next); opening focuses the current lesson, arrow keys move,
                    Escape closes and refocuses the button, a click outside closes; lessons are never locked
-    guidePanel.js  createGuidePanel(container, { course, flow, tracker, onRestart, onHelp, canSuggest }) ->
-                   { referenceBody,
-                   setShowMe(texts) }: lesson header, an
+    guidePanel.js  createGuidePanel(container, { course, flow, tracker, onRestart, onHelp, canSuggest, askHost })
+                   -> { referenceBody, setShowMe(texts), openReference(), selectTab(id), getTab() }: with
+                   askHost (help chat on) WAI-ARIA Steps and Ask tabs (.guide-tabs, nextTabIndex) over a
+                   .guide-pane holding everything below and askHost as the Ask pane (left in the sheet
+                   while it is there); lesson header, an
                    ol.guide-steps from flow.getView() and a closed details.guide-reference hosting the info
                    tabs. One li per step: a row with an 18 px status icon (done tick, current ring and dot,
                    locked padlock), kind label and title; done rows are buttons (aria-expanded) opening a read
@@ -384,7 +398,7 @@ src/
                    outside compact) after a View button (.view-toggle, aria-expanded, hidden outside
                    compact) that opens them as a popover; a choice, Escape (focus back on View) or a pointer
                    down outside closes it
-    infoPanel.js   createInfoPanel(panel, course, { heading = true }): lesson heading (left out with heading
+    infoPanel.js   createInfoPanel(panel, course, { heading = true }) -> { select(key) }: lesson heading (left out with heading
                    false, as in the guide's Reference drawer) plus Overview, Pinout, Example, Specs tabs rendered from lesson data;
                    WAI-ARIA tabs with roving tabindex, arrow, Home and End keys; selected tab kept across lessons
     codePanel.js   createCodePanel(panel, course, { setOpen }): a Code header with a chevron (Hide code) and a
@@ -398,7 +412,10 @@ src/
                    the top right of the editor (Escape or the button closes) moves the workspace (editor,
                    error line, serial slot) to the body to fill the window over a backdrop; returns
                    { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError, markLines,
-                   clearMarks, setExecutingLine }; setExecutingLine(n) gives line n the trace's is-active highlight
+                   clearMarks, setExecutingLine, offerLine }; offerLine(afterLine, text, why) shows a
+                   suggested line in a grey .code-offer row under the editor with Add line, which puts it
+                   in after that line with its indent as a learner edit (cleared by Add, a new offer,
+                   Reset code or a lesson change); setExecutingLine(n) gives line n the trace's is-active highlight
                    (made stronger by is-executing on the code) and pauses the trace loop, null hands it back; onInput(fn) calls fn(source) on every edit of the sketch text;
                    markLines(lines, note) gives those 1 based lines is-hint (accent soft background) and puts
                    the note after the first one until clearMarks or a lesson change
@@ -453,6 +470,8 @@ src/
                    above it with Place, Turn and Cancel while placement's touchReady is true; each kit part has a
                    ? button joined to its right (aria-label 'About the <part>', onAbout(id)); exports
                    partIcon(type, size)
+    askPanel.js    createAskPanel({ container, chat, getSuggestionContext }) -> { refresh(), focus() }: the Ask
+                   pane (see "Help chat"); suggestionsFor(kind, codeError), EMPTY_TEXT
     explainMenu.js createExplainMenu({ container, addToView, closeView, rows }) -> { open, close, isOpen, refresh,
                    setStatus }: the Explain button and popover (see "Explain tools")
     explainCards.js createExplainCards({ container }) -> { open({ kind, title, onClose }), close(kind), closeAll(),
@@ -481,6 +500,17 @@ src/
                    { setEnabled(on), reset(lessonId) }: main.js enables it only while the current step has a
                    tour (or legacy) check, and reset forgets the opened zones; a zone tap counts within 8 px
                    for touch (5 px for the mouse); the compact CSS turns the card into a strip above the peek
+  tutor/           help chat (see "Help chat"); pure except chat.js, which does the network
+    toolDefs.js    TOOL_DEFINITIONS (20 strict tools), TOOL_NAMES; shared by the server and the client
+    context.js     pure buildState({ lesson, step, view, hintLevel, build, connections, code, codeError, run }),
+                   formatState(state), numberedCode(source); MAX_CODE_LINES (150)
+    tools.js       createTutorTools(deps) -> { run(name, input), has(name) }; checkInput, plainText
+    chat.js        createChat({ endpoint, fetchImpl, runTool, getState }) -> { ask, reset, getTranscript, isBusy,
+                   getMessages, subscribe }; ERROR_TEXTS, REFUSAL_TEXT, CUT_SHORT, FRESH_TEXT
+server/            the tutor server (node, not bundled)
+  tutorCore.mjs    pure SYSTEM_PROMPT, validateRequest, buildApiRequest, createRateLimiter, fakeReply, MODEL
+  tutor.mjs        node:http server, POST /api/tutor only
+vite.config.js     proxies /api to http://localhost:7300 for dev and preview
 test/              vitest unit tests
 ```
 
@@ -977,6 +1007,89 @@ the current lesson, and every panel updates from it.
   one), `Take out the <part>`; code changes are for the chat (`what_if('code', line, text)`, two 3000 ms
   `runHeadless` runs). While the card is open the changed part shows as an accent ghost (the turned LED,
   the new bands, or the part at 20% with the real one hidden); any workbench change closes the card.
+
+## Help chat
+
+- Off unless the build sets `VITE_TUTOR=on` (Vite reads it from `.env.local`, copied from the
+  committed `.env.example`). Off, nothing of it exists: no tabs, no Ask pane, no requests. On, the
+  guide has `Steps` and `Ask` tabs and the compact sheet `Steps`, `Code` and `Ask`; the Ask pane
+  is one element that moves between them (main.js `applyLayout` hands the selected tab over).
+- Server: `npm run tutor` (`server/tutor.mjs`), port `TUTOR_PORT` (7300); `vite.config.js` proxies
+  `/api` to it for `dev` and `preview`. Only `POST /api/tutor`, anything else 404. The body is
+  `{ messages }` (at most 200 KB, else 413), checked by `validateRequest`: 1 to 80 messages, roles
+  alternate from the learner and end on the learner (or on a paused assistant turn); learner
+  blocks only `text` (8000 characters) and `tool_result` (`tool_use_id`, `content` of 4000
+  characters at most, optional `is_error`); assistant blocks passed through unchanged (`text`,
+  `tool_use` of a known tool, `thinking`, `redacted_thinking`, `fallback`; 40000 characters as
+  JSON); every tool use answered in the next learner message. Then a rate limit by remote address
+  (20 in ten minutes, 300 a day; 429 `rate_limited`), then
+  `client.beta.messages.create(buildApiRequest(messages))`, non streaming. Reply
+  `{ content, stop_reason }`. Errors, most specific first: authentication, permission or missing
+  credentials 500 `not_configured`; rate limit or overload 503 `busy`; any other 502 `failed`; a bad
+  body 400 `bad_request`. At start a model lookup (no tokens) finds missing credentials; then
+  every request answers `not_configured`. Credentials: `ANTHROPIC_API_KEY` (from `.env.local`,
+  loaded with `process.loadEnvFile`) or an `ant auth login` profile. One log line per request
+  (time, status, stop reason, token usage), never message text.
+- Request (`buildApiRequest`): model `claude-opus-5-5`, `max_tokens` 16000, `output_config.effort`
+  `low`, server side fallbacks on (`betas: ['server-side-fallback-2026-07-01']`, `fallbacks:
+  'default'`), top level `cache_control`, the fixed `SYSTEM_PROMPT` (09-help-chat.md 9.5) and
+  `TOOL_DEFINITIONS`. No `thinking` (Opus 5.5 always thinks adaptively), no sampling settings, no
+  forced `tool_choice`. Tools and system never change, so the prompt cache hits.
+- `TUTOR_FAKE=1`: no API calls; a learner question gets `Let me show you the strips.` with `xray`
+  on and `highlight` `9-top`, tool results get `Each metal bar joins five holes. Which strip holds
+  the long leg of your LED?` (`fakeReply`).
+- State block (`src/tutor/context.js`): the first text block of every learner turn,
+  `<workbench_state>` JSON `</workbench_state>` with `lesson`, `step` (id, kind, title, text,
+  checklist, passed), `hints` (`level`, `exact_positions_allowed` from Show me on), `mistake`,
+  `circuit` (parts with labels and legs, wires, connections as labels; null without a circuit),
+  `code` (`N: ` numbered, 150 lines at most; null without a sketch), `code_error` and `run`
+  (phase, readout, progress). The question is the second block. Tool result turns carry none.
+- Chat loop (`src/tutor/chat.js`): memory only, one conversation per lesson (reset on a lesson
+  change and by `New chat`). The history is append only. Each question loops at most 6 requests:
+  the assistant content is appended as returned; `tool_use` runs the first 4 tool uses in order
+  (more get `is_error` `Too many tools in one reply.`) and appends one learner message with a
+  result for every id; `end_turn` and `stop_sequence` end; `max_tokens` ends with `(This answer
+  was cut short.)`; `refusal` shows `I cannot help with that. Ask me about your circuit, your code
+  or this step.`; `pause_turn` asks again. A failed request or a refusal takes the question back
+  out of the history. Results left unsent at the request limit go out with the next question.
+  Past 60 messages the next question starts a new conversation (`This chat got long, so it
+  started fresh.`). Errors show as muted helper turns: `not_configured` and no server (a network
+  error, or a 5xx without our JSON from the dev proxy) `The help chat is not available right
+  now.`, `rate_limited` `You have asked a lot of questions. Try again in a few minutes.`, `busy`
+  `The helper is busy. Try again in a moment.`, anything else `Something went wrong. Try asking
+  again.`
+- Tools (`src/tutor/toolDefs.js`, run by `src/tutor/tools.js`): every input is checked against its
+  schema and the limits strict schemas cannot carry; a bad call returns `is_error` with one
+  sentence. `highlight` (a hole as its strip, a strip, a rail, a pin or a placed part:
+  `placement.setOverlay` info, `board.highlightPins` or an accent ghost of the part, 4 s),
+  `pin_label` (ASCII, 40 characters, 6 s, on the explain label layer as `chat`), `move_camera`
+  (`viewControls.setView` around the target or a board), `point_to_code` (opens the code,
+  `markLines` for 8 s, then the step marks again), `show_placement` (build and wire steps, a part
+  of the step's scope, after a hint, else `Show me is not available yet. Give a hint in words
+  first.`; raises the hint to 2, which draws the phase 5 Show me ghosts and labels),
+  `trace_current`, `xray`, `connections`, `part_card`, `scope`, `measure`, `what_if`,
+  `slow_motion` (the phase 8 functions from `explain.tools`; their text is the result, and a
+  "cannot work now" text such as `This lesson has no circuit to explain.` is a normal result, not
+  an error), `demo_input` (a running sketch; `runner.beginDemo()`, then a placed button through
+  `partPress`, a knob through `partTurn`, or the room light or temperature when the circuit shows
+  that slider; the old value comes back after 1 to 5 s; the run bar says `Demo run. Goals are
+  paused until you press Run again.`), `suggest_code` (one `Serial.print` or `Serial.println`
+  statement after a line that exists: `codePanel.offerLine`), `quick_check` and `predict` (2 to 4
+  options; cards in the log whose option buttons send `My answer: ...` or `My guess: ...`),
+  `open_reference` (the Reference drawer on that tab), `recall` (a quote card of any lesson step),
+  `next_hint` (one level up, never past Show me). A tool's chip (`X-ray`, `Lit up 9-top`, `Traced
+  the current`, `Scope on D13` ...) shows under the reply that called it.
+- Privacy and safety: the key stays on the server; the server accepts only the checked message
+  format and uses its own prompt and tools; no chat text in localStorage, the server log or
+  anywhere else; no chat tool changes the build, the code (Add line is the learner's own edit) or
+  progress, and none passes a step (demo runs pause goals until the next Run, as slow motion does).
+- Ask pane (`src/ui/askPanel.js`): `New chat`, the log (`role="log"`, `aria-live="polite"`;
+  learner turns right on ink, helper turns left on soft, muted errors, chips and cards under the
+  reply, `Thinking...` while busy, scrolled to the newest), the empty state `Ask about your
+  circuit, your code or this step. The helper can point at things and run small experiments.
+  Chats are not saved.` with up to three suggestions by step kind, and the form: `Your question`
+  (`#ask-input`, 500 characters, Enter sends, Shift Enter adds a line) and `Send`, both disabled
+  while busy; the question box gets focus back after each answer.
 
 ## Conventions
 

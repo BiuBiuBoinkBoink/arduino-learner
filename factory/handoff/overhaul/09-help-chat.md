@@ -329,4 +329,76 @@ privacy rules, and `TUTOR_FAKE`.
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+Where the claude-api skill and this file differ (the skill wins):
+
+- Loop: the skill prefers the SDK Tool Runner, but the tools run in the browser, so the server
+  makes one non streaming `client.beta.messages.create` per round and the client owns the loop
+  (the manual loop the skill allows when the tools cannot run where the SDK runs).
+- Assistant blocks: the skill says a server side fallback adds `fallback` content blocks that
+  are echoed back (non streaming replies already leave out a declined partial), so
+  `validateRequest` passes `fallback` through with `text`, `tool_use`, `thinking` and
+  `redacted_thinking`.
+- Strict schemas take no `minimum`, `maximum`, length or item limits (skill: JSON schema limits).
+  None are sent; every limit in the tool table is checked in `src/tutor/tools.js`, and a test
+  keeps those keywords out of the definitions.
+- `pause_turn`: the skill resends the paused assistant turn as the last message, so
+  `validateRequest` also accepts a history ending on an assistant turn with no open tool use.
+  The chat cannot get one in practice (no server tools).
+- Request shape kept exactly as 9.3 (no `thinking`, effort `low`, `fallbacks: 'default'` with the
+  `-2026-07-01` header, top level `cache_control`), which matches the skill for Claude Opus 5.5.
+
+Other choices:
+
+- History: a failed request, a refusal or an empty reply takes the question (and any tool round
+  of it) back out of the history, so it stays valid and append only (only the unsent tail goes,
+  no earlier message is edited). Tool results left unsent at the 6 request limit go out in the
+  same learner message as the next question.
+- Errors: a 5xx without our JSON body (the Vite proxy's answer when the tutor server is down) and
+  a network failure both show `The help chat is not available right now.` (check 4). A body the
+  server rejects is 400 `bad_request`, shown as `Something went wrong. Try asking again.`
+- Tool results: a phase 8 "cannot work right now" text (`This lesson has no circuit to explain.`,
+  `Run the sketch first.` ...) goes back as a normal result (`is_error` false), as phase 8 asked.
+  Input checks and the gates of the chat's own tools (show_placement before a hint, demo_input
+  without a run) are `is_error` true. A thrown error becomes `<tool> did not work right now.`
+- `showCard`: instead of a callback, a tool's result carries `card` (and `chip`), which the chat
+  puts under the reply that called it. Failed calls get no chip.
+- `highlight` on a part shows an accent see-through copy of the part (`buildGhost`, as What if
+  does) for 4 s instead of an emissive glow: LED materials use emissive for their light, and a
+  saved and restored emissive would fight the pin levels.
+- `suggest_code`: the offered line sits in a grey row under the editor ("Suggested line, after
+  line N:", the line, the why and Add line) rather than inside the coloured code, which is an
+  overlay that must stay line for line with the textarea. Add puts it in after that line with
+  that line's indent (two more after a `{`), as a learner edit; the code panel opens with it.
+- `show_placement` and `next_hint` go through `flow.raiseHint`, so the level is stored like the
+  learner's own Hint button; level 2 is never stored as helped (only Do it for me is).
+  show_placement also turns edit mode on so the Show me ghosts and labels show.
+- `demo_input`: a button needs value 1 and is pressed through `partPress` (cap and Hold to press
+  follow), a knob goes through `partTurn`; the room needs its slider (an ldr or tmp36, not P1's
+  sim driven room). The old value comes back after the seconds unless the lesson changed (the
+  target is gone, and a lesson change clears the chat's timers). The run bar shows a new
+  `Demo run. Goals are paused until you press Run again.` while a demo runs without slow motion
+  (phase 8 showed the slow motion note for any demo run).
+- `pin_label` notes stack, each for 6 s; plain text drops non ASCII characters and runs of
+  spaces. A part's note sits over the middle of its legs.
+- State block: `circuit` is null on lessons with neither a reference circuit nor a kit, and
+  lists unplaced kit parts with empty legs; `code` and `code_error` are null without a sketch
+  (1.1 shows example code read only). `view` is the flow entry of the current step.
+- Tabs: the guide becomes a flex column with its own tab bar (`.guide-tabs`, the sheet tab look)
+  and panes that scroll on their own. The Ask pane is one element made in main.js before the
+  sheet (the sheet needs it at creation) and adopted by the guide; it moves into the sheet's Ask
+  tab in compact like the guide and code panel. Changing layout carries the Ask tab over both
+  ways, and the guide's tab bar is hidden inside the sheet. The guide only hides the Ask pane
+  while it is in the guide (a bug found in the 390 px check, fixed before committing).
+- Quiz cards mark the picked option right or wrong and show the why once answered; guess cards
+  mark the pick. After any question the box gets focus back.
+- Server: `.env.local` is read with `process.loadEnvFile` (Node does not read it by itself). A
+  `models.retrieve` at start (no tokens) finds missing credentials; an SDK credential error that
+  is not an API error also maps to `not_configured`. The server listens on every interface at
+  7300 for local use. Behind the dev proxy every learner has the proxy's address, so the rate
+  limit is one shared bucket in development; hosting is out of scope.
+- `TUTOR_FAKE`: any learner text turn gets the first fixed reply (ids `toolu_fake_N`), any tool
+  result turn the second.
+- Checks: `.env.local` was made by copying `.env.example` (VITE_TUTOR=on, empty key); no key was
+  set, so check 7 ran with TUTOR_FAKE only. `../.claude/launch.json` got the
+  `arduino-learner-tutor` entry (TUTOR_FAKE=1, port 7300); port 7100 was taken by another
+  session's server, so the preview tool ran the dev server on 7101.

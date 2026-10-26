@@ -266,3 +266,19 @@ the final screenshot shows, anything not verified.
   measured a hole), the trace dots and stop ring by eye at 1440 x 900 (seen at pane size; the label was
   read from the page), the reduced motion tube, x-ray bars at 1440 x 900 by eye (seen at pane size), and
   screen reader output.
+- 2026-10-26: phase 9 help chat, last code commit 18fc7df, 1032 tests. Final screenshot at 1440 x 900 on
+  1.1 with the fake tutor: the guide's Ask tab with the question, the reply `Let me show you the strips.`
+  with the X-ray and Lit up 9-top chips, the follow up question and the question box, and the
+  breadboard in X-ray with strip 9 (rows a to e) lit. Checks at 1440 x 900: 1 (no VITE_TUTOR: no Ask tab,
+  sheet Steps and Code only), 2 (empty state and suggestions for learn, build, code with and without a
+  code error, and predict steps), 3, 4 (server stopped: The help chat is not available right now.), 5
+  (lesson change empties the chat, reload keeps nothing, localStorage holds only build and steps), 6 at
+  390 x 844; checks 2, 3 and 5 repeated at 390 x 844, no horizontal scroll at 360 x 740 with the Ask tab
+  full. Also tried every other tool against the live page (show_placement refused before a hint and
+  shown after it, pin_label, move_camera, point_to_code, suggest_code and Add line, open_reference,
+  what_if, scope, slow_motion, measure, connections, part_card, trace, demo_input pressing btn1 in a
+  1.4 run for 2 s with nothing latched) and the quiz, guess and recall cards on a stub chat. No console
+  errors in a fresh tab driven by real clicks and keys (the 502 while the server was stopped is the
+  browser's own network line). Not verified: check 7 with the real API (no ANTHROPIC_API_KEY was set,
+  so only TUTOR_FAKE was used; the server log showed no message text), the not_configured answer of a
+  real server without credentials, real touch, and screen reader output.

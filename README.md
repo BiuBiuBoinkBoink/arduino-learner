@@ -4,7 +4,8 @@ A browser course that teaches Arduino (and later robotics) on an interactive 3D 
 Learners explore an Uno, wire parts on a breadboard, run a sketch and pass each lesson
 by meeting a goal the simulator checks. Clicking Run alone never completes a lesson.
 
-Built with Vite, vanilla JavaScript and three.js. No backend. Everything runs in the browser.
+Built with Vite, vanilla JavaScript and three.js. Everything runs in the browser; the only
+server is the optional help chat's tutor server (see "Help chat" below), which is off by default.
 
 ## Quick start
 
@@ -23,7 +24,7 @@ Uno and breadboard in the middle and the code panel on the right. Go to `#1.1` f
 Before every commit, both of these must pass:
 
 ```bash
-npm test        # vitest, 690 tests at the moment
+npm test        # vitest, 1032 tests at the moment
 npm run build   # production build
 ```
 
@@ -32,6 +33,27 @@ The build prints a chunk size warning for three.js. That is expected.
 **Windows note:** Windows reserves some port ranges (on Kian's machine 5041 to 5240).
 If the dev server fails with `EACCES`, pick a port in the 7000s. Check yours with
 `netsh interface ipv4 show excludedportrange protocol=tcp`.
+
+## Help chat
+
+The Ask tab next to the steps lets a learner ask a tutor (Claude) about the step they are on.
+It is off unless you turn it on, and it needs the small tutor server, which holds the API key.
+The key never reaches the browser.
+
+1. Copy `.env.example` to `.env.local` (git ignores it). `VITE_TUTOR=on` shows the Ask tab.
+2. Put your key after `ANTHROPIC_API_KEY=` in `.env.local`, or leave it empty and sign in with
+   `ant auth login` instead. Never put a key in a committed file.
+3. Run the tutor server next to the dev server, in a second terminal:
+
+```bash
+npm run tutor
+```
+
+It listens on port 7300 (`TUTOR_PORT` to change it); the dev server and `npm run preview` send
+`/api` to it. Without credentials every question answers "The help chat is not available right
+now." `TUTOR_FAKE=1 npm run tutor` gives fixed replies without calling the API, for checks
+without a key. Chats are kept in memory only and the server never logs message text. Hosting the
+server in production is not part of this work.
 
 ## Read this before writing code
 
@@ -245,6 +267,15 @@ part cards explain each part (also from a ? beside each part in the tray), the m
 Voltage mode, Slow motion runs the sketch at a tenth of its speed with the running line lit
 (goals pause until the next Run), and What if shows a pretend change beside the real one. Every
 number comes from the simulator or the netlist, and no tool changes the build or progress.
+
+**Lesson overhaul phase 9, help chat** (`feature/lesson-overhaul`, not merged): with the help chat
+turned on (see "Help chat"), the guide has Steps and Ask tabs (Steps, Code and Ask in the phone
+sheet). The learner asks about the step; the tutor sees the step, its checklist and mistake, the
+circuit, the code and the run, and answers in a few words while it shows things: it lights up
+holes and strips, pins notes, moves the camera, marks code lines, runs the explain tools, asks a
+quick question or a guess, and can offer one Serial.println line that only goes in when the
+learner clicks Add line. It guides rather than solves, gives exact holes only after Show me, never
+edits the build or the code and never passes a step. Chats live in memory only, one per lesson.
 
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.

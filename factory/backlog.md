@@ -50,7 +50,7 @@ request until the owner says so.
 - [x] Overhaul phase 6, lessons converted: every lesson as milestones with carry over, breadboard steps in 1.1 -> 06-lessons-converted.md -> feature/lesson-overhaul
 - [x] Overhaul phase 7, narrow screens: medium and compact layouts, bottom sheet, touch placement -> 07-narrow-screens.md -> feature/lesson-overhaul
 - [x] Overhaul phase 8, explain tools: x-ray, current trace, scope, connections, part cards, voltage, slow motion, what if -> 08-explain-tools.md -> feature/lesson-overhaul
-- [ ] Overhaul phase 9, help chat: Ask tab, tutor server, tool calls, privacy rules -> 09-help-chat.md
+- [x] Overhaul phase 9, help chat: Ask tab, tutor server, tool calls, privacy rules -> 09-help-chat.md -> feature/lesson-overhaul
 
 ## Phase 4 onward (not queued yet)
 
