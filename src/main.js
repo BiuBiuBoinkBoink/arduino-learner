@@ -554,7 +554,10 @@ const run = createRunControls({
   getSource: codePanel.getSource,
   onError: codePanel.setError,
   getLock: () => flow.runLock() || buildLock,
-  onFrame: updateFlow
+  onFrame: () => {
+    updateFlow()
+    explain.onFrame()
+  }
 })
 flow.subscribe(() => run.refreshLock())
 course.subscribe(updateFlow)
@@ -598,7 +601,8 @@ const explain = createExplain({
   getBuild: currentBuild,
   getReference: () => reference,
   getItems: view.items,
-  inputs
+  inputs,
+  runner
 })
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {

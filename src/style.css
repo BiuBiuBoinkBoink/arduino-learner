@@ -2523,3 +2523,13 @@ summary:focus-visible {
 #app[data-layout='compact'] .explain-field {
   min-height: 36px;
 }
+
+/* Scope card: the plot and its summary. */
+.scope-canvas {
+  display: block;
+  max-width: 100%;
+}
+
+.scope-summary {
+  min-height: 2.6em;
+}

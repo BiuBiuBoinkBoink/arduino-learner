@@ -1,6 +1,6 @@
 // Explain tools through fake deps: argument checks, reasons and the texts.
 import { describe, it, expect } from 'vitest'
-import { createExplainTools, wiredPins, XRAY_ON, XRAY_OFF, NO_CIRCUIT, WIRE_FIRST } from '../src/explain/tools.js'
+import { createExplainTools, wiredPins, XRAY_ON, XRAY_OFF, NO_CIRCUIT, WIRE_FIRST, RUN_FIRST } from '../src/explain/tools.js'
 import { circuits } from '../src/circuits/circuits.js'
 
 const withPart = (circuit, id, change) => ({ ...circuit, parts: circuit.parts.map((part) => (part.id === id ? { ...part, ...change } : part)) })
@@ -14,6 +14,11 @@ function setup(overrides = {}) {
     hasReference: () => true,
     getPressed: () => ({}),
     showTrace: (path) => calls.push(['trace', path]),
+    isRunning: () => true,
+    openScope: (pin, seconds) => {
+      calls.push(['scope', pin, seconds])
+      return `${pin} stays LOW.`
+    },
     ...overrides
   }
   return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next } }
@@ -49,6 +54,20 @@ describe('explain tools', () => {
     expect(none.tools.reasons().trace).toBe(NO_CIRCUIT)
     const empty = setup({ build: { parts: [], wires: [] } })
     expect(empty.tools.reasons().trace).toBe(WIRE_FIRST)
+  })
+
+  it('opens the scope on a running sketch and checks its arguments', async () => {
+    const { tools, calls } = setup()
+    expect(await tools.scope('D13', 3)).toEqual({ ok: true, text: 'D13 stays LOW.' })
+    expect(calls.at(-1)).toEqual(['scope', 'D13', 3])
+    expect((await tools.scope('D13')).ok).toBe(true)
+    expect(calls.at(-1)).toEqual(['scope', 'D13', 5])
+    expect((await tools.scope('5V', 3)).ok).toBe(false)
+    expect(await tools.scope('D13', 9)).toEqual({ ok: false, text: 'Pick 1 to 5 seconds for the scope.' })
+    expect(tools.reasons().scope).toBe(null)
+    const stopped = setup({ isRunning: () => false })
+    expect(await stopped.tools.scope('D13', 3)).toEqual({ ok: false, text: RUN_FIRST })
+    expect(stopped.tools.reasons().scope).toBe('Run the sketch first.')
   })
 
   it('lists the wired pins without GND', () => {

@@ -7,8 +7,10 @@
 // Not a pure module in the strict sense: the scene and the cards are reached
 // only through the injected deps, so the tools themselves stay testable.
 //
-// createExplainTools(deps) -> { xray(on), trace(pin), reasons(), wiredPins() }
-// deps: { setXray(on), getBuild(), hasReference(), getPressed(), showTrace(path) }
+// createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds), reasons(),
+//   wiredPins(), signalPins() }
+// deps: { setXray(on), getBuild(), hasReference(), getPressed(), showTrace(path),
+//   isRunning(), openScope(pin, seconds) -> summary text }
 import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
 import { tracePath } from './currentPath.js'
 
@@ -22,6 +24,11 @@ export const RUN_FIRST = 'Run the sketch first.'
 export function wiredPins(build) {
   const pins = buildNetlist(build).nets.flatMap((net) => net.pins)
   return [...new Set(pins.map(normalizePin))].filter((pin) => pin !== 'GND')
+}
+
+// Wired pins a sketch can drive or read: no power pins.
+export function signalPins(build) {
+  return wiredPins(build).filter((pin) => /^(D\d{1,2}|A[0-5])$/.test(pin))
 }
 
 // 'the resistor, then the LED'
@@ -55,15 +62,24 @@ export function createExplainTools(deps) {
     return { ok: true, text: `The current stops at ${placeLabel(path.stop.place)}. Nothing there leads on to GND.` }
   }
 
+  async function scope(pin, seconds = 5) {
+    if (!deps.isRunning()) return { ok: false, text: RUN_FIRST }
+    if (typeof pin !== 'string' || !/^(D\d{1,2}|A[0-5])$/.test(pin)) return { ok: false, text: `There is no pin called ${String(pin)} to watch.` }
+    const span = Number(seconds)
+    if (!Number.isInteger(span) || span < 1 || span > 5) return { ok: false, text: 'Pick 1 to 5 seconds for the scope.' }
+    return { ok: true, text: deps.openScope(pin, span) }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
     const reference = deps.hasReference()
     const pins = reference ? wiredPins(deps.getBuild()) : []
     return {
       xray: null,
-      trace: !reference ? NO_CIRCUIT : pins.length === 0 ? WIRE_FIRST : null
+      trace: !reference ? NO_CIRCUIT : pins.length === 0 ? WIRE_FIRST : null,
+      scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, reasons, wiredPins: () => wiredPins(deps.getBuild()) }
+  return { xray, trace, scope, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }

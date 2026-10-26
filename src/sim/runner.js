@@ -13,6 +13,9 @@
 // result for the code now running, for goals that inspect the code itself.
 // 'input' events (the circuit changing an input) reach the board only. reload(source, now) swaps the running code
 // without a new upload; the board may reset timing in its own reload(now).
+// subscribeOutput(fn) calls fn({ kind, pin, value, at }) for every output event
+// it applies (the scope listens); getClock() is the clock those at times are on,
+// as of the last tick or the latest event, whichever is later.
 import { createProgram } from '../runner/interpreter.js'
 import { analyzeCode } from '../runner/codeChecks.js'
 
@@ -45,6 +48,21 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
   let analysis = null
   // Time of the last tick, for how long the board has been running.
   let lastTick = 0
+  // The clock output event times are on: anchored at a real time and moving at timeScale.
+  let anchorReal = 0
+  let anchorClock = 0
+  let timeScale = 1
+  let lastEventAt = -Infinity
+  const outputListeners = new Set()
+
+  function setAnchor(now) {
+    anchorClock = clockAt(now)
+    anchorReal = now
+  }
+
+  function clockAt(now) {
+    return anchorClock + (now - anchorReal) * timeScale
+  }
 
   function hasSim(id) {
     return Object.prototype.hasOwnProperty.call(sims, id)
@@ -76,6 +94,8 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     source = nextSource
     analysis = analyzeCode(source)
     codeStart = now
+    anchorReal = now
+    anchorClock = now
     sentLevels = {}
     if (typeof sim.reload === 'function') sim.reload(now)
     codeRunner.start(source)
@@ -100,6 +120,9 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
       if (now - runStart < uploadMs) return
       startedAt = now
       codeStart = now
+      anchorReal = now
+      anchorClock = now
+      lastEventAt = -Infinity
       sentLevels = {}
       analysis = analyzeCode(source)
       sim = sims[lessonId]({ pins, inputs, room, tones, servos, serial, getValues, startedAt, getCode: () => analysis })
@@ -129,7 +152,10 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
         // Seen by the board only; the stores hold the sketch's outputs.
       } else if (kind === 'pin') pins.set(pin, value)
       else if (kind === 'tone' && tones) tones.set(pin, value)
-      if (typeof sim.output === 'function') sim.output({ kind, pin, value, at: codeStart + ms })
+      const event = { kind, pin, value, at: codeStart + ms }
+      lastEventAt = Math.max(lastEventAt, event.at)
+      if (typeof sim.output === 'function') sim.output(event)
+      if (kind !== 'input') outputListeners.forEach((fn) => fn({ ...event }))
     }
     if (batch.serial && serial) serial.print(batch.serial)
     checkGoal()
@@ -189,6 +215,11 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     getError: () => error,
     isGoalMet: () => goalMet,
     getProgress,
+    getClock: () => Math.max(clockAt(lastTick), lastEventAt),
+    subscribeOutput(fn) {
+      outputListeners.add(fn)
+      return () => outputListeners.delete(fn)
+    },
     getReadout: () => (phase === 'running' && typeof sim.readout === 'function' ? sim.readout() : '')
   }
 }
