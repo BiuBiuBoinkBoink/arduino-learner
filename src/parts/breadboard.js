@@ -21,6 +21,11 @@ export {
 } from '../circuits/holes.js'
 
 const STRIPE_COLORS = { plus: 0xd0312d, minus: 0x2c6fd1 }
+// X-ray: the body turns see-through and a metal bar shows under each strip and rail.
+export const XRAY_OPACITY = 0.25
+const BAR_COLOR = 0xb8bec6
+const BAR_WIDTH = 0.12
+const BAR_HEIGHT = 0.05
 
 // Strip and rail highlight tones: colour and opacity.
 export const HIGHLIGHT_TONES = {
@@ -80,6 +85,23 @@ function placeHoles(place) {
   return holes.every(Boolean) ? holes : null
 }
 
+// The metal bars under the holes: one per strip (5 holes along z) and one
+// per rail (30 holes along x), as { x, z, length, along: 'x' | 'z' }.
+export function xrayBars() {
+  const bars = []
+  for (let column = 1; column <= BREADBOARD_COLUMNS; column++) {
+    for (const rows of [BREADBOARD_ROWS.slice(0, 5), BREADBOARD_ROWS.slice(5)]) {
+      const first = rowZ(rows[0])
+      const last = rowZ(rows[rows.length - 1])
+      bars.push({ x: columnX(column), z: (first + last) / 2, length: last - first + PITCH * 0.6, along: 'z' })
+    }
+  }
+  for (const row of RAIL_ROWS) {
+    bars.push({ x: 0, z: rowZ(row), length: columnX(BREADBOARD_COLUMNS) - columnX(1) + PITCH * 0.6, along: 'x' })
+  }
+  return bars
+}
+
 function slab(w, h, d, mat, x, y, z) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
   mesh.position.set(x, y, z)
@@ -98,10 +120,13 @@ export function createBreadboard() {
   // Two full height halves either side of a lower channel floor.
   const halfDepth = (DEPTH - CHANNEL_WIDTH) / 2
   const halfZ = CHANNEL_WIDTH / 2 + halfDepth / 2
-  group.add(slab(LENGTH, HEIGHT, halfDepth, body, 0, HEIGHT / 2, -halfZ))
-  group.add(slab(LENGTH, HEIGHT, halfDepth, body, 0, HEIGHT / 2, halfZ))
   const floor = HEIGHT - CHANNEL_DEPTH
-  group.add(slab(LENGTH, floor, CHANNEL_WIDTH, channel, 0, floor / 2, 0))
+  const slabs = [
+    slab(LENGTH, HEIGHT, halfDepth, body, 0, HEIGHT / 2, -halfZ),
+    slab(LENGTH, HEIGHT, halfDepth, body, 0, HEIGHT / 2, halfZ),
+    slab(LENGTH, floor, CHANNEL_WIDTH, channel, 0, floor / 2, 0)
+  ]
+  group.add(...slabs)
 
   // All 420 hole marks are one instanced mesh, one draw call.
   const holeGeometry = new THREE.BoxGeometry(0.1, 0.004, 0.1)
@@ -163,5 +188,40 @@ export function createBreadboard() {
     for (const mesh of pool) mesh.visible = false
   }
 
-  return { group, highlightPlaces, clearHighlights }
+  // X-ray bars: built once, one instanced mesh, hidden until setXray(true).
+  const barList = xrayBars()
+  const barMaterial = new THREE.MeshStandardMaterial({ color: BAR_COLOR, metalness: 0.6, roughness: 0.4 })
+  const bars = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), barMaterial, barList.length)
+  bars.name = 'xray-bar'
+  const barY = HEIGHT - 0.12
+  const scale = new THREE.Vector3()
+  const position = new THREE.Vector3()
+  const turn = new THREE.Quaternion()
+  barList.forEach((bar, i) => {
+    position.set(bar.x, barY, bar.z)
+    if (bar.along === 'z') scale.set(BAR_WIDTH, BAR_HEIGHT, bar.length)
+    else scale.set(bar.length, BAR_HEIGHT, BAR_WIDTH)
+    bars.setMatrixAt(i, matrix.compose(position, turn, scale))
+  })
+  bars.instanceMatrix.needsUpdate = true
+  bars.computeBoundingSphere()
+  bars.visible = false
+  group.add(bars)
+
+  let xray = false
+  // On: the body materials turn see-through (no depth writes, no shadows from
+  // the body, so the bars stay lit) and the bars show. Callers invalidate.
+  function setXray(on) {
+    xray = Boolean(on)
+    for (const material of [body, channel]) {
+      material.transparent = xray
+      material.opacity = xray ? XRAY_OPACITY : 1
+      material.depthWrite = !xray
+      material.needsUpdate = true
+    }
+    for (const mesh of slabs) mesh.castShadow = !xray
+    bars.visible = xray
+  }
+
+  return { group, highlightPlaces, clearHighlights, setXray, isXray: () => xray }
 }

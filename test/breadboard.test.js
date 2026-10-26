@@ -10,7 +10,9 @@ import {
   rowPitchZ,
   holePosition,
   holeStrip,
-  createBreadboard
+  createBreadboard,
+  xrayBars,
+  XRAY_OPACITY
 } from '../src/parts/breadboard.js'
 import { PITCH } from '../src/parts/unoBoard.js'
 
@@ -161,5 +163,42 @@ describe('createBreadboard', () => {
     const body = group.children.filter((child) => child.isMesh && child.castShadow)
     expect(body.length).toBeGreaterThan(0)
     for (const mesh of body) expect(mesh.receiveShadow).toBe(true)
+  })
+
+  it('x-ray makes the body see-through and shows a metal bar under every strip and rail', () => {
+    const breadboard = createBreadboard()
+    const bars = breadboard.group.children.find((child) => child.name === 'xray-bar')
+    expect(bars.isInstancedMesh).toBe(true)
+    expect(bars.count).toBe(xrayBars().length)
+    expect(xrayBars()).toHaveLength(64)
+    expect(bars.visible).toBe(false)
+    expect(bars.material.color.getHex()).toBe(0xb8bec6)
+    expect(bars.material.metalness).toBeCloseTo(0.6)
+    const body = breadboard.group.children.filter((child) => child.isMesh && child.receiveShadow && child.name === '')
+    breadboard.setXray(true)
+    expect(breadboard.isXray()).toBe(true)
+    expect(bars.visible).toBe(true)
+    for (const mesh of body) {
+      expect(mesh.material.transparent).toBe(true)
+      expect(mesh.material.opacity).toBe(XRAY_OPACITY)
+      expect(mesh.material.depthWrite).toBe(false)
+    }
+    breadboard.setXray(false)
+    expect(bars.visible).toBe(false)
+    for (const mesh of body) {
+      expect(mesh.material.opacity).toBe(1)
+      expect(mesh.material.depthWrite).toBe(true)
+      expect(mesh.castShadow).toBe(true)
+    }
+  })
+
+  it('puts a strip bar under the five holes of each strip and a rail bar under each rail', () => {
+    const bars = xrayBars()
+    const strip = bars.find((bar) => bar.along === 'z' && Math.abs(bar.x - holePosition('9a').x) < 1e-6 && bar.z < 0)
+    expect(strip.z).toBeCloseTo((holePosition('9a').z + holePosition('9e').z) / 2)
+    expect(strip.length).toBeGreaterThan(holePosition('9e').z - holePosition('9a').z)
+    const rails = bars.filter((bar) => bar.along === 'x')
+    expect(rails.map((bar) => bar.z).sort((a, b) => a - b)).toEqual(['T+1', 'T-1', 'B-1', 'B+1'].map((hole) => holePosition(hole).z))
+    for (const bar of rails) expect(bar.length).toBeGreaterThan(holePosition('T+30').x - holePosition('T+1').x)
   })
 })
