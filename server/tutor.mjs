@@ -152,6 +152,13 @@ async function handle(req, res) {
     })
     return
   }
+  // Opening the server in a browser (the preview tab) says what it is.
+  if (req.method === 'GET' && req.url === '/') {
+    const ready = FAKE ? 'fake replies (TUTOR_FAKE=1), no API calls' : !configured ? 'not configured: no API key, so the chat says it is not available' : PROVIDER === 'gemini' ? `Gemini model ${GEMINI}` : `Claude model ${MODEL}`
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+    res.end(`Robo Learn tutor server, running: ${ready}.\n\nThis server only answers the help chat. Open the course from the dev server (npm run dev, usually http://localhost:7100/) and use the Ask tab.\n`)
+    return
+  }
   if (req.method !== 'POST' || req.url !== '/api/tutor') {
     send(res, 404, { error: 'not_found' })
     log(404)
