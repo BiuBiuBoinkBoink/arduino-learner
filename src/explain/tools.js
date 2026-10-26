@@ -7,12 +7,13 @@
 // Not a pure module in the strict sense: the scene and the cards are reached
 // only through the injected deps, so the tools themselves stay testable.
 //
-// createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds), reasons(),
-//   wiredPins(), signalPins() }
-// deps: { setXray(on), getBuild(), hasReference(), getPressed(), showTrace(path),
-//   isRunning(), openScope(pin, seconds) -> summary text }
+// createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds),
+//   connections(compare), reasons(), wiredPins(), signalPins() }
+// deps: { setXray(on), getBuild(), getReference(), getPressed(), showTrace(path),
+//   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows) }
 import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
 import { tracePath } from './currentPath.js'
+import { describeNets } from './connections.js'
 
 export const XRAY_ON = 'The breadboard is see-through. Each metal bar joins the holes above it.'
 export const XRAY_OFF = 'X-ray is off.'
@@ -37,6 +38,8 @@ function partList(ids, parts) {
 }
 
 export function createExplainTools(deps) {
+  const hasReference = () => Boolean(deps.getReference())
+
   async function xray(on = true) {
     const value = Boolean(on)
     deps.setXray(value)
@@ -44,7 +47,7 @@ export function createExplainTools(deps) {
   }
 
   async function trace(pin) {
-    if (!deps.hasReference()) return { ok: false, text: NO_CIRCUIT }
+    if (!hasReference()) return { ok: false, text: NO_CIRCUIT }
     if (!isPinName(pin) || normalizePin(pin) === 'GND') return { ok: false, text: `There is no pin called ${String(pin)} to trace from.` }
     const build = deps.getBuild()
     const path = tracePath(build, { from: pin, pressed: deps.getPressed() })
@@ -70,16 +73,26 @@ export function createExplainTools(deps) {
     return { ok: true, text: deps.openScope(pin, span) }
   }
 
+  async function connections(compare = true) {
+    if (!hasReference()) return { ok: false, text: NO_CIRCUIT }
+    const rows = describeNets(deps.getBuild(), compare ? deps.getReference() : null)
+    deps.showConnections(rows)
+    const count = `${rows.length} ${rows.length === 1 ? 'connection' : 'connections'}.`
+    if (!compare) return { ok: true, text: count }
+    return { ok: true, text: `${count} ${rows.filter((row) => row.match).length} match the lesson circuit.` }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
-    const reference = deps.hasReference()
+    const reference = hasReference()
     const pins = reference ? wiredPins(deps.getBuild()) : []
     return {
       xray: null,
       trace: !reference ? NO_CIRCUIT : pins.length === 0 ? WIRE_FIRST : null,
+      connections: reference ? null : NO_CIRCUIT,
       scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, scope, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
+  return { xray, trace, scope, connections, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }

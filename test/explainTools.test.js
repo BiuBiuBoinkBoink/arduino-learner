@@ -11,7 +11,7 @@ function setup(overrides = {}) {
   const deps = {
     setXray: (on) => calls.push(['xray', on]),
     getBuild: () => build,
-    hasReference: () => true,
+    getReference: () => circuits['1.2'],
     getPressed: () => ({}),
     showTrace: (path) => calls.push(['trace', path]),
     isRunning: () => true,
@@ -19,6 +19,7 @@ function setup(overrides = {}) {
       calls.push(['scope', pin, seconds])
       return `${pin} stays LOW.`
     },
+    showConnections: (rows) => calls.push(['connections', rows]),
     ...overrides
   }
   return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next } }
@@ -49,7 +50,7 @@ describe('explain tools', () => {
     const { tools } = setup()
     expect(await tools.trace('X9')).toEqual({ ok: false, text: 'There is no pin called X9 to trace from.' })
     expect((await tools.trace('GND')).ok).toBe(false)
-    const none = setup({ hasReference: () => false })
+    const none = setup({ getReference: () => null })
     expect(await none.tools.trace('D13')).toEqual({ ok: false, text: NO_CIRCUIT })
     expect(none.tools.reasons().trace).toBe(NO_CIRCUIT)
     const empty = setup({ build: { parts: [], wires: [] } })
@@ -68,6 +69,17 @@ describe('explain tools', () => {
     const stopped = setup({ isRunning: () => false })
     expect(await stopped.tools.scope('D13', 3)).toEqual({ ok: false, text: RUN_FIRST })
     expect(stopped.tools.reasons().scope).toBe('Run the sketch first.')
+  })
+
+  it('lists the connections with or without the lesson circuit', async () => {
+    const { tools, calls, setBuild } = setup()
+    expect(await tools.connections(true)).toEqual({ ok: true, text: '3 connections. 3 match the lesson circuit.' })
+    setBuild(withPart(circuits['1.2'], 'r1', { to: '8c' }))
+    expect((await tools.connections()).text).toBe('4 connections. 2 match the lesson circuit.')
+    expect(await tools.connections(false)).toEqual({ ok: true, text: '4 connections.' })
+    expect(calls.at(-1)[1].every((row) => row.match === null)).toBe(true)
+    const none = setup({ getReference: () => null })
+    expect(await none.tools.connections()).toEqual({ ok: false, text: NO_CIRCUIT })
   })
 
   it('lists the wired pins without GND', () => {

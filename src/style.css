@@ -2533,3 +2533,71 @@ summary:focus-visible {
 .scope-summary {
   min-height: 2.6em;
 }
+
+/* Connections card: one row per net, a dot, chips and a tick or a cross. */
+.net-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.net-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.net-row:hover,
+.net-row:focus-visible {
+  background: var(--accent-soft);
+}
+
+.net-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.net-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.net-chips {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.net-chip {
+  padding: 1px 6px;
+  font-size: 0.8rem;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.net-mark {
+  flex: none;
+}
+
+.net-mark.is-match {
+  stroke: var(--good);
+}
+
+.net-mark.is-miss {
+  stroke: var(--bad);
+}
+
+.net-footer {
+  color: var(--muted);
+  font-size: 0.8rem;
+}

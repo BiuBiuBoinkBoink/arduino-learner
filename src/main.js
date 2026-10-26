@@ -598,6 +598,7 @@ const explain = createExplain({
   viewControls,
   viewContainer: layout.viewControls,
   workbench: layout.workbench,
+  placement,
   getBuild: currentBuild,
   getReference: () => reference,
   getItems: view.items,

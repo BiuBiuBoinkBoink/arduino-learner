@@ -6,7 +6,7 @@
 // buffer, and a phase change re-checks the rows.
 //
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
-//   workbench, getBuild, getReference, getItems, inputs, runner })
+//   workbench, placement, getBuild, getReference, getItems, inputs, runner })
 //   -> { tools, menu, cards, reset(), refresh(), onFrame() }
 import { createExplainTools } from '../explain/tools.js'
 import { createExplainMenu } from '../ui/explainMenu.js'
@@ -14,9 +14,10 @@ import { createExplainCards } from '../ui/explainCards.js'
 import { createCurrentTrace } from '../ui/currentTrace.js'
 import { createLabels } from '../ui/labels.js'
 import { openScopeCard } from '../ui/scope.js'
+import { openConnectionsCard } from '../ui/connectionsCard.js'
 import { createScopeBuffer } from '../explain/scopeBuffer.js'
 
-export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, getBuild, getReference, getItems, inputs, runner }) {
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner }) {
   const cards = createExplainCards({ container: workbench })
   // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
   const labels = createLabels({ stage, container: workbench })
@@ -45,13 +46,18 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       stage.invalidate()
     },
     getBuild,
-    hasReference: () => Boolean(getReference()),
+    getReference,
     getPressed: pressed,
     showTrace: (path) => currentTrace.show(path),
     isRunning,
     openScope(pin, seconds) {
       const card = openScopeCard({ cards, buffer: scopeBuffer, getClock: runner.getClock, isRunning, pin, seconds })
       return card.text
+    },
+    showConnections(rows) {
+      const open = cards.get('connections')
+      if (open) open.update(rows)
+      else openConnectionsCard({ cards, rows, onHover: (places) => placement.setOverlay((places || []).map((place) => ({ place, tone: 'info' }))) })
     }
   })
 
@@ -61,6 +67,18 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
   const rows = [
     { id: 'xray', label: 'X-ray', kind: 'toggle', pressed: () => breadboard.isXray(), run: (on) => tools.xray(on), reason: why('xray') },
     { id: 'trace', label: 'Trace the current from', kind: 'choice', options: pinOptions, run: (pin) => tools.trace(pin), reason: why('trace') },
+    {
+      id: 'connections',
+      label: 'Connections',
+      kind: 'toggle',
+      pressed: () => cards.has('connections'),
+      run: (on) => {
+        if (on) return tools.connections(true)
+        cards.close('connections')
+        return { ok: true, text: 'The connections card is closed.' }
+      },
+      reason: why('connections')
+    },
     { id: 'scope', label: 'Scope on', kind: 'choice', options: signalOptions, run: (pin) => tools.scope(pin, 5), reason: why('scope') }
   ]
   const menu = createExplainMenu({
@@ -69,6 +87,12 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     closeView: viewControls.closeMenu,
     rows
   })
+
+  // The menu rows follow the build, and an open connections card shows it again.
+  function refresh() {
+    if (cards.has('connections')) tools.connections(true)
+    menu.refresh()
+  }
 
   function reset() {
     cards.closeAll()
@@ -88,5 +112,5 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     menu.refresh()
   }
 
-  return { tools, menu, cards, reset, refresh: menu.refresh, onFrame }
+  return { tools, menu, cards, reset, refresh, onFrame }
 }

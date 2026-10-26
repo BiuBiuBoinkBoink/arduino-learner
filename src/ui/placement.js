@@ -5,11 +5,14 @@
 //   tooltip, onChange, onHover }) -> { setEnabled(on), isEnabled(), pick(id),
 //   toggleWire(on), setWireColor(color), cancel(), rotate(), moveBy(dColumn, dRow),
 //   placeAt(name), confirm(), deleteSelected(), showMessage(text), refresh(),
-//   setMarks(list), setLocked(ids), setHoverOnly(on), getState(), subscribe(fn) }
+//   setMarks(list), setOverlay(list), setLocked(ids), setHoverOnly(on), getState(),
+//   subscribe(fn) }
 //
 // setMarks([{ place, tone }]) adds strip highlights under placement's own (the
 // step hints and mistakes); setLocked(ids) stops those kit parts being picked
-// up (parts of later steps). buildGhost and disposeGroup are shared with the
+// up (parts of later steps). setOverlay([{ place, tone }]) shows highlights
+// even with edit mode off, over the marks and under placement's own (the
+// Connections card row the learner points at). buildGhost and disposeGroup are shared with the
 // hint ghosts. setHoverOnly(true) keeps the hovered strip highlight and the
 // hole tooltip while edit mode is off, with no picking (explore steps that
 // count strip hovers); the arrow keys then move the hovered hole, starting at
@@ -116,6 +119,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
   let ghostKey = null
   let hidden = null
   let marks = []
+  let overlay = []
   let locked = []
   let hoverOnly = false
   // The last pointer was a finger: placing waits for Place.
@@ -248,7 +252,10 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     if (enabled || hoverOnly) {
       // Placement's own highlights win over a mark on the same place.
       const own = places(c)
-      breadboard.highlightPlaces([...marks.filter((mark) => !own.some((entry) => entry.place === mark.place)), ...own])
+      const free = (list, over) => list.filter((mark) => !over.some((entry) => entry.place === mark.place))
+      breadboard.highlightPlaces([...free(marks, [...overlay, ...own]), ...free(overlay, own), ...own])
+    } else if (overlay.length > 0) {
+      breadboard.highlightPlaces(overlay)
     } else {
       breadboard.clearHighlights()
     }
@@ -475,6 +482,11 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     update()
   }
 
+  function setOverlay(list) {
+    overlay = Array.isArray(list) ? list.slice() : []
+    update()
+  }
+
   function setLocked(ids) {
     locked = Array.isArray(ids) ? ids.slice() : []
     if (id !== null && locked.includes(id) && (mode === 'carry' || mode === 'bend')) {
@@ -695,6 +707,7 @@ export function createPlacement({ stage, board, breadboard, workbench, getItems,
     showMessage,
     refresh,
     setMarks,
+    setOverlay,
     setLocked,
     setHoverOnly,
     isLocked: (partId) => locked.includes(partId),
