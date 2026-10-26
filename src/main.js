@@ -29,6 +29,7 @@ import { createPartsTray } from './ui/partsTray.js'
 import { createHoleTooltip } from './ui/holeTooltip.js'
 import { createLabels } from './ui/labels.js'
 import { createStepMarks } from './ui/stepMarks.js'
+import { createExplain } from './app/explain.js'
 import { createRoom } from './sim/room.js'
 import { createRoomControls } from './ui/roomControls.js'
 import { createSound } from './ui/sound.js'
@@ -583,4 +584,15 @@ function tourFor(viewState) {
 }
 tourFor(flow.getView())
 flow.subscribe(tourFor)
+
+// Explain tools: the Explain menu with the view buttons, its cards and what
+// the tools draw in the scene. A lesson change closes every card and turns
+// every toggle off. No tool changes the build, the steps or progress.
+const explain = createExplain({ stage, breadboard, viewControls, viewContainer: layout.viewControls, workbench: layout.workbench })
+let explainLessonId = course.getState().lesson.id
+course.subscribe(({ lesson }) => {
+  if (lesson.id === explainLessonId) return
+  explainLessonId = lesson.id
+  explain.reset()
+})
 updateFlow()

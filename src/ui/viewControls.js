@@ -98,8 +98,13 @@ export function createViewControls({ container, stage, getFrameBox, getEditBox =
     orbited = true
     sync()
   })
+  // Another group of buttons in the menu (the Explain button), after the view buttons.
+  function addGroup(element) {
+    menu.append(element)
+  }
+
   sync()
-  return { setView, setEditing, setEditAvailable, isEditing: () => editing }
+  return { setView, setEditing, setEditAvailable, isEditing: () => editing, addGroup, closeMenu: () => setMenuOpen(false) }
 }
 
 function viewButton(text, onClick) {

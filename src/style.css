@@ -627,7 +627,7 @@ button.guide-step-row:hover {
 #run-bar {
   top: 12px;
   left: 12px;
-  max-width: calc(100% - 260px);
+  max-width: calc(100% - 440px);
 }
 
 #view-controls {
@@ -643,11 +643,16 @@ button.guide-step-row:hover {
 
 /* A narrow workbench has no room for the run bar beside the view buttons, so
    it moves below them at full width, and the tour card below it. */
-@container workbench (max-width: 640px) {
+@container workbench (max-width: 760px) {
   #run-bar {
     top: 56px;
     right: 12px;
     max-width: none;
+  }
+
+  .explain-cards {
+    top: 132px;
+    max-height: calc(100% - 144px);
   }
 
   .tour-card {
@@ -1785,6 +1790,203 @@ summary:focus-visible {
   border-radius: 8px;
 }
 
+/* Explain menu: a popover under the view buttons with one row per tool. */
+#view-controls.is-explaining {
+  z-index: 6;
+}
+
+.explain-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  box-sizing: border-box;
+  width: 340px;
+  max-width: calc(100cqw - 24px);
+  max-height: calc(100vh - var(--topbar-h) - 90px);
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--overlay-shadow);
+}
+
+.explain-menu[hidden] {
+  display: none;
+}
+
+.explain-heading {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.explain-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.explain-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.explain-row-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.explain-row.is-disabled .explain-row-label {
+  color: var(--muted);
+}
+
+.explain-controls {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.explain-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+}
+
+.explain-show,
+.explain-row-toggle,
+.explain-card-close {
+  min-height: 32px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.explain-row-toggle {
+  text-align: left;
+  font-weight: 600;
+}
+
+.explain-row-toggle[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.explain-show:hover:not(:disabled),
+.explain-row-toggle:hover:not(:disabled),
+.explain-card-close:hover {
+  background: var(--soft);
+}
+
+.explain-row-toggle[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.explain-menu button:disabled,
+.explain-field:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.explain-menu button:focus-visible,
+.explain-field:focus-visible,
+.explain-card button:focus-visible,
+.explain-card [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.explain-reason {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.explain-reason[hidden] {
+  display: none;
+}
+
+.explain-status {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+.explain-status:empty {
+  display: none;
+}
+
+/* Explain cards: stacked at the top right of the workbench, under the view buttons. */
+.explain-cards {
+  position: absolute;
+  z-index: 3;
+  top: 64px;
+  right: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 76px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.explain-card {
+  box-sizing: border-box;
+  flex: none;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--overlay-shadow);
+  pointer-events: auto;
+}
+
+.explain-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.explain-card-title {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.explain-card-body {
+  font-size: 0.85rem;
+}
+
+.explain-card-body p {
+  margin: 4px 0 0;
+}
+
 /* Layout modes: #app[data-layout] is set by src/ui/layout.js from the app
    width (wide >= 1200, medium 900 to 1199, compact < 900). Wide is the grid
    above. The parts below are hidden in wide. */
@@ -2290,4 +2492,34 @@ summary:focus-visible {
 #app[data-layout='compact'] .pin-label {
   max-width: 160px;
   font-size: 11px;
+}
+
+/* Medium: the open code drawer would hide the cards, so they sit above it. */
+#app[data-layout='medium'] .explain-cards {
+  z-index: 6;
+}
+
+/* Compact: the Explain button is in the View popover; the Explain popover and
+   the cards span the width less 16 px, between the run bar and the peek. */
+#app[data-layout='compact'] .explain-menu {
+  top: calc(100% + 6px);
+  width: calc(100cqw - 16px);
+  max-width: none;
+  max-height: calc(100vh - var(--topbar-h) - var(--peek-h) - 130px);
+}
+
+#app[data-layout='compact'] .explain-cards {
+  top: 110px;
+  right: 8px;
+  left: 8px;
+  width: auto;
+  max-width: none;
+  max-height: calc(100% - var(--peek-h) - 126px);
+}
+
+#app[data-layout='compact'] .explain-show,
+#app[data-layout='compact'] .explain-row-toggle,
+#app[data-layout='compact'] .explain-card-close,
+#app[data-layout='compact'] .explain-field {
+  min-height: 36px;
 }
