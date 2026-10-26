@@ -1,61 +1,17 @@
 // End to end: every lesson sketch runs through the code runtime, its board and
 // the sim runner, and its goal passes only after the learner's action.
 import { describe, it, expect } from 'vitest'
-import { createSimRunner } from '../src/sim/runner.js'
 import { sims } from '../src/sim/sims.js'
-import { createPins } from '../src/sim/pins.js'
-import { createInputs } from '../src/sim/inputs.js'
-import { createRoom } from '../src/sim/room.js'
-import { createSerial } from '../src/sim/serial.js'
-import { createSession } from '../src/runner/session.js'
 import { lessons } from '../src/course/lessons.js'
-import { defaultValues, slotValues, fillSketch } from '../src/ui/sketch.js'
+import { createHeadless, runHeadless } from '../src/sim/headless.js'
 
-const FRAME_MS = 16
-
-// Drives one lesson: a runner over real stores and a synchronous code runner.
-// edit(source) may change the filled sketch, like a learner typing.
+// Drives one lesson through src/sim/headless.js: a runner over real stores and
+// a synchronous code runner. edit(source) may change the filled sketch, like a
+// learner typing; set(values) is a slider move.
 function drive(lessonId, overrides = {}, edit = (source) => source) {
-  const lesson = lessons.find((item) => item.id === lessonId)
-  const { code, params } = lesson.sketch
-  let values = { ...defaultValues(params), ...overrides }
-  const sourceFor = () => edit(fillSketch(code, slotValues(params, values)))
-  const stores = { pins: createPins(), inputs: createInputs(), room: createRoom(), tones: createPins(), servos: createPins(), serial: createSerial() }
-  stores.servos.set('D9', 90)
-  let session = null
-  let codeStart = 0
-  let now = 0
-  const codeRunner = {
-    start(source) {
-      session = createSession(source, { random: () => 0.5 })
-      codeStart = now
-    },
-    stop() {
-      session = null
-    },
-    setInputs(levels) {
-      if (session) session.setInputs(levels)
-    }
-  }
-  const goals = []
-  const runner = createSimRunner({ sims, ...stores, codeRunner, onGoal: (id) => goals.push(id), uploadMs: 0 })
-  expect(runner.run({ lessonId, getValues: () => ({ ...values }), source: sourceFor(), now })).toBe(true)
-
-  function frame() {
-    runner.tick(now)
-    if (session) runner.receive(session.advance(now - codeStart))
-    now += FRAME_MS
-  }
-  function wait(ms) {
-    const end = now + ms
-    while (now < end) frame()
-  }
-  // A slider move: values change and the running sketch reloads.
-  function set(next) {
-    values = { ...values, ...next }
-    runner.reload(sourceFor(), now)
-  }
-  return { runner, stores, goals, wait, set, passed: () => runner.isGoalMet() }
+  const run = createHeadless({ lessonId, values: overrides, edit })
+  expect(run.started).toBe(true)
+  return run
 }
 
 describe('lesson goals through the code runner', () => {
@@ -244,6 +200,26 @@ describe('lesson goals through the code runner', () => {
       const lesson = lessons.find((item) => item.id === id)
       expect(lesson.sketch, id).toBeTruthy()
     }
+  })
+})
+
+describe('runHeadless', () => {
+  it('runs a sketch for a time with timed actions and reports the events, progress and goal', () => {
+    const lesson = lessons.find((item) => item.id === '1.4')
+    const actions = []
+    for (let i = 0; i < 3; i++) actions.push({ at: 200 + i * 300, kind: 'press', id: 'btn1' }, { at: 350 + i * 300, kind: 'release', id: 'btn1' })
+    const result = runHeadless({ lessonId: '1.4', ms: 1400, actions })
+    expect(lesson.sketch).toBeTruthy()
+    expect(result.error).toBe(null)
+    expect(result.goalMet).toBe(true)
+    expect(result.events.filter((event) => event.pin === 'D13' && event.value === 1).length).toBeGreaterThanOrEqual(3)
+    expect(result.progress).toMatchObject({ ran: true, goal: true, pressedOnce: true })
+  })
+
+  it('reports a sketch that does not compile', () => {
+    const result = runHeadless({ lessonId: '1.2', source: 'void loop() {', ms: 100 })
+    expect(result.goalMet).toBe(false)
+    expect(result.error.line).toBeGreaterThan(0)
   })
 })
 
