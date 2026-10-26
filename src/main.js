@@ -226,7 +226,7 @@ let kitLabels = {}
 // clicks off.
 const tooltip = createHoleTooltip({ container: layout.workbench })
 const placement = createPlacement({ stage, board, breadboard, workbench, getItems: view.items, getValues, tooltip, onHover: noteHover })
-const tray = createPartsTray({ container: layout.workbench, workbench, placement, kitLabels: () => kitLabels })
+const tray = createPartsTray({ container: layout.workbench, workbench, placement, kitLabels: () => kitLabels, onAbout: (id) => explain.about(id) })
 // Step hints and mistakes in the scene: strip glows, pin rings, ghosts, labels.
 const labels = createLabels({ stage, container: layout.workbench })
 const marks = createStepMarks({ stage, board, breadboard, placement, labels, getValues })
@@ -603,7 +603,8 @@ const explain = createExplain({
   getReference: () => reference,
   getItems: view.items,
   inputs,
-  runner
+  runner,
+  getKit: () => workbench.tray().parts.map((part) => ({ id: part.id, type: part.type, label: kitLabels[part.id] || part.id }))
 })
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {

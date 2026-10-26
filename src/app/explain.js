@@ -6,7 +6,7 @@
 // buffer, and a phase change re-checks the rows.
 //
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
-//   workbench, placement, getBuild, getReference, getItems, inputs, runner })
+//   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit })
 //   -> { tools, menu, cards, reset(), refresh(), onFrame() }
 import { createExplainTools } from '../explain/tools.js'
 import { createExplainMenu } from '../ui/explainMenu.js'
@@ -15,9 +15,10 @@ import { createCurrentTrace } from '../ui/currentTrace.js'
 import { createLabels } from '../ui/labels.js'
 import { openScopeCard } from '../ui/scope.js'
 import { openConnectionsCard } from '../ui/connectionsCard.js'
+import { openPartCard } from '../ui/partCard.js'
 import { createScopeBuffer } from '../explain/scopeBuffer.js'
 
-export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner }) {
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit }) {
   const cards = createExplainCards({ container: workbench })
   // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
   const labels = createLabels({ stage, container: workbench })
@@ -58,7 +59,9 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       const open = cards.get('connections')
       if (open) open.update(rows)
       else openConnectionsCard({ cards, rows, onHover: (places) => placement.setOverlay((places || []).map((place) => ({ place, tone: 'info' }))) })
-    }
+    },
+    getKit,
+    openPartCard: (type) => openPartCard({ cards, type })
   })
 
   const why = (id) => () => tools.reasons()[id]
@@ -78,6 +81,14 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
         return { ok: true, text: 'The connections card is closed.' }
       },
       reason: why('connections')
+    },
+    {
+      id: 'part',
+      label: 'Part card for',
+      kind: 'choice',
+      options: () => getKit().map((part) => ({ value: part.id, label: part.label })),
+      run: (id) => tools.part_card(id),
+      reason: why('part')
     },
     { id: 'scope', label: 'Scope on', kind: 'choice', options: signalOptions, run: (pin) => tools.scope(pin, 5), reason: why('scope') }
   ]
@@ -112,5 +123,11 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     menu.refresh()
   }
 
-  return { tools, menu, cards, reset, refresh, onFrame }
+  // The tray's ? buttons open part cards, with the text in the menu status.
+  async function about(id) {
+    const result = await tools.part_card(id)
+    menu.setStatus(result.text)
+  }
+
+  return { tools, menu, cards, reset, refresh, onFrame, about }
 }

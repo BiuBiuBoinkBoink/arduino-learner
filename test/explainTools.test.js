@@ -20,6 +20,8 @@ function setup(overrides = {}) {
       return `${pin} stays LOW.`
     },
     showConnections: (rows) => calls.push(['connections', rows]),
+    getKit: () => [{ id: 'r1', type: 'resistor', label: 'resistor' }, { id: 'led1', type: 'led', label: 'LED' }],
+    openPartCard: (type) => calls.push(['part', type]),
     ...overrides
   }
   return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next } }
@@ -80,6 +82,16 @@ describe('explain tools', () => {
     expect(calls.at(-1)[1].every((row) => row.match === null)).toBe(true)
     const none = setup({ getReference: () => null })
     expect(await none.tools.connections()).toEqual({ ok: false, text: NO_CIRCUIT })
+  })
+
+  it('opens a part card from a kit id or a type, with the summary', async () => {
+    const { tools, calls } = setup()
+    expect(await tools.part_card('led1')).toEqual({ ok: true, text: 'A light that lets current through one way only.' })
+    expect(calls.at(-1)).toEqual(['part', 'led'])
+    expect((await tools.part_card('servo')).text).toBe('A motor that turns its arm to an angle from 0 to 180 deg and holds it.')
+    expect(await tools.part_card('flux')).toEqual({ ok: false, text: 'There is no part called flux.' })
+    expect(tools.reasons().part).toBe(null)
+    expect(setup({ getKit: () => [] }).tools.reasons().part).toBe('This lesson has no parts.')
   })
 
   it('lists the wired pins without GND', () => {

@@ -2601,3 +2601,84 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+/* Tray ? buttons: a narrow button joined to the right of each kit part. */
+.tray-item-wrap {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+}
+
+.tray-item-wrap .tray-item {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tray-about {
+  flex: none;
+  width: 24px;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+}
+
+.tray-about:hover {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.tray-about:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Part card: the drawing with the leg names, the summary, legs and facts. */
+.part-figure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.part-leg-names {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.8rem;
+}
+
+.part-summary {
+  font-weight: 600;
+}
+
+.part-legs,
+.part-facts {
+  margin: 8px 0 0;
+}
+
+.part-legs dt {
+  font-weight: 600;
+}
+
+.part-legs dd {
+  margin: 0 0 4px;
+}
+
+.part-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 10px;
+}
+
+.part-facts dt {
+  color: var(--muted);
+}
+
+.part-facts dd {
+  margin: 0;
+}

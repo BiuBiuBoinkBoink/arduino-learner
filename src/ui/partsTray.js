@@ -7,7 +7,8 @@
 // parts of later steps say Later and cannot be picked up.
 // After a tap on the board (touch, placement's touchReady) a floating row
 // above the tray offers Place, Turn (parts with more than one orientation)
-// and Cancel.
+// and Cancel. Each kit part has a small ? button beside it (aria-label 'About
+// the <part>') that calls onAbout(id) to open its part card.
 import { isHole } from '../circuits/holes.js'
 import { isPinName } from '../circuits/netlist.js'
 import { orientationCount } from '../circuits/footprints.js'
@@ -59,8 +60,9 @@ const ICONS = {
   wire: () => [svgEl('path', { d: 'M4 24 C4 4 24 4 24 24', stroke: '#2c6fd1', 'stroke-width': 2.5, fill: 'none' })]
 }
 
-function icon(type) {
-  const svg = svgEl('svg', { width: 28, height: 28, viewBox: '0 0 28 28', 'aria-hidden': 'true', class: 'tray-icon' })
+// The drawing of a part type, size px square (the part card shows it at 96).
+export function partIcon(type, size = 28) {
+  const svg = svgEl('svg', { width: size, height: size, viewBox: '0 0 28 28', 'aria-hidden': 'true', class: 'tray-icon' })
   const draw = ICONS[type] || ICONS.button
   svg.append(...draw())
   return svg
@@ -77,7 +79,7 @@ function itemButton(type) {
   const sub = document.createElement('span')
   sub.className = 'tray-item-sub'
   text.append(name, sub)
-  button.append(icon(type), text)
+  button.append(partIcon(type), text)
   return { button, name, sub }
 }
 
@@ -106,7 +108,7 @@ function field(id, labelText) {
   return { wrap, input }
 }
 
-export function createPartsTray({ container, workbench, placement, kitLabels }) {
+export function createPartsTray({ container, workbench, placement, kitLabels, onAbout = () => {} }) {
   const tray = document.createElement('div')
   tray.id = 'parts-tray'
   tray.setAttribute('role', 'region')
@@ -230,7 +232,16 @@ export function createPartsTray({ container, workbench, placement, kitLabels }) 
         if (event.detail === 0 && first) first.focus()
       })
       partButtons.set(part.id, item)
-      items.append(item.button)
+      const about = document.createElement('button')
+      about.type = 'button'
+      about.className = 'tray-about'
+      about.textContent = '?'
+      about.setAttribute('aria-label', 'About the ' + (labels[part.id] || part.id))
+      about.addEventListener('click', () => onAbout(part.id))
+      const wrap = document.createElement('span')
+      wrap.className = 'tray-item-wrap'
+      wrap.append(item.button, about)
+      items.append(wrap)
     }
     items.append(wireItem.button)
   }

@@ -8,12 +8,14 @@
 // only through the injected deps, so the tools themselves stay testable.
 //
 // createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds),
-//   connections(compare), reasons(), wiredPins(), signalPins() }
+//   connections(compare), part_card(part), reasons(), wiredPins(), signalPins() }
 // deps: { setXray(on), getBuild(), getReference(), getPressed(), showTrace(path),
-//   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows) }
+//   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows),
+//   getKit() -> [{ id, type, label }], openPartCard(type) }
 import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
 import { tracePath } from './currentPath.js'
 import { describeNets } from './connections.js'
+import { PART_INFO } from '../course/partInfo.js'
 
 export const XRAY_ON = 'The breadboard is see-through. Each metal bar joins the holes above it.'
 export const XRAY_OFF = 'X-ray is off.'
@@ -82,6 +84,15 @@ export function createExplainTools(deps) {
     return { ok: true, text: `${count} ${rows.filter((row) => row.match).length} match the lesson circuit.` }
   }
 
+  // A kit id ('led1') or a part type ('led').
+  async function part_card(part) {
+    const kitPart = deps.getKit().find((item) => item.id === part)
+    const type = kitPart ? kitPart.type : part
+    if (typeof type !== 'string' || !Object.hasOwn(PART_INFO, type)) return { ok: false, text: `There is no part called ${String(part)}.` }
+    deps.openPartCard(type)
+    return { ok: true, text: PART_INFO[type].summary }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
     const reference = hasReference()
@@ -90,9 +101,10 @@ export function createExplainTools(deps) {
       xray: null,
       trace: !reference ? NO_CIRCUIT : pins.length === 0 ? WIRE_FIRST : null,
       connections: reference ? null : NO_CIRCUIT,
+      part: deps.getKit().length > 0 ? null : 'This lesson has no parts.',
       scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, scope, connections, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
+  return { xray, trace, scope, connections, part_card, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }
