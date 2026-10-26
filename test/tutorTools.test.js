@@ -71,7 +71,7 @@ describe('checkInput', () => {
 
 describe('plainText', () => {
   it('keeps printable ASCII and cuts to length', () => {
-    expect(plainText('  Long leg → here \u{1F600}  ', 40)).toBe('Long leg here')
+    expect(plainText('  Long leg \u2192 here \u{1F600}  ', 40)).toBe('Long leg here')
     expect(plainText('x'.repeat(50), 40)).toHaveLength(40)
   })
 })
@@ -121,12 +121,12 @@ describe('createTutorTools', () => {
 
   it('pins ASCII labels of 40 characters at most', async () => {
     const { tools, calls } = stubs()
-    const result = await tools.run('pin_label', { target: '9e', text: 'Long leg here → ' + 'x'.repeat(40) })
+    const result = await tools.run('pin_label', { target: '9e', text: 'Long leg here \u2192 ' + 'x'.repeat(40) })
     expect(result.isError).toBe(false)
     const text = calls[0][1].text
     expect(text).toHaveLength(40)
     expect(/^[\x20-\x7e]+$/.test(text)).toBe(true)
-    expect((await tools.run('pin_label', { target: '9e', text: '→' })).isError).toBe(true)
+    expect((await tools.run('pin_label', { target: '9e', text: '\u2192' })).isError).toBe(true)
     expect((await tools.run('pin_label', { target: '9-top', text: 'x' })).isError).toBe(true)
   })
 
