@@ -254,3 +254,15 @@ the final screenshot shows, anything not verified.
   played at 390 x 844 by touch (1.1's first steps, 1.2 and 1.4 were; the others share the same
   placement and sheet paths), the drag snap animation by eye, reduced motion and screen reader
   output.
+- 2026-10-26: phase 8 explain tools, last code commit ab6dd87, 957 tests. Final screenshot at 1440 x 900
+  on 1.2 (finished build, last step, running): the guide with five steps ticked and Blink faster
+  current, the run bar Running with the blink readout left of the view buttons (Edit circuit, Top
+  view, 3D view, Reset view, Explain), the Scope: D13 card with a 500 ms square wave and its summary
+  (one cycle every 1000 ms) above the Connections card (D13 and resistor, GND and the short leg, the
+  long leg and resistor, all ticked), the Controls dock with the meter in Voltage mode, and the code
+  panel. All 9 checks done at 1440 x 900 and checks 1, 2, 5 and 9 at 390 x 844 (plus no horizontal
+  scroll at 360 x 740 with the menu and a card open, and the medium run bar at 1024 x 768); no console
+  errors in a fresh tab driven by real clicks and keys. Not verified: real touch (a synthetic touch tap
+  measured a hole), the trace dots and stop ring by eye at 1440 x 900 (seen at pane size; the label was
+  read from the page), the reduced motion tube, x-ray bars at 1440 x 900 by eye (seen at pane size), and
+  screen reader output.

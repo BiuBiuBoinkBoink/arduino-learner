@@ -294,4 +294,71 @@ about progress. Add the session `trace` and `timeScale` options and the runner
 
 ## Decisions made while building
 
-(Write any choice you had to make here.)
+Code:
+
+- 8.1: the menu, the cards and the tools are composed in `src/app/explain.js` so main.js only passes
+  its stores in. `tools.js` lives in `src/explain/` but reaches the scene and cards through injected
+  deps, so it is tested with fakes (`test/explainTools.test.js`). The tool names follow the phase
+  (`part_card`, `slow_motion`, `what_if`) because the chat will call them by those names.
+- 8.1: the Explain button is a third group in the view menu (`viewControls.addGroup`). In compact its
+  click closes the View popover (`closeMenu`) and opens the Explain popover in the same place; Escape
+  returns focus to View, since the Explain button is hidden then. The popover stays open after a tool
+  runs so its status line can be read; in compact it covers part of the board until closed.
+- 8.1: the user's instruction that trace, connections and what if need a reference circuit wins over
+  the phase (connections could list 1.1's nets): on 1.1 those rows say `This lesson has no circuit to
+  explain.` X-ray, part cards and measuring work there.
+- 8.1: the view group grew by the Explain button, so the run bar now keeps 420 px clear in the wide and
+  medium layouts (was 260 and 200 px); a first try moved the run bar below the buttons up to 760 px but
+  that put it under the tour card in medium, so the 640 px breakpoint stayed. The cards drop under the
+  moved run bar below 640 px (that rule sits after the base card rule so it wins). In medium the cards
+  sit above the open code drawer (z-index 6) so a card is never hidden.
+- 8.2: the bars are one InstancedMesh (64 bars), 0.12 cm wide and 0.05 cm high, 0.12 cm under the top.
+  The body slabs stop casting shadows while see-through, or the bars would sit in their shadow.
+- 8.3: a button's facing legs are joined inside it, so the in-net routing links them with a `part` hop.
+  The stop hole is the free hole of the stop place nearest to where the current arrived (the arrival
+  hole when none is free). `Nothing is wired to <pin> yet.` returns ok: true (it is a finding, not a bad
+  argument). A held button counts as pressed in the trace.
+- 8.4: `runner.getClock()` is the clock output event times are on; it never falls behind the latest
+  event, because a stalled frame loop (a hidden tab) left the scope reading events from its future
+  (found in check 3). The menu scope shows 5 s; the tool takes 1 to 5 s. When the visible seconds hold
+  no full cycle the summary uses the whole 10 s window, else `<pin> is changing. Watch a little longer
+  for a full cycle.` (not in the phase). The buffer also maps tone events to 1 or 0 and servo angles to
+  angle / 180, so what if can compare the buzzer and servo lessons.
+- 8.5: `placement.setOverlay(list)` was added for the row highlight, because `setMarks` belongs to the
+  step marks and placement only drew highlights in edit mode. The card refreshes after every workbench
+  change while open.
+- 8.6: the ? is a narrow button joined to the right of each tray part (a button cannot sit inside a
+  button), so it never reaches the floating Place, Turn and Cancel row above the tray. Its text goes to
+  the Explain status line. The leg names sit beside the 96 px drawing as an ordered list.
+- 8.7: the meter has a `Mode` select. Current only appears with meter targets (1.3); every lesson with a
+  circuit gets Voltage, so the dock shows the meter on every circuit lesson. The keyboard path is a
+  `Point` field with `Measure` (a hole, a pin or `id.terminal`); touch taps count within 8 px. One label
+  at a time, read again on every pin change. `pins.snapshot()` and `runner.getInputLevels()` were added
+  for the levels; a pin the sketch never set has no fixed voltage while running, and every signal pin
+  reads 0 V while stopped (first try said `not set` while stopped). An `ldr` counts as a resistor for
+  the voltage rules.
+- 8.8: per the user's instruction the running line reuses the code panel's `is-active` trace highlight
+  (made stronger by `is-executing` on the code) instead of a second highlight class; the trace loop
+  pauses while slow motion feeds lines. The time scale lives in the session (the worker passes it on and
+  keeps it for the next start, so a slider reload stays slow). `slow_motion(1)` turns it off (the phase
+  only names 0.1 and 0.25), with `Slow motion is off. Goals stay paused until you press Run again.`
+  The status note comes through a new `getNote` option of the run controls. Stop, a runtime error and
+  Run end slow motion.
+- 8.9: `createHeadless` keeps the whole drive pattern (wait, set, stores) because lessonGoals checks the
+  readout and stores between steps; `runHeadless` is built on it. The what if card is closed by any
+  workbench change, since its comparison is then stale. For a removed part the ghost is the part at 20%
+  opacity and the real item is hidden until the card closes. The LED sentence picks the target LED, else
+  the first LED whose state changes. A path with no resistor counts as full brightness. Code what ifs
+  compare the lesson's main pin (the LED pin, the red pin of an RGB LED, D8 or D9).
+
+Checks:
+
+- At 1440 x 900 the pane drew the page too small to read, so most checks read page state (aria-pressed,
+  texts, labels, rects) with real clicks and keys; screenshots at the pane's own and compact sizes showed
+  the x-ray bars, a trace dot, the stop label, the scope plot, the connections card and the what if ghost.
+- Check 2 broke the circuit in edit mode through the tray keyboard path (From 5c, To 8c), with step
+  progress seeded so the resistor was not a Later part.
+- Check 7 used the last step (One blink takes under 500 ms) with both delays at 200 ms: 8 s of slow
+  motion passed and latched nothing; Stop and Run then passed the step and finished the lesson.
+- Someone else used the first browser tab during the checks (a what if card and camera moves that were
+  not mine), so the checks moved to a fresh tab.

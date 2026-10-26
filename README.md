@@ -236,6 +236,16 @@ bottom sheet with Steps and Code tabs; its peek shows the current step, how much
 is done and, once it passes, Continue. The top bar, run bar, view buttons and controls fold up to
 fit, and parts and wires can be placed by touch: tap a hole, then Place, Turn or Cancel.
 
+**Lesson overhaul phase 8, explain tools** (`feature/lesson-overhaul`, not merged): an Explain
+button beside the view buttons (inside View on a phone) opens eight tools that show why a
+circuit or sketch behaves as it does. X-ray shows the metal strips under the holes, Trace the
+current sends dots from a pin to GND or shows where the path stops, the Scope plots a pin's level
+and sums it up in words, Connections lists every net with ticks where it matches the lesson,
+part cards explain each part (also from a ? beside each part in the tray), the meter has a
+Voltage mode, Slow motion runs the sketch at a tenth of its speed with the running line lit
+(goals pause until the next Run), and What if shows a pretend change beside the real one. Every
+number comes from the simulator or the netlist, and no tool changes the build or progress.
+
 **New lessons are paused** at the owner's request. The Level 2 lesson items in the backlog
 are on hold.
 

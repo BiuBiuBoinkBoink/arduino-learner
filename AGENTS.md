@@ -83,7 +83,11 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/build/kit.js`, `src/build/workbench.js`, `src/build/wireColor.js`, `src/ui/placement.js`, `src/ui/partsTray.js`,
 `src/ui/holeTooltip.js`, `src/circuits/suggest.js`, `src/course/nudge.js`, `src/ui/labels.js`,
 `src/ui/stepMarks.js`, `src/ui/layoutMode.js`, `src/ui/sheetState.js`, `src/ui/bottomSheet.js`,
-`src/ui/sheetPeek.js`. The other
+`src/ui/sheetPeek.js`, `src/app/explain.js`, `src/explain/tools.js`, `src/explain/currentPath.js`,
+`src/explain/scopeBuffer.js`, `src/explain/connections.js`, `src/explain/voltages.js`,
+`src/explain/whatIf.js`, `src/sim/headless.js`, `src/course/partInfo.js`, `src/ui/explainMenu.js`,
+`src/ui/explainCards.js`, `src/ui/currentTrace.js`, `src/ui/scope.js`, `src/ui/connectionsCard.js`,
+`src/ui/partCard.js`, `src/ui/whatIfCard.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -101,7 +105,8 @@ src/
                    on for explore steps with an event check, turns the board tour on only on its step, and
                    on Start this lesson again resets the lesson build and its tour; makes the bottom sheet before the scene and moves the guide
                    and code panel into it in the compact layout (see "Layouts and touch"), starts narrower
-                   layouts in the framed 3D view and frames the top or 3D view again on a stage resize
+                   layouts in the framed 3D view and frames the top or 3D view again on a stage resize;
+                   makes the explain tools (src/app/explain.js) last and resets them on a lesson change
   style.css        CSS tokens on :root (--ink, --line, --panel, --accent, --topbar-h, --guide-w, --code-w,
                    --rail-w...); #app is a grid: #top-bar across row 1, then #guide-panel, #workbench
                    and #code-panel; #stage fills the workbench (position absolute) and the workbench
@@ -120,6 +125,10 @@ src/
                    centres the servo at 90 deg, a rebuild after an edit keeps its angle and the buzzer ring;
                    LEDs follow pins, the servo horn servos and the buzzer ring tones
     storage.js     getStorage(): localStorage, or an in memory stand in when it is blocked
+    explain.js     createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement,
+                   getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter, codePanel,
+                   getLessonId }) -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id),
+                   measureAt(name) }: wires the explain tools to the scene, cards and menu (see "Explain tools")
   course/          lessons data, state, goTo(id), progress; 1.1 to 1.12 then the Level 1 project P1
                    createCourse({ lessons, storage }): goTo, next, prev, markComplete, subscribe; hash #<lesson id>; progress key robo-learn:progress
     goalText.js    pure splitGoal(paragraphs) -> { intro, goal }: goal is the text after 'Goal: ' in the first
@@ -139,6 +148,8 @@ src/
                    toggleOpen, raiseHint(level), runLock, subscribe (see "Lesson steps and checks")
     nudge.js       pure createNudge({ flow, delayMs, setTimer, clearTimer }) -> { poke(), stop() }; NUDGE_MS
                    (40000): raises the current step to hint level 1 on a mistake or after the wait
+    partInfo.js    PART_INFO[type] = { name, summary, legs: [{ terminals, label, text }], facts: [{ label, value }] }
+                   for the part cards, one entry per part type
     progress.js    pure lessonStatus(lessons, completed, id) -> 'done' | 'next' | '' (next is the first lesson in
                    course order that is not done)
     lessons.js     levels ([{ id, title }], 1 Basics to 5 Beyond the Uno); lesson objects: id, level,
@@ -170,14 +181,16 @@ src/
                    draws a thin accent ring just above each named header hole (pool, callers invalidate); UNO_ZONE_IDS for the six clickable zones;
                    PITCH (0.254); UNO_PIN_NAMES and unoPinPosition(name) -> board local Vector3 at the hole top;
                    PIN_TOP_Y and nearestPin(localX, localZ, maxDistance = 0.6 * PITCH) -> pin name or null
-    breadboard.js  createBreadboard() -> { group, highlightPlaces(list), clearHighlights() }, half size, 30
+    breadboard.js  createBreadboard() -> { group, highlightPlaces(list), clearHighlights(), setXray(on), isXray() }, half size, 30
                    columns, four power rails with red and blue stripes (the 420 hole marks are one
                    InstancedMesh named 'hole', stripes 'stripe'); highlightPlaces([{ place: 'strip:9-top' |
                    'rail:T+', tone: 'hover' | 'info' | 'good' | 'bad' }]) draws flat see-through boxes over
                    those holes from a pool (HIGHLIGHT_TONES), callers invalidate; re-exports the grid from
                    src/circuits/holes.js; holePosition(hole) local Vector3, rails included; HOLE_TOP_Y and
                    nearestHole(localX, localZ, maxDistance = 0.6 * PITCH) -> hole within the distance on both
-                   axes, or null
+                   axes, or null; setXray(on) makes the body see-through (XRAY_OPACITY 0.25, no depth writes,
+                   no body shadows) and shows the 'xray-bar' instanced mesh, one metal bar (0xb8bec6) under
+                   each strip and rail (xrayBars(), 64), built once and hidden while off
     led.js         createLed({ color, anode, cathode }) -> { group, setLit(on), setBrightness(b) }; red, green, yellow,
                    blue; anode leg kinked; setBrightness(b) for b from 0 to 1 glows the lens in its own colour
                    (emissive only) at LIT_INTENSITY * b, none at 0; setLit(on) is setBrightness(on ? 1 : 0);
@@ -225,9 +238,22 @@ src/
                    addWire, removeWire, canUndo, undo, reset, placeReference, kitPart, subscribe; REASONS;
                    key robo-learn:build
     wireColor.js   autoWireColor(from, build), pinColor(pin), WIRE_COLOR_NAMES
+  explain/         explain tools (see "Explain tools"); pure except tools.js, which reaches the scene through deps
+    tools.js       createExplainTools(deps) -> { xray, trace, scope, connections, part_card, measure, slow_motion,
+                   what_if, reasons(), wiredPins(), signalPins(), whatIfChoices() }; wiredPins(build),
+                   signalPins(build), whatIfChoices(build), ledSentence(state, label); the tool texts
+    currentPath.js pure tracePath(build, { from, pressed }) -> { hops, parts, reachesGround, stop, blocked }; partEdges
+    scopeBuffer.js pure createScopeBuffer({ windowMs }), summarize(samples, fromMs, toMs), scopeText, describePin,
+                   roundMs, levelOf; SCOPE_WINDOW_MS (10000)
+    connections.js pure describeNets(build, reference) -> [{ id, things, places, match }]
+    voltages.js    pure netVoltages(build, { pinLevels, inputLevels }) -> Map(netId -> volts | null), pinVoltage,
+                   FORWARD_VOLTS, RGB_FORWARD_VOLTS
+    whatIf.js      pure whatIfCode({ lessonId, source, values, line, text }), whatIfCircuit(build, change), mainPin,
+                   cyclePhrase; WHAT_IF_MS (3000)
   sim/             per lesson simulators, pin levels, goal checks
     tour.js        pure createTour(zoneIds): open, isOpened, openedCount, total, isComplete (lesson 1.1 goal)
-    pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn); shared pin levels
+    pins.js        pure createPins(): get(name), set(name, level), reset(), subscribe(fn), snapshot() (pins ever set);
+                   shared pin levels
     inputs.js      pure createInputs(): isPressed(id), setPressed(id, on), getValue(id), setValue(id, v),
                    getProbe(), setProbe(id), subscribe(fn); held buttons and knob values (0 to 1, 0.5 when
                    never set) by part id, and the meter probe target id (null when unset, never notified)
@@ -271,8 +297,11 @@ src/
     runner.js      pure createSimRunner({ sims, pins, inputs, room, tones, servos, serial, codeRunner, onGoal,
                    uploadMs }): hasSim, run({ lessonId, getValues, source, now }), reload(source, now), tick(now),
                    receive(batch), fail(error), stop, getPhase (idle, uploading, running, error), getError,
-                   isGoalMet, getReadout, getProgress; checkCode(source) compiles without running; UPLOAD_MS
-                   (1500); RAN_MS (1000)
+                   isGoalMet, getReadout, getProgress, getClock, getInputLevels, subscribeOutput(fn),
+                   subscribeLine(fn), setSlowMotion(on, speed), getSlowMotion, isDemo; checkCode(source)
+                   compiles without running; UPLOAD_MS (1500); RAN_MS (1000)
+    headless.js    pure createHeadless({ lessonId, values, source, edit }) (the lessonGoals drive pattern) and
+                   runHeadless({ lessonId, source, values, ms, actions }) -> { events, progress, goalMet, error }
   runner/          code runner for learner code (Level 2 onward)
     lexer.js       pure lex(source) -> tokens { type, value, line, column } (number, string, char, ident, keyword,
                    op, include, eof); CodeError(message, line, column) with message 'Line N: ...'
@@ -281,23 +310,26 @@ src/
                    Return, Empty; expressions Number, String, Char, Bool, Ident, Assign, Conditional, Binary,
                    Unary, Update, Call, Member, Index, Cast, Sequence, InitList; types { name, const } with
                    enum names and LIBRARY_CLASSES (Servo); every node has line; errors throw CodeError
-    interpreter.js pure createProgram(source, hw) -> { advance(untilMs), millis(), error }: generator based, virtual
+    interpreter.js pure createProgram(source, hw) -> { advance(untilMs), millis(), error }; optional hw.onLine(line)
+                   at each statement start; generator based, virtual
                    clock (delay waits, STATEMENT_MS per statement), C int rules (truncating division, wrap on
                    store), Arduino built-ins, Serial, Servo and String methods; runtime CodeErrors stop it;
                    pinName(n) maps 0 to 13 -> D0 to D13 and 14 to 19 -> A0 to A5
-    session.js     pure createSession(source, { random }) -> { advance(untilMs) -> batch, setInputs(levels),
-                   sendSerial(text) }; batch { pins (0 to 1), tones (Hz), servos (deg), events ([ms, kind, pin,
+    session.js     pure createSession(source, { random, trace, timeScale }) -> { advance(untilMs) -> batch,
+                   setInputs(levels), sendSerial(text), setTrace(on), setTimeScale(scale) }; the sketch clock moves
+                   at timeScale times real time; with trace, [ms, 'line', null, line] events; batch { pins (0 to 1), tones (Hz), servos (deg), events ([ms, kind, pin,
                    value] for every change in order, kind 'pin', 'tone', 'servo', or 'input' when the
                    circuit changes an input level), serial, millis, error };
                    tone(pin, hz, ms) ends by itself at its own time; null or unset input pins read HIGH with
                    INPUT_PULLUP, else LOW
-    worker.js      Web Worker: start, stop, inputs, serial messages in; started, batch and error messages out;
-                   follows real time every 16 ms
+    worker.js      Web Worker: start, stop, inputs, serial, trace and timeScale messages in (trace and timeScale
+                   carry over to the next start); started, batch and error messages out; follows real time
+                   every 16 ms
     codeChecks.js  pure analyzeCode(source) -> { error, calls [{ name, line, inFunction }], functions, includes },
                    names as written ('delay', 'Serial.println', 'arm.write'); findCalls, countCalls, callLines
                    (each with { inFunction }), definesFunction; a parse error gives error, not a throw
     codeRunner.js  createCodeRunner({ onBatch, onError, createWorker, startTimeoutMs }) -> { start(source), stop(),
-                   setInputs(levels), sendSerial(text) }; main thread client for the worker; a worker that
+                   setInputs(levels), sendSerial(text), setTrace(on), setTimeScale(scale) }; main thread client for the worker; a worker that
                    cannot load or does not send started within START_TIMEOUT_MS (4 s) reports START_FAILED
                    with line null, so Run never fails silently
   ui/              layout, top bar, course map, guide, info tabs, code panel, params, workbench controls
@@ -346,7 +378,7 @@ src/
                    lesson again' needs a second click within 3 s ('Click again to start over') and calls
                    tracker.reset, then onRestart (main.js resets the lesson build)
     viewControls.js createViewControls({ container, stage, getFrameBox, getEditBox, onEdit }) -> { setView(kind,
-                   opts), setEditing(on), setEditAvailable(on), isEditing() }: an Edit circuit toggle
+                   opts), setEditing(on), setEditAvailable(on), isEditing(), addGroup(element), closeMenu() }: an Edit circuit toggle
                    (aria-pressed) in its own group, then Top view, 3D view and Reset view buttons; Top and 3D
                    follow stage.getView() with aria-pressed. Both groups sit in .view-menu (display: contents
                    outside compact) after a View button (.view-toggle, aria-expanded, hidden outside
@@ -366,7 +398,8 @@ src/
                    the top right of the editor (Escape or the button closes) moves the workspace (editor,
                    error line, serial slot) to the body to fill the window over a backdrop; returns
                    { serialSlot, getValues, subscribe, onInput, getSource, isEdited, setError, markLines,
-                   clearMarks }; onInput(fn) calls fn(source) on every edit of the sketch text;
+                   clearMarks, setExecutingLine }; setExecutingLine(n) gives line n the trace's is-active highlight
+                   (made stronger by is-executing on the code) and pauses the trace loop, null hands it back; onInput(fn) calls fn(source) on every edit of the sketch text;
                    markLines(lines, note) gives those 1 based lines is-hint (accent soft background) and puts
                    the note after the first one until clearMarks or a lesson change
     runControls.js createRunControls({ container, course, runner, getValues, getSource, onError }) ->
@@ -377,7 +410,8 @@ src/
                    in #run-bar, a floating bar at the top left of the workbench; options getLock() (a string
                    disables Run and shows as the status; refreshLock() re-checks it) and onFrame() (after
                    every loop frame, on Stop and on an error); returns { noticeError, refreshLock, stop };
-                   the status and readout keep their whole text in title (compact cuts them with an ellipsis)
+                   the status and readout keep their whole text in title (compact cuts them with an ellipsis);
+                   getNote() (a line shown as the status while running, the slow motion note)
     partPress.js   createPartPress({ stage, getItems, inputs }) -> { press(id), release(), isPressed(), setEnabled(on) }: raycast
                    press and release on visible pressable circuit items, orbit off while held, pointer cursor
                    on hover; createHoldButton({ container, partPress, inputs }) -> { setTarget(id) }, the
@@ -396,9 +430,12 @@ src/
                    createSerialMonitor({ container, serial, onSend }) -> { setVisible(on) }; #serial-panel sits
                    in the code panel serialSlot under the editor; main.js sends lines to the running sketch
                    through the code runner: Clear, a scrolling non live role="log" output and a Send form
-    multimeter.js  createMultimeter({ container, stage, getItems, inputs }) -> { setTargets(targets), setEnabled(on) }: "Meter on"
-                   select in the Controls dock and click to probe a visible part of a target (a pointer up within
-                   5 px of its down); both write inputs.setProbe(id); hidden with no targets
+    multimeter.js  createMultimeter({ container, stage, board, breadboard, getItems, inputs, onMeasure }) ->
+                   { setTargets(targets), setAvailable(on), setEnabled(on), setReading(text), getMode() }: a Mode
+                   select (Current only with meter targets, Voltage on every lesson with a circuit); Current is
+                   the "Meter on" select and click to probe a visible part of a target (a pointer up within 5 px
+                   of its down), both writing inputs.setProbe(id); Voltage measures the hole or pin under a click
+                   (8 px for touch taps) or typed in Point with Measure, through onMeasure(name)
     placement.js   createPlacement({ stage, board, breadboard, workbench, getItems, getValues, tooltip, onChange,
                    onHover }): edit mode picking, ghosts, strip highlights, wires and window keys (see
                    "Workbench and placement"); setMarks([{ place, tone }]) adds step highlights under its
@@ -406,12 +443,25 @@ src/
                    strip and the hole tooltip with edit mode off (no picking; the arrows move the hovered hole
                    while the page has focus); touch taps move the target without placing (getState().touch
                    and touchReady; see "Layouts and touch"); exports buildGhost({ table, board,
-                   breadboard, values, tint }) and disposeGroup(scene, group)
-    partsTray.js   createPartsTray({ container, workbench, placement, kitLabels }) -> { setVisible(on), render(),
+                   breadboard, values, tint }), disposeGroup(scene, group) and holeOrPinAt({ stage, board,
+                   breadboard, clientX, clientY }); setOverlay([{ place, tone }]) shows highlights even with
+                   edit mode off (the Connections row being pointed at)
+    partsTray.js   createPartsTray({ container, workbench, placement, kitLabels, onAbout }) -> { setVisible(on), render(),
                    setStep({ pulse, later }) }: #parts-tray with the kit, Jumper wires, Undo, Reset circuit,
                    status, colour and the keyboard row; pulse parts get an accent ring animation (a still
                    ring under reduced motion), later parts say Later and are disabled; .tray-touch floats
-                   above it with Place, Turn and Cancel while placement's touchReady is true
+                   above it with Place, Turn and Cancel while placement's touchReady is true; each kit part has a
+                   ? button joined to its right (aria-label 'About the <part>', onAbout(id)); exports
+                   partIcon(type, size)
+    explainMenu.js createExplainMenu({ container, addToView, closeView, rows }) -> { open, close, isOpen, refresh,
+                   setStatus }: the Explain button and popover (see "Explain tools")
+    explainCards.js createExplainCards({ container }) -> { open({ kind, title, onClose }), close(kind), closeAll(),
+                   has(kind), get(kind) }; MAX_CARDS (2)
+    currentTrace.js createCurrentTrace({ stage, board, breadboard, getItems, setLabels }) -> { show(path), clear() }
+    scope.js       openScopeCard({ cards, buffer, getClock, isRunning, pin, seconds }) -> card
+    connectionsCard.js openConnectionsCard({ cards, rows, onHover }) -> card with update(rows)
+    partCard.js    openPartCard({ cards, type }) -> card
+    whatIfCard.js  openWhatIfCard({ cards, title, columns, onClose }) -> card
     labels.js      createLabels({ stage, container }) -> { set(list), clear() }: aria-hidden .pin-label boxes
                    above projected 3D points ([{ id, position, text, tone }]), re-placed on controls change,
                    resize and set; hidden behind the camera or outside the workbench
@@ -648,7 +698,8 @@ the current lesson, and every panel updates from it.
 - Medium: columns `var(--guide-w-medium)` (280 px) and the workbench. The code panel is an absolute
   drawer over the right of the workbench (`grid-row: 2; grid-column: 1 / -1; top: 0; bottom: 0;
   right: 0; width: min(420px, 60vw)`, z-index 5, shadow); closed, it is a 36 x 96 px Code tab
-  centred on the right edge. The run bar max width is `calc(100% - 200px)`.
+  centred on the right edge. The run bar max width is `calc(100% - 420px)` (wide too), clear of the
+  view buttons with Explain.
 - Compact: one column, the top bar shows only `1.2 Blink`, `Step 2 of 6`, 32 px chevron Prev and
   Next and Course map; the course map fills the screen under the top bar; the run bar spans the top
   (8 px margins) with the status and readout on one line each (ellipsis, full text in `title`); the
@@ -743,7 +794,7 @@ the current lesson, and every panel updates from it.
   `{ ran, goal, ...board.progress() }`, where `ran` is true once the board has run
   for `RAN_MS` (1000 ms, by the last `tick(now)`) and `goal` is `isGoalMet()`.
 - `test/lessonGoals.test.js` runs every lesson sketch through the runtime, its
-  board and the runner, and checks that each goal fails at the defaults and passes
+  board and the runner (the `createHeadless` drive pattern in `src/sim/headless.js`), and checks that each goal fails at the defaults and passes
   after the learner's action. Keep it passing when a lesson changes.
 - The circuit view (`src/app/circuitView.js`) subscribes once to `pins`. On a change it calls `setBrightness(level)`
   on every LED in the current circuit whose `pin` matches, then `invalidate()`.
@@ -870,6 +921,62 @@ the current lesson, and every panel updates from it.
   pin. Labels (`src/ui/labels.js`) are aria-hidden; the guide carries the same text.
 - Step marks show only while edit mode is on; `src/ui/stepMarks.js` draws them. Kit parts
   of later build or wire steps show `Later` in the tray and cannot be picked up.
+
+## Explain tools
+
+- An `Explain` button sits with the view buttons (`viewControls.addGroup`; in compact inside the View
+  popover, which hands over to the Explain popover). The popover (`#explain-menu`, `explainMenu.js`) has
+  one row per tool: toggles (`X-ray`, `Connections`, `Slow motion`, aria-pressed), choices with a select
+  and `Show` (`Trace the current from`, `Part card for`, `What if`, `Scope on`) and an input with `Show`
+  (`Measure voltage at`, Enter runs it). A row that cannot work is disabled with its reason in muted text
+  under it; the status line (role="status") shows the last tool text. Escape closes it and returns focus
+  to Explain (View in compact); a pointer down outside closes it. It stays open after a tool runs.
+- `src/explain/tools.js` `createExplainTools(deps)`: one async function per tool returning `{ ok, text }`;
+  arguments are checked and a tool that cannot work returns `{ ok: false, text }`, never throws. Reasons:
+  `This lesson has no circuit to explain.` (trace, connections and what if on a lesson with no reference
+  circuit, 1.1), `Wire a pin first.`, `Run the sketch first.`, `This lesson has no parts.`, `Place an LED
+  first.` Phase 9's chat calls the same functions.
+- Cards (`explainCards.js`): one stack (`#explain-cards`) at the top right of the workbench under the view
+  buttons, 340 px wide (full width less 16 px in compact, top 110 px; under the moved run bar when the
+  workbench is under 640 px; above the open code drawer in medium), each with a title and `Close`
+  (aria-label `Close <title>`). At most two: a third closes the oldest; the same kind replaces itself.
+- A lesson change closes every card, clears the trace and the meter label and turns X-ray off; the run
+  stops, which ends slow motion.
+- No tool changes the learner's build, steps or progress. Slow motion never completes a goal.
+
+| Tool | Module | Text |
+| --- | --- | --- |
+| `xray(on)` | `breadboard.setXray` | `The breadboard is see-through. Each metal bar joins the holes above it.` / `X-ray is off.` |
+| `trace(pin)` | `currentPath.js`, `currentTrace.js` | `Current flows from <pin> through the <part>, then the <part>, to GND.`, `Current reaches the LED but cannot get through: the LED is in backwards.`, `The current stops at <place>. Nothing there leads on to GND.`, `Nothing is wired to <pin> yet.` |
+| `scope(pin, seconds)` | `scopeBuffer.js`, `scope.js` | `<pin> is HIGH for about <n> ms, then LOW for about <n> ms: one cycle every <n> ms.`, `<pin> stays HIGH.`, `<pin> averages <n>% on (analogWrite about <v>).`, `<pin> has not changed since Run.` |
+| `connections(compare)` | `connections.js`, `connectionsCard.js` | `<n> connections. <m> match the lesson circuit.` or `<n> connections.` |
+| `part_card(part)` | `partInfo.js`, `partCard.js` | the part's summary |
+| `measure(target)` | `voltages.js`, multimeter Voltage mode | `<place> reads <v> V.` or `<place> has no fixed voltage right now.` |
+| `slow_motion(speed)` | runner `setSlowMotion` | `The sketch now runs at a tenth of its speed, with the running line lit up. Goals are paused.` (0.25: a quarter); 1 turns it off |
+| `what_if(kind, target, value)` | `whatIf.js`, `whatIfCard.js` | `Now: one cycle every 1000 ms. With line 10 changed: one cycle every 600 ms.`, `Now: the LED lights. With the change: the LED stays dark, because the current cannot get through it backwards.` |
+
+- X-ray: see breadboard.js. Trace: eight 0.035 cm accent spheres move along the hops at 2 cm per second
+  for 6 s (wire hops follow the wire curve, strip hops 0.05 cm and part hops 0.3 cm above the board); a
+  red ring and the label `The path stops here` mark a stop; reduced motion draws a still tube for 6 s. A
+  held button counts as pressed. The pin list is the wired pins without GND.
+- Scope: the runner's `subscribeOutput` feeds one scope buffer (10 s window), cleared on each Run. The
+  card plots the last 5 s from the menu (1 to 5 s from the tool) on `runner.getClock()`, redrawing at most
+  30 times a second while running and freezing when stopped; the summary (aria-live polite) changes at
+  most once a second and uses the whole window when the last seconds hold no full cycle.
+- Connections: hovering or focusing a row lights its places (`placement.setOverlay`, `info`); the card
+  follows every workbench change.
+- Part cards: the menu choice or the tray ? opens the card for a kit id or a type.
+- Measure voltage: the meter's Voltage mode (click or tap a hole, leg or wire end, or type in Point) or
+  the menu row pins one label `<place>: <v> V` (`not set` for null) and shows it in the dock; it follows
+  the pins as they change. While stopped every signal pin reads 0 V.
+- Slow motion: `runner.setSlowMotion(true, speed)` sends `setTimeScale` and `setTrace(true)` to the code
+  runner and makes the run a demo (no `onGoal`, `getProgress()` is `{}`) until the next Run; the run
+  status shows `Slow motion. Goals are paused until you press Run again.`; line events light the editor
+  line through `codePanel.setExecutingLine`, at most once a frame. Stop, an error or Run end it.
+- What if: menu choices `Flip the <LED>`, `Use 1 kohm` / `Use 10 kohm` (`for the <resistor>` with more than
+  one), `Take out the <part>`; code changes are for the chat (`what_if('code', line, text)`, two 3000 ms
+  `runHeadless` runs). While the card is open the changed part shows as an accent ghost (the turned LED,
+  the new bands, or the part at 20% with the real one hidden); any workbench change closes the card.
 
 ## Conventions
 
