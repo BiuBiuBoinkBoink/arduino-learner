@@ -402,3 +402,17 @@ Other choices:
   set, so check 7 ran with TUTOR_FAKE only. `../.claude/launch.json` got the
   `arduino-learner-tutor` entry (TUTOR_FAKE=1, port 7300); port 7100 was taken by another
   session's server, so the preview tool ran the dev server on 7101.
+
+After the phase (owner's request, 2026-10-27):
+
+- Gemini as an option, not a replacement: `TUTOR_PROVIDER=gemini` with `GEMINI_API_KEY` makes the
+  server ask Gemini (`@google/genai`, `models.generateContent`, model `GEMINI_MODEL`, default
+  `gemini-flash-latest`, the alias the SDK README uses). Claude stays the default and this file's
+  spec is unchanged. The browser keeps the Claude message shape; `server/gemini.mjs` translates
+  both ways, so the chat loop, the checks, the prompt and the tools are shared. Gemini's raw parts
+  ride along in a `gemini_parts` block and go back unchanged, because their thought signatures
+  must (the Gemini docs now describe this mostly for their Interactions API; the SDK types show
+  `thoughtSignature` on parts and `id` on function calls and responses). No thinking setting is
+  sent (model default), and there is no server side fallback on Gemini. Checked: the fake server
+  still loads with the Gemini SDK, and the real server with `TUTOR_PROVIDER=gemini` and no key
+  answers `not_configured`. Not checked: a real Gemini answer (no key yet).

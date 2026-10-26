@@ -49,6 +49,10 @@ The key never reaches the browser.
 npm run tutor
 ```
 
+To use Gemini instead of Claude, set `TUTOR_PROVIDER=gemini` and `GEMINI_API_KEY=<your key>` in
+`.env.local` (optionally `GEMINI_MODEL`, default `gemini-flash-latest`) and restart the tutor
+server. Everything else stays the same.
+
 It listens on port 7300 (`TUTOR_PORT` to change it); the dev server and `npm run preview` send
 `/api` to it. Without credentials every question answers "The help chat is not available right
 now." `TUTOR_FAKE=1 npm run tutor` gives fixed replies without calling the API, for checks

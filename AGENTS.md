@@ -89,7 +89,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/explainCards.js`, `src/ui/currentTrace.js`, `src/ui/scope.js`, `src/ui/connectionsCard.js`,
 `src/ui/partCard.js`, `src/ui/whatIfCard.js`, `src/app/tutor.js`, `src/tutor/toolDefs.js`,
 `src/tutor/context.js`, `src/tutor/tools.js`, `src/tutor/chat.js`, `src/ui/askPanel.js`,
-`server/tutorCore.mjs`, `server/tutor.mjs`, `vite.config.js`. The other
+`server/tutorCore.mjs`, `server/tutor.mjs`, `server/gemini.mjs`, `vite.config.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -509,7 +509,8 @@ src/
                    getMessages, subscribe }; ERROR_TEXTS, REFUSAL_TEXT, CUT_SHORT, FRESH_TEXT
 server/            the tutor server (node, not bundled)
   tutorCore.mjs    pure SYSTEM_PROMPT, validateRequest, buildApiRequest, createRateLimiter, fakeReply, MODEL
-  tutor.mjs        node:http server, POST /api/tutor only
+  tutor.mjs        node:http server, POST /api/tutor only; TUTOR_PROVIDER picks Claude (default) or Gemini
+  gemini.mjs       pure buildGeminiRequest, toGeminiContents, fromGeminiResponse, GEMINI_TOOLS, GEMINI_MODEL
 vite.config.js     proxies /api to http://localhost:7300 for dev and preview
 test/              vitest unit tests
 ```
@@ -1035,6 +1036,21 @@ the current lesson, and every panel updates from it.
   'default'`), top level `cache_control`, the fixed `SYSTEM_PROMPT` (09-help-chat.md 9.5) and
   `TOOL_DEFINITIONS`. No `thinking` (Opus 5.5 always thinks adaptively), no sampling settings, no
   forced `tool_choice`. Tools and system never change, so the prompt cache hits.
+- Gemini (`TUTOR_PROVIDER=gemini`, owner's choice): the same server, checks, prompt, tools and
+  browser side; `server/gemini.mjs` translates. `GEMINI_API_KEY` (from `.env.local`) and
+  `GEMINI_MODEL` (default `gemini-flash-latest`); `@google/genai`
+  `models.generateContent({ model, contents, config: { systemInstruction: SYSTEM_PROMPT, tools:
+  [{ functionDeclarations }], maxOutputTokens: 16000 } })`, the tool schemas as
+  `parametersJsonSchema`. A model turn comes back to the browser as `[{ type: 'gemini_parts',
+  parts }, ...text, ...tool_use]`; the raw parts (with their thought signatures) go back to Gemini
+  unchanged, and `validateRequest(body, { provider: 'gemini' })` is the only one that accepts
+  `gemini_parts`. Calls without an id get `gemini_call_N`, answered without an id; results go back
+  as `functionResponse` `{ name, response: { result } | { error } }`. Thought parts are never
+  shown. Stops: tool calls `tool_use`, `STOP` `end_turn`, `MAX_TOKENS` `max_tokens`, a blocked
+  prompt or a safety, recitation, blocklist, prohibited or SPII stop `refusal`, any other stop
+  502 `failed`. Errors: no key, or a key `models.get` rejects at start (400, 401, 403),
+  `not_configured`; `ApiError` 401 or 403 `not_configured`, 429 or 503 `busy`, else `failed`.
+  There are no server side fallbacks on Gemini.
 - `TUTOR_FAKE=1`: no API calls; a learner question gets `Let me show you the strips.` with `xray`
   on and `highlight` `9-top`, tool results get `Each metal bar joins five holes. Which strip holds
   the long leg of your LED?` (`fakeReply`).
