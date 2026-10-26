@@ -1049,7 +1049,8 @@ the current lesson, and every panel updates from it.
   shown. Stops: tool calls `tool_use`, `STOP` `end_turn`, `MAX_TOKENS` `max_tokens`, a blocked
   prompt or a safety, recitation, blocklist, prohibited or SPII stop `refusal`, any other stop
   502 `failed`. Errors: no key, or a key `models.get` rejects at start (400, 401, 403),
-  `not_configured`; `ApiError` 401 or 403 `not_configured`, 429 or 503 `busy`, else `failed`.
+  `not_configured`; `ApiError` 401 or 403 `not_configured`, 429 or 503 `busy` (a 503, Gemini's
+  "high demand", is first tried twice more, 1 s and 2 s later), else `failed`.
   There are no server side fallbacks on Gemini.
 - `TUTOR_FAKE=1`: no API calls; a learner question gets `Let me show you the strips.` with `xray`
   on and `highlight` `9-top`, tool results get `Each metal bar joins five holes. Which strip holds

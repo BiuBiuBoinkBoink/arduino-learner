@@ -25,6 +25,7 @@ const PORT = Number(process.env.TUTOR_PORT) || 7300
 const FAKE = process.env.TUTOR_FAKE === '1'
 const PROVIDER = process.env.TUTOR_PROVIDER === 'gemini' ? 'gemini' : 'claude'
 const GEMINI = process.env.GEMINI_MODEL || GEMINI_MODEL
+const GEMINI_RETRIES = 2
 const limiter = createRateLimiter({ perTenMinutes: 20, perDay: 300 })
 
 function log(status, stopReason = '-', usage = null) {
@@ -91,12 +92,19 @@ function geminiErrorReply(error) {
 // One reply from the provider: { content, stop_reason, usage } or { status, error }.
 async function ask(messages) {
   if (PROVIDER === 'gemini') {
-    try {
-      const reply = fromGeminiResponse(await gemini.models.generateContent(buildGeminiRequest(messages, GEMINI)), nextFakeId)
-      return reply.error ? { status: 502, error: reply.error } : reply
-    } catch (error) {
-      const [status, code] = geminiErrorReply(error)
-      return { status, error: code, name: error && error.constructor ? error.constructor.name : 'error' }
+    // Gemini's "high demand" 503 is often gone in a second or two: try twice more.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const reply = fromGeminiResponse(await gemini.models.generateContent(buildGeminiRequest(messages, GEMINI)), nextFakeId)
+        return reply.error ? { status: 502, error: reply.error } : reply
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 503 && attempt < GEMINI_RETRIES) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
+          continue
+        }
+        const [status, code] = geminiErrorReply(error)
+        return { status, error: code, name: error instanceof ApiError ? `ApiError ${error.status}` : error && error.constructor ? error.constructor.name : 'error' }
+      }
     }
   }
   try {
