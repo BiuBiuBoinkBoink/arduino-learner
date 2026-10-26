@@ -77,6 +77,14 @@ export function createInfoPanel(panel, course, { heading: withHeading = true } =
   select(0)
   render(course.getState())
   course.subscribe(render)
+
+  // Picks a tab by key ('overview', 'pinout', 'example', 'specs').
+  return {
+    select(key) {
+      const index = TABS.findIndex((tab) => tab.key === key)
+      if (index >= 0) select(index)
+    }
+  }
 }
 
 function paragraph(text) {

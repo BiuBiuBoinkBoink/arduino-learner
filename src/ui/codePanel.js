@@ -15,6 +15,11 @@
 // an empty slot under the editor for the Serial Monitor, a copy of the param
 // values, subscribe(fn) calling fn(values) on every control change and lesson
 // change, the code to run, and setError({ line, message } | null).
+// offerLine(afterLine, text, why) shows a suggested line (the help chat's
+// suggest_code) in a grey row under the editor with an Add line button; Add
+// puts it in after that line, with that line's indent, as an edit of the
+// learner's own; a new offer replaces the old one, and a lesson change or
+// Reset code clears it.
 import { tokenize } from './highlight.js'
 import { defaultValues, fillSketch, slotValues, stepDuration } from './sketch.js'
 
@@ -107,6 +112,22 @@ export function createCodePanel(panel, course, { setOpen }) {
   const serialSlot = document.createElement('div')
   serialSlot.className = 'code-serial-slot'
 
+  // A line the help chat offers; nothing changes until the learner adds it.
+  const offer = document.createElement('div')
+  offer.className = 'code-offer'
+  offer.hidden = true
+  const offerLabel = document.createElement('p')
+  offerLabel.className = 'code-offer-label'
+  const offerCode = document.createElement('code')
+  offerCode.className = 'code-offer-line'
+  const offerWhy = document.createElement('p')
+  offerWhy.className = 'code-offer-why'
+  const offerAdd = document.createElement('button')
+  offerAdd.type = 'button'
+  offerAdd.className = 'run-button code-offer-add'
+  offerAdd.textContent = 'Add line'
+  offer.append(offerLabel, offerCode, offerWhy, offerAdd)
+
   // Everything that goes full screen together; the backdrop dims the page behind.
   const workspace = document.createElement('div')
   workspace.className = 'code-workspace'
@@ -114,7 +135,7 @@ export function createCodePanel(panel, course, { setOpen }) {
   const fullTitle = document.createElement('p')
   fullTitle.className = 'code-full-title'
   fullTitle.hidden = true
-  workspace.append(fullTitle, editorBar, editor, errorLine, serialSlot)
+  workspace.append(fullTitle, editorBar, editor, offer, errorLine, serialSlot)
   const backdrop = document.createElement('div')
   backdrop.className = 'code-backdrop'
   backdrop.hidden = true
@@ -253,11 +274,43 @@ export function createCodePanel(panel, course, { setOpen }) {
     notify()
   }
 
-  input.addEventListener('input', () => {
+  function afterEdit() {
     setError(null)
     renderCode(input.value)
     setEdited(input.value !== filled())
     inputListeners.forEach((fn) => fn(input.value))
+  }
+  input.addEventListener('input', afterEdit)
+
+  let offered = null
+  function clearOffer() {
+    offered = null
+    offer.hidden = true
+  }
+
+  function offerLine(afterLine, text, why = '') {
+    const count = input.value.split('\n').length
+    if (!editable || !Number.isInteger(afterLine) || afterLine < 1 || afterLine > count || typeof text !== 'string') return false
+    offered = { afterLine, text: text.trim() }
+    offerLabel.textContent = 'Suggested line, after line ' + afterLine + ':'
+    offerCode.textContent = offered.text
+    offerWhy.textContent = why
+    offerWhy.hidden = !why
+    offer.hidden = false
+    return true
+  }
+
+  offerAdd.addEventListener('click', () => {
+    if (!offered) return
+    const lines = input.value.split('\n')
+    const at = Math.min(offered.afterLine, lines.length)
+    const before = lines[at - 1] || ''
+    const indent = /^\s*/.exec(before)[0] + (/\{\s*$/.test(before) ? '  ' : '')
+    lines.splice(at, 0, indent + offered.text)
+    input.value = lines.join('\n')
+    clearOffer()
+    afterEdit()
+    input.focus()
   })
 
   // Full screen moves the workspace to the body, above every panel, and back to
@@ -295,6 +348,7 @@ export function createCodePanel(panel, course, { setOpen }) {
   })
 
   resetButton.addEventListener('click', () => {
+    clearOffer()
     input.value = filled()
     setError(null)
     renderCode(input.value)
@@ -311,6 +365,7 @@ export function createCodePanel(panel, course, { setOpen }) {
     errorAt = -1
     hintLines = []
     hintNote = ''
+    clearOffer()
     setError(null)
     fullTitle.textContent = 'Code: ' + lesson.id + ' ' + lesson.title
 
@@ -434,7 +489,8 @@ export function createCodePanel(panel, course, { setOpen }) {
     setError,
     markLines,
     clearMarks,
-    setExecutingLine
+    setExecutingLine,
+    offerLine
   }
 }
 

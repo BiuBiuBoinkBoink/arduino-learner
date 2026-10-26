@@ -1597,6 +1597,41 @@ summary:focus-visible {
   display: none;
 }
 
+/* A line the help chat offers: grey, added only by the learner's Add line. */
+.code-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  background: var(--soft);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
+
+.code-offer[hidden],
+.code-offer-why[hidden] {
+  display: none;
+}
+
+.code-offer-label,
+.code-offer-why {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.code-offer-line {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .code-edited-note {
   margin: 0 0 8px;
   font-size: 0.8rem;
