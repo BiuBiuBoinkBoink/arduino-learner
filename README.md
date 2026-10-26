@@ -51,7 +51,8 @@ npm run tutor
 
 To use Gemini instead of Claude, set `TUTOR_PROVIDER=gemini` and `GEMINI_API_KEY=<your key>` in
 `.env.local` (optionally `GEMINI_MODEL`, default `gemini-flash-latest`) and restart the tutor
-server. Everything else stays the same.
+server. Everything else stays the same. Starting the tutor server again (after a change to
+`.env.local` or the code) stops the one already running and takes its place.
 
 It listens on port 7300 (`TUTOR_PORT` to change it); the dev server and `npm run preview` send
 `/api` to it. Without credentials every question answers "The help chat is not available right

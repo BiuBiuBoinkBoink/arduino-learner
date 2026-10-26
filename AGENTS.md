@@ -1030,7 +1030,10 @@ the current lesson, and every panel updates from it.
   body 400 `bad_request`. At start a model lookup (no tokens) finds missing credentials; then
   every request answers `not_configured`. Credentials: `ANTHROPIC_API_KEY` (from `.env.local`,
   loaded with `process.loadEnvFile`) or an `ant auth login` profile. One log line per request
-  (time, status, stop reason, token usage), never message text.
+  (time, status, stop reason, token usage), never message text. A newer start takes over: the
+  running server keeps its pid and a random token in `<temp>/robo-learn-tutor-<port>.json`, and a
+  server that finds the port taken sends that token to `POST /api/tutor/stop` (any other call
+  there is a 404), waits for the port and starts; without the file it says the port is in use.
 - Request (`buildApiRequest`): model `claude-opus-5-5`, `max_tokens` 16000, `output_config.effort`
   `low`, server side fallbacks on (`betas: ['server-side-fallback-2026-07-01']`, `fallbacks:
   'default'`), top level `cache_control`, the fixed `SYSTEM_PROMPT` (09-help-chat.md 9.5) and

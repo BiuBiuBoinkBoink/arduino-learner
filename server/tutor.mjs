@@ -10,8 +10,16 @@
 // `ant auth login` profile. TUTOR_PROVIDER=gemini asks Gemini instead
 // (GEMINI_API_KEY, GEMINI_MODEL; server/gemini.mjs translates the messages).
 // TUTOR_FAKE=1 answers with fixed replies and makes no API calls.
+//
+// A newer start takes over: a running server writes its pid and a random
+// token to a file in the temp folder, and a server that finds the port taken
+// sends that token to POST /api/tutor/stop, waits for the port and starts.
+// A browser cannot read the file, so no page can stop the server.
 import http from 'node:http'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenAI, ApiError } from '@google/genai'
@@ -135,6 +143,15 @@ let fakeCount = 0
 const nextFakeId = () => `toolu_fake_${++fakeCount}`
 
 async function handle(req, res) {
+  if (req.method === 'POST' && req.url === '/api/tutor/stop' && req.headers['x-tutor-token'] === TOKEN) {
+    send(res, 200, { stopping: true })
+    console.log('Stopping: a newer tutor server is taking over.')
+    res.on('finish', () => {
+      server.close()
+      process.exit(0)
+    })
+    return
+  }
   if (req.method !== 'POST' || req.url !== '/api/tutor') {
     send(res, 404, { error: 'not_found' })
     log(404)
@@ -192,14 +209,64 @@ async function handle(req, res) {
   log(200, reply.stop_reason, reply.usage)
 }
 
+const LOCK = join(tmpdir(), `robo-learn-tutor-${PORT}.json`)
+const TOKEN = randomBytes(24).toString('hex')
+const TAKEOVER_TRIES = 20
+
+// Asks the tutor server recorded in the lock file to stop. False when there is
+// none, or it did not answer (then the port belongs to something else).
+async function stopOlder() {
+  let lock
+  try {
+    lock = JSON.parse(readFileSync(LOCK, 'utf8'))
+  } catch {
+    return false
+  }
+  try {
+    const response = await fetch(`http://localhost:${PORT}/api/tutor/stop`, { method: 'POST', headers: { 'x-tutor-token': String(lock.token) } })
+    if (!response.ok) return false
+    console.log(`Stopped the tutor server already running (pid ${lock.pid}).`)
+    return true
+  } catch {
+    return false
+  }
+}
+
 await setUp()
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   handle(req, res).catch(() => {
     if (!res.headersSent) send(res, 502, { error: 'failed' })
     log(502)
   })
-}).on('error', (error) => {
+})
+let tries = 0
+let askedOlder = false
+server.on('listening', () => {
+  writeFileSync(LOCK, JSON.stringify({ pid: process.pid, token: TOKEN }))
+  process.on('exit', () => {
+    try {
+      if (JSON.parse(readFileSync(LOCK, 'utf8')).token === TOKEN) rmSync(LOCK)
+    } catch {
+      // Gone already, or a newer server's file.
+    }
+  })
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => process.exit(0))
+})
+server.on('error', async (error) => {
   if (error.code !== 'EADDRINUSE') throw error
-  console.log(`Port ${PORT} is already in use, most likely by another tutor server. Use that one, or stop it first.`)
-  process.exitCode = 1
-}).listen(PORT)
+  if (!askedOlder) {
+    askedOlder = true
+    if (!(await stopOlder())) {
+      console.log(`Port ${PORT} is already in use by something that is not a tutor server this one can stop. Stop it first.`)
+      process.exitCode = 1
+      return
+    }
+  }
+  if (++tries > TAKEOVER_TRIES) {
+    console.log(`Port ${PORT} is still in use. Stop the other tutor server first.`)
+    process.exitCode = 1
+    return
+  }
+  setTimeout(() => server.listen(PORT), 250)
+})
+server.listen(PORT)
