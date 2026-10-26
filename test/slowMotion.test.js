@@ -115,6 +115,25 @@ describe('runner slow motion', () => {
     expect(goals).toEqual(['x'])
   })
 
+  it('beginDemo pauses goals at full speed until the next Run', () => {
+    const { runner, calls, goals, run, meet } = setup()
+    expect(runner.beginDemo()).toBe(false)
+    run(0)
+    const before = calls.length
+    expect(runner.beginDemo()).toBe(true)
+    expect(calls.length).toBe(before)
+    expect(runner.isDemo()).toBe(true)
+    expect(runner.getSlowMotion()).toBe(null)
+    meet()
+    runner.tick(2000)
+    expect(goals).toEqual([])
+    expect(runner.getProgress()).toEqual({})
+    runner.stop()
+    run(3000)
+    expect(runner.isDemo()).toBe(false)
+    expect(goals).toEqual(['x'])
+  })
+
   it('passes line events to line listeners only, and Stop ends slow motion', () => {
     const { runner, calls, run } = setup()
     run(0)

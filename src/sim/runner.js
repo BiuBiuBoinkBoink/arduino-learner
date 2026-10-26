@@ -23,6 +23,8 @@
 // and the run becomes a demo: onGoal is not called and getProgress() is {} for
 // the rest of the run. Off: speed 1, no line events; the run stays a demo
 // until the next Run. Stop and Run turn it off.
+// beginDemo(), while running: the same demo flag without slowing down (the
+// help chat's demo_input); false when not running.
 import { createProgram } from '../runner/interpreter.js'
 import { analyzeCode } from '../runner/codeChecks.js'
 
@@ -233,6 +235,13 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     return true
   }
 
+  // A demo run without slow motion: goals paused until the next Run.
+  function beginDemo() {
+    if (phase !== 'running') return false
+    demo = true
+    return true
+  }
+
   function stop() {
     endSlowMotion()
     if (phase === 'running') halt()
@@ -266,6 +275,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     setSlowMotion,
     getSlowMotion: () => slow,
     isDemo: () => demo,
+    beginDemo,
     subscribeLine(fn) {
       lineListeners.add(fn)
       return () => lineListeners.delete(fn)
