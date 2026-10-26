@@ -190,4 +190,8 @@ http.createServer((req, res) => {
     if (!res.headersSent) send(res, 502, { error: 'failed' })
     log(502)
   })
+}).on('error', (error) => {
+  if (error.code !== 'EADDRINUSE') throw error
+  console.log(`Port ${PORT} is already in use, most likely by another tutor server. Use that one, or stop it first.`)
+  process.exitCode = 1
 }).listen(PORT)
