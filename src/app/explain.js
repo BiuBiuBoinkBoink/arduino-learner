@@ -1,28 +1,52 @@
 // Explain composition for main.js: the tools (src/explain/tools.js), the
 // Explain menu, the card stack and the scene helpers the tools draw with.
-// reset() runs on every lesson change: it closes every card and turns every
-// toggle off. refresh() re-checks the menu rows (after a workbench change or a
-// run phase change).
+// reset() runs on every lesson change: it closes every card, clears the trace
+// and turns every toggle off. refresh() re-checks the menu rows (after a
+// workbench change or a run phase change).
 //
-// createExplain({ stage, breadboard, viewControls, viewContainer, workbench })
+// createExplain({ stage, board, breadboard, viewControls, viewContainer,
+//   workbench, getBuild, getReference, getItems, inputs })
 //   -> { tools, menu, cards, reset(), refresh() }
 import { createExplainTools } from '../explain/tools.js'
 import { createExplainMenu } from '../ui/explainMenu.js'
 import { createExplainCards } from '../ui/explainCards.js'
+import { createCurrentTrace } from '../ui/currentTrace.js'
+import { createLabels } from '../ui/labels.js'
 
-export function createExplain({ stage, breadboard, viewControls, viewContainer, workbench }) {
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, getBuild, getReference, getItems, inputs }) {
   const cards = createExplainCards({ container: workbench })
+  // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
+  const labels = createLabels({ stage, container: workbench })
+  const pinned = new Map()
+  function setLabels(owner, list) {
+    pinned.set(owner, list)
+    labels.set([...pinned.values()].flat())
+  }
+  const currentTrace = createCurrentTrace({ stage, board, breadboard, getItems, setLabels: (list) => setLabels('trace', list) })
+
+  // Buttons held down right now, by part id.
+  function pressed() {
+    const out = {}
+    for (const part of getBuild().parts || []) if (part.type === 'button' && inputs.isPressed(part.id)) out[part.id] = true
+    return out
+  }
 
   const tools = createExplainTools({
     setXray(on) {
       breadboard.setXray(on)
       stage.invalidate()
-    }
+    },
+    getBuild,
+    hasReference: () => Boolean(getReference()),
+    getPressed: pressed,
+    showTrace: (path) => currentTrace.show(path)
   })
 
   const why = (id) => () => tools.reasons()[id]
+  const pinOptions = () => (getReference() ? tools.wiredPins() : []).map((pin) => ({ value: pin, label: pin }))
   const rows = [
-    { id: 'xray', label: 'X-ray', kind: 'toggle', pressed: () => breadboard.isXray(), run: (on) => tools.xray(on), reason: why('xray') }
+    { id: 'xray', label: 'X-ray', kind: 'toggle', pressed: () => breadboard.isXray(), run: (on) => tools.xray(on), reason: why('xray') },
+    { id: 'trace', label: 'Trace the current from', kind: 'choice', options: pinOptions, run: (pin) => tools.trace(pin), reason: why('trace') }
   ]
   const menu = createExplainMenu({
     container: viewContainer,
@@ -33,6 +57,7 @@ export function createExplain({ stage, breadboard, viewControls, viewContainer, 
 
   function reset() {
     cards.closeAll()
+    currentTrace.clear()
     if (breadboard.isXray()) tools.xray(false)
     menu.setStatus('')
     menu.refresh()

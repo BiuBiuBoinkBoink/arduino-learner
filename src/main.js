@@ -588,11 +588,23 @@ flow.subscribe(tourFor)
 // Explain tools: the Explain menu with the view buttons, its cards and what
 // the tools draw in the scene. A lesson change closes every card and turns
 // every toggle off. No tool changes the build, the steps or progress.
-const explain = createExplain({ stage, breadboard, viewControls, viewContainer: layout.viewControls, workbench: layout.workbench })
+const explain = createExplain({
+  stage,
+  board,
+  breadboard,
+  viewControls,
+  viewContainer: layout.viewControls,
+  workbench: layout.workbench,
+  getBuild: currentBuild,
+  getReference: () => reference,
+  getItems: view.items,
+  inputs
+})
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {
   if (lesson.id === explainLessonId) return
   explainLessonId = lesson.id
   explain.reset()
 })
+workbench.subscribe(() => explain.refresh())
 updateFlow()

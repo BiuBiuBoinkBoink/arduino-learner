@@ -1,14 +1,22 @@
 // Explain tools through fake deps: argument checks, reasons and the texts.
 import { describe, it, expect } from 'vitest'
-import { createExplainTools, XRAY_ON, XRAY_OFF } from '../src/explain/tools.js'
+import { createExplainTools, wiredPins, XRAY_ON, XRAY_OFF, NO_CIRCUIT, WIRE_FIRST } from '../src/explain/tools.js'
+import { circuits } from '../src/circuits/circuits.js'
+
+const withPart = (circuit, id, change) => ({ ...circuit, parts: circuit.parts.map((part) => (part.id === id ? { ...part, ...change } : part)) })
 
 function setup(overrides = {}) {
   const calls = []
+  let build = overrides.build || circuits['1.2']
   const deps = {
     setXray: (on) => calls.push(['xray', on]),
+    getBuild: () => build,
+    hasReference: () => true,
+    getPressed: () => ({}),
+    showTrace: (path) => calls.push(['trace', path]),
     ...overrides
   }
-  return { tools: createExplainTools(deps), calls }
+  return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next } }
 }
 
 describe('explain tools', () => {
@@ -19,5 +27,31 @@ describe('explain tools', () => {
     expect(calls).toEqual([['xray', true], ['xray', false]])
     expect(XRAY_ON).toBe('The breadboard is see-through. Each metal bar joins the holes above it.')
     expect(tools.reasons().xray).toBe(null)
+  })
+
+  it('traces the current with the phase texts', async () => {
+    const { tools, calls, setBuild } = setup()
+    expect(await tools.trace('D13')).toEqual({ ok: true, text: 'Current flows from D13 through the resistor, then the LED, to GND.' })
+    expect(calls[0][0]).toBe('trace')
+    setBuild(withPart(circuits['1.2'], 'led1', { anode: '10e', cathode: '9e' }))
+    expect((await tools.trace('D13')).text).toBe('Current reaches the LED but cannot get through: the LED is in backwards.')
+    setBuild(withPart(circuits['1.2'], 'r1', { to: '8c' }))
+    expect((await tools.trace('D13')).text).toBe('The current stops at strip 8 (rows a to e). Nothing there leads on to GND.')
+    expect((await tools.trace('D7')).text).toBe('Nothing is wired to D7 yet.')
+  })
+
+  it('checks the trace pin and says so plainly without a lesson circuit', async () => {
+    const { tools } = setup()
+    expect(await tools.trace('X9')).toEqual({ ok: false, text: 'There is no pin called X9 to trace from.' })
+    expect((await tools.trace('GND')).ok).toBe(false)
+    const none = setup({ hasReference: () => false })
+    expect(await none.tools.trace('D13')).toEqual({ ok: false, text: NO_CIRCUIT })
+    expect(none.tools.reasons().trace).toBe(NO_CIRCUIT)
+    const empty = setup({ build: { parts: [], wires: [] } })
+    expect(empty.tools.reasons().trace).toBe(WIRE_FIRST)
+  })
+
+  it('lists the wired pins without GND', () => {
+    expect(wiredPins(circuits['1.4'])).toEqual(['D13', 'D2'])
   })
 })
