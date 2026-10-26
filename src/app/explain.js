@@ -6,8 +6,10 @@
 // buffer, and a phase change re-checks the rows.
 //
 // createExplain({ stage, board, breadboard, viewControls, viewContainer,
-//   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit })
-//   -> { tools, menu, cards, reset(), refresh(), onFrame() }
+//   workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit,
+//   hasCircuit, pins, meter })
+//   -> { tools, menu, cards, reset(), refresh(), onFrame(), about(id), measureAt(name) }
+// The last measured point keeps its label up to date as the pins change.
 import { createExplainTools } from '../explain/tools.js'
 import { createExplainMenu } from '../ui/explainMenu.js'
 import { createExplainCards } from '../ui/explainCards.js'
@@ -17,8 +19,11 @@ import { openScopeCard } from '../ui/scope.js'
 import { openConnectionsCard } from '../ui/connectionsCard.js'
 import { openPartCard } from '../ui/partCard.js'
 import { createScopeBuffer } from '../explain/scopeBuffer.js'
+import { holePosition } from '../parts/breadboard.js'
+import { unoPinPosition, UNO_PIN_NAMES } from '../parts/unoBoard.js'
+import { isHole } from '../circuits/holes.js'
 
-export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit }) {
+export function createExplain({ stage, board, breadboard, viewControls, viewContainer, workbench, placement, getBuild, getReference, getItems, inputs, runner, getKit, hasCircuit, pins, meter }) {
   const cards = createExplainCards({ container: workbench })
   // Pinned labels of the explain tools, one list per owner ('trace', 'meter').
   const labels = createLabels({ stage, container: workbench })
@@ -61,8 +66,48 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       else openConnectionsCard({ cards, rows, onHover: (places) => placement.setOverlay((places || []).map((place) => ({ place, tone: 'info' }))) })
     },
     getKit,
-    openPartCard: (type) => openPartCard({ cards, type })
+    openPartCard: (type) => openPartCard({ cards, type }),
+    hasCircuit,
+    // While stopped nothing drives the pins, so every signal pin reads 0 V.
+    getLevels: () => (isRunning()
+      ? { pinLevels: pins.snapshot(), inputLevels: runner.getInputLevels() }
+      : { pinLevels: Object.fromEntries(tools.signalPins().map((pin) => [pin, 0])), inputLevels: {} }),
+    showMeasure({ at, text }) {
+      const point = pointOf(at)
+      setLabels('meter', point ? [{ id: 'meter', position: point.setY(point.y + 0.3), text, tone: 'info' }] : [])
+      meter.setReading(text)
+    }
   })
+
+  function pointOf(name) {
+    if (isHole(name)) {
+      breadboard.group.updateWorldMatrix(true, false)
+      return breadboard.group.localToWorld(holePosition(name))
+    }
+    if (UNO_PIN_NAMES.includes(name)) {
+      board.group.updateWorldMatrix(true, false)
+      return board.group.localToWorld(unoPinPosition(name))
+    }
+    return null
+  }
+
+  // The point measured last, read again whenever a pin changes (once a frame).
+  let measured = null
+  let measureFrame = null
+  async function measureAt(name) {
+    const result = await tools.measure(name)
+    measured = result.ok ? name : null
+    menu.setStatus(result.text)
+    return result
+  }
+  function remeasure() {
+    if (!measured || measureFrame !== null) return
+    measureFrame = requestAnimationFrame(() => {
+      measureFrame = null
+      if (measured) tools.measure(measured)
+    })
+  }
+  pins.subscribe(remeasure)
 
   const why = (id) => () => tools.reasons()[id]
   const pinOptions = () => (getReference() ? tools.wiredPins() : []).map((pin) => ({ value: pin, label: pin }))
@@ -90,6 +135,7 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
       run: (id) => tools.part_card(id),
       reason: why('part')
     },
+    { id: 'measure', label: 'Measure voltage at', kind: 'input', placeholder: '9e, D13 or led1.anode', run: (text) => measureAt(text), reason: why('measure') },
     { id: 'scope', label: 'Scope on', kind: 'choice', options: signalOptions, run: (pin) => tools.scope(pin, 5), reason: why('scope') }
   ]
   const menu = createExplainMenu({
@@ -102,12 +148,15 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
   // The menu rows follow the build, and an open connections card shows it again.
   function refresh() {
     if (cards.has('connections')) tools.connections(true)
+    remeasure()
     menu.refresh()
   }
 
   function reset() {
     cards.closeAll()
     currentTrace.clear()
+    measured = null
+    setLabels('meter', [])
     if (breadboard.isXray()) tools.xray(false)
     menu.setStatus('')
     menu.refresh()
@@ -129,5 +178,5 @@ export function createExplain({ stage, board, breadboard, viewControls, viewCont
     menu.setStatus(result.text)
   }
 
-  return { tools, menu, cards, reset, refresh, onFrame, about }
+  return { tools, menu, cards, reset, refresh, onFrame, about, measureAt }
 }

@@ -1,4 +1,6 @@
 // Shared pin levels: 0 is LOW, 1 is HIGH, unset pins read 0. Pure module, no DOM.
+// snapshot() gives the pins that were ever set, by name (the voltage meter
+// treats the others as having no fixed level).
 export function createPins() {
   const levels = new Map()
   const listeners = new Set()
@@ -23,5 +25,5 @@ export function createPins() {
     return () => listeners.delete(fn)
   }
 
-  return { get, set, reset, subscribe }
+  return { get, set, reset, subscribe, snapshot: () => Object.fromEntries(levels) }
 }

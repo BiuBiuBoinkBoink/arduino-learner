@@ -16,6 +16,8 @@
 // subscribeOutput(fn) calls fn({ kind, pin, value, at }) for every output event
 // it applies (the scope listens); getClock() is the clock those at times are on,
 // as of the last tick or the latest event, whichever is later.
+// getInputLevels() is what the board last sent to the sketch's input pins
+// ({} unless running).
 import { createProgram } from '../runner/interpreter.js'
 import { analyzeCode } from '../runner/codeChecks.js'
 
@@ -216,6 +218,7 @@ export function createSimRunner({ sims, pins, inputs, room, tones, servos, seria
     isGoalMet: () => goalMet,
     getProgress,
     getClock: () => Math.max(clockAt(lastTick), lastEventAt),
+    getInputLevels: () => (phase === 'running' ? { ...sentLevels } : {}),
     subscribeOutput(fn) {
       outputListeners.add(fn)
       return () => outputListeners.delete(fn)

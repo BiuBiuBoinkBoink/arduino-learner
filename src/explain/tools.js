@@ -8,11 +8,16 @@
 // only through the injected deps, so the tools themselves stay testable.
 //
 // createExplainTools(deps) -> { xray(on), trace(pin), scope(pin, seconds),
-//   connections(compare), part_card(part), reasons(), wiredPins(), signalPins() }
+//   connections(compare), part_card(part), measure(target), reasons(), wiredPins(),
+//   signalPins() }
 // deps: { setXray(on), getBuild(), getReference(), getPressed(), showTrace(path),
 //   isRunning(), openScope(pin, seconds) -> summary text, showConnections(rows),
-//   getKit() -> [{ id, type, label }], openPartCard(type) }
+//   getKit() -> [{ id, type, label }], openPartCard(type), hasCircuit(),
+//   getLevels() -> { pinLevels, inputLevels }, showMeasure({ at, text }) }
 import { buildNetlist, isPinName, normalizePin, partLabel, placeLabel } from '../circuits/netlist.js'
+import { PART_TYPES, TERMINAL_LABELS, terminalHoles } from '../circuits/footprints.js'
+import { isHole } from '../circuits/holes.js'
+import { netVoltages, pinVoltage } from './voltages.js'
 import { tracePath } from './currentPath.js'
 import { describeNets } from './connections.js'
 import { PART_INFO } from '../course/partInfo.js'
@@ -93,6 +98,32 @@ export function createExplainTools(deps) {
     return { ok: true, text: PART_INFO[type].summary }
   }
 
+  // A hole ('9e'), a pin ('D13') or a leg ('led1.anode'): its voltage now,
+  // pinned as a label there. Outputs read 0 V while the sketch is stopped.
+  async function measure(target) {
+    if (!deps.hasCircuit()) return { ok: false, text: 'This lesson has no circuit to measure.' }
+    const name = typeof target === 'string' ? target.trim() : ''
+    const build = deps.getBuild()
+    const parts = build.parts || []
+    let label = name
+    let at = name
+    if (!isHole(name) && !isPinName(name)) {
+      const [id, terminal] = name.split('.')
+      const part = parts.find((item) => item.id === id)
+      const holes = part && PART_TYPES[part.type].terminals.includes(terminal) ? terminalHoles(part)[terminal] : null
+      if (!holes || holes.length === 0) return { ok: false, text: `There is no hole, pin or leg called ${name || String(target)}.` }
+      label = `${TERMINAL_LABELS[part.type][terminal]} of the ${partLabel(part, parts)}`
+      at = holes[0]
+    }
+    const levels = deps.getLevels()
+    const net = buildNetlist(build).netOf(name)
+    const volts = net ? netVoltages(build, levels).get(net.id) : isPinName(name) ? pinVoltage(name, levels) : null
+    deps.showMeasure({ at, text: volts === null ? `${label}: not set` : `${label}: ${volts.toFixed(1)} V` })
+    const sentence = label.charAt(0).toUpperCase() + label.slice(1)
+    if (volts === null) return { ok: true, text: `${sentence} has no fixed voltage right now.` }
+    return { ok: true, text: `${sentence} reads ${volts.toFixed(1)} V.` }
+  }
+
   // Why each tool cannot work right now, or null when it can.
   function reasons() {
     const reference = hasReference()
@@ -102,9 +133,10 @@ export function createExplainTools(deps) {
       trace: !reference ? NO_CIRCUIT : pins.length === 0 ? WIRE_FIRST : null,
       connections: reference ? null : NO_CIRCUIT,
       part: deps.getKit().length > 0 ? null : 'This lesson has no parts.',
+      measure: deps.hasCircuit() ? null : 'This lesson has no circuit to measure.',
       scope: !deps.isRunning() ? RUN_FIRST : signalPins(deps.getBuild()).length === 0 ? WIRE_FIRST : null
     }
   }
 
-  return { xray, trace, scope, connections, part_card, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
+  return { xray, trace, scope, connections, part_card, measure, reasons, wiredPins: () => wiredPins(deps.getBuild()), signalPins: () => signalPins(deps.getBuild()) }
 }

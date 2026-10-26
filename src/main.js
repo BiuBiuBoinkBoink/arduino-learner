@@ -192,7 +192,7 @@ const partTurn = createPartTurn({ stage, getItems: view.items, inputs })
 const knobSlider = createKnobSlider({ container: dock, partTurn, inputs })
 const roomControls = createRoomControls({ container: dock, room })
 const sound = createSound({ container: dock, tones, storage: getStorage() })
-const multimeter = createMultimeter({ container: dock, stage, getItems: view.items, inputs })
+const multimeter = createMultimeter({ container: dock, stage, board, breadboard, getItems: view.items, inputs, onMeasure: (name) => explain.measureAt(name) })
 const viewControls = createViewControls({
   container: layout.viewControls,
   stage,
@@ -309,6 +309,7 @@ function showCircuit({ lesson }) {
   workbench.load(lesson.id, { kit, reference })
   checkBuild()
   viewControls.setEditAvailable(hasCircuit)
+  multimeter.setAvailable(hasCircuit)
   placement.setEnabled(viewControls.isEditing())
   drawBuild({ fresh: true })
   defaultEditing(flow.getView())
@@ -604,7 +605,10 @@ const explain = createExplain({
   getItems: view.items,
   inputs,
   runner,
-  getKit: () => workbench.tray().parts.map((part) => ({ id: part.id, type: part.type, label: kitLabels[part.id] || part.id }))
+  getKit: () => workbench.tray().parts.map((part) => ({ id: part.id, type: part.type, label: kitLabels[part.id] || part.id })),
+  hasCircuit: () => hasCircuit,
+  pins,
+  meter: multimeter
 })
 let explainLessonId = course.getState().lesson.id
 course.subscribe(({ lesson }) => {

@@ -2682,3 +2682,41 @@ summary:focus-visible {
 .part-facts dd {
   margin: 0;
 }
+
+/* Multimeter: Mode, then Meter on (current) or Point and Measure (voltage). */
+.meter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meter-box[hidden],
+.meter-box [hidden] {
+  display: none;
+}
+
+.meter-point {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meter-point input {
+  width: 7em;
+  min-height: 28px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.meter-measure {
+  min-height: 28px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.meter-reading {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

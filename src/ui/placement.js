@@ -83,6 +83,25 @@ export function buildGhost({ table, board, breadboard, values, tint = null }) {
   return built.group
 }
 
+// The hole or pin under a screen point (the voltage meter's clicks): the ray
+// meets the breadboard top plane, then the Uno header plane; null when neither
+// has a hole or pin there.
+export function holeOrPinAt({ stage, board, breadboard, clientX, clientY }) {
+  const canvas = stage.renderer.domElement
+  const rect = canvas.getBoundingClientRect()
+  const ray = new THREE.Raycaster()
+  ray.setFromCamera(new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1), stage.camera)
+  const hit = new THREE.Vector3()
+  function onBoard(group, localY, nearest) {
+    group.updateWorldMatrix(true, false)
+    const top = group.localToWorld(new THREE.Vector3(0, localY, 0)).y
+    if (!ray.ray.intersectPlane(new THREE.Plane(UP, -top), hit)) return null
+    const local = group.worldToLocal(hit.clone())
+    return nearest(local.x, local.z)
+  }
+  return onBoard(breadboard.group, HOLE_TOP_Y, nearestHole) || onBoard(board.group, PIN_TOP_Y, nearestPin)
+}
+
 export function disposeGroup(scene, group) {
   scene.remove(group)
   group.traverse((object) => {

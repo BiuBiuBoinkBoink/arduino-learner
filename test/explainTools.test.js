@@ -8,6 +8,7 @@ const withPart = (circuit, id, change) => ({ ...circuit, parts: circuit.parts.ma
 function setup(overrides = {}) {
   const calls = []
   let build = overrides.build || circuits['1.2']
+  let levels = { pinLevels: { D13: 1 }, inputLevels: {} }
   const deps = {
     setXray: (on) => calls.push(['xray', on]),
     getBuild: () => build,
@@ -22,9 +23,12 @@ function setup(overrides = {}) {
     showConnections: (rows) => calls.push(['connections', rows]),
     getKit: () => [{ id: 'r1', type: 'resistor', label: 'resistor' }, { id: 'led1', type: 'led', label: 'LED' }],
     openPartCard: (type) => calls.push(['part', type]),
+    hasCircuit: () => true,
+    getLevels: () => levels,
+    showMeasure: (label) => calls.push(['measure', label]),
     ...overrides
   }
-  return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next } }
+  return { tools: createExplainTools(deps), calls, setBuild: (next) => { build = next }, setLevels: (next) => { levels = next } }
 }
 
 describe('explain tools', () => {
@@ -92,6 +96,22 @@ describe('explain tools', () => {
     expect(await tools.part_card('flux')).toEqual({ ok: false, text: 'There is no part called flux.' })
     expect(tools.reasons().part).toBe(null)
     expect(setup({ getKit: () => [] }).tools.reasons().part).toBe('This lesson has no parts.')
+  })
+
+  it('measures a hole, a pin or a leg with the phase texts', async () => {
+    const { tools, calls, setLevels } = setup()
+    expect(await tools.measure('9e')).toEqual({ ok: true, text: '9e reads 2.0 V.' })
+    expect(calls.at(-1)).toEqual(['measure', { at: '9e', text: '9e: 2.0 V' }])
+    expect((await tools.measure('D13')).text).toBe('D13 reads 5.0 V.')
+    expect(await tools.measure('led1.anode')).toEqual({ ok: true, text: 'Long leg of the LED reads 2.0 V.' })
+    expect(calls.at(-1)).toEqual(['measure', { at: '9e', text: 'long leg of the LED: 2.0 V' }])
+    expect((await tools.measure('5V')).text).toBe('5V reads 5.0 V.')
+    expect(await tools.measure('20a')).toEqual({ ok: true, text: '20a has no fixed voltage right now.' })
+    expect(calls.at(-1)).toEqual(['measure', { at: '20a', text: '20a: not set' }])
+    setLevels({ pinLevels: { D13: 0 }, inputLevels: {} })
+    expect((await tools.measure('9e')).text).toBe('9e reads 0.0 V.')
+    expect(await tools.measure('led1.leg')).toEqual({ ok: false, text: 'There is no hole, pin or leg called led1.leg.' })
+    expect((await setup({ hasCircuit: () => false }).tools.measure('9e')).ok).toBe(false)
   })
 
   it('lists the wired pins without GND', () => {
