@@ -1,4 +1,4 @@
-# Arduino Learner
+# Sparkit
 
 A browser course that teaches Arduino (and later robotics) on an interactive 3D board.
 Learners explore an Uno, wire parts on a breadboard, run a sketch and pass each lesson

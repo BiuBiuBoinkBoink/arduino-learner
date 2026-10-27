@@ -6,7 +6,7 @@
 export function createTopBar(container, course, { levels, onOpenMap, flow }) {
   const brand = document.createElement('span')
   brand.className = 'top-brand'
-  brand.textContent = 'Robo Learn'
+  brand.textContent = 'Sparkit'
 
   const crumb = document.createElement('p')
   crumb.className = 'top-crumb'

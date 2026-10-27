@@ -50,7 +50,7 @@ async function handle(req, res) {
   if (req.method === 'GET' && req.url === '/') {
     const ready = tutor.describe()
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
-    res.end(`Robo Learn tutor server, running: ${ready}.\n\nThis server only answers the help chat. Open the course from the dev server (npm run dev, usually http://localhost:7100/) and use the Ask tab.\n`)
+    res.end(`Sparkit tutor server, running: ${ready}.\n\nThis server only answers the help chat. Open the course from the dev server (npm run dev, usually http://localhost:7100/) and use the Ask tab.\n`)
     return
   }
   if (req.method !== 'POST' || req.url !== '/api/tutor') {

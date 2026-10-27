@@ -110,7 +110,7 @@ describe('buildApiRequest', () => {
 
   it('has an ASCII system prompt', () => {
     expect(/^[\x0a\x20-\x7e]*$/.test(SYSTEM_PROMPT)).toBe(true)
-    expect(SYSTEM_PROMPT.startsWith('You are the help chat inside Robo Learn')).toBe(true)
+    expect(SYSTEM_PROMPT.startsWith('You are the help chat inside Sparkit')).toBe(true)
     expect(SYSTEM_PROMPT.endsWith('such as names, ages, schools or addresses.')).toBe(true)
   })
 })

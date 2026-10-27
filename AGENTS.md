@@ -1,4 +1,4 @@
-# Robo Learn
+# Sparkit
 
 Browser course that teaches Arduino and robotics on an interactive 3D board.
 Learners wire parts on a breadboard, run code, and pass each lesson by meeting
@@ -365,7 +365,7 @@ src/
     sheetPeek.js   createSheetPeek({ container, flow, course }): the peek of the current step (kind and title,
                    'N of M done', and once passed 'Milestone done' with Continue or 'Lesson done' with the
                    next lesson)
-    topBar.js      createTopBar(container, course, { levels, onOpenMap, flow }) -> { mapButton }: Robo Learn, the
+    topBar.js      createTopBar(container, course, { levels, onOpenMap, flow }) -> { mapButton }: Sparkit, the
                    'Level 1 Basics / 1.2 Blink' breadcrumb, step progress from the flow (one 28 x 6 px segment
                    per step, good when passed, accent when current, line when locked, then 'Step 2 of 3' or
                    'Done'; the group's aria-label is 'Step 2 of 3' or 'Lesson done'), Prev and Next, and the

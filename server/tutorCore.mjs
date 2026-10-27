@@ -14,7 +14,7 @@ export const MAX_TEXT = 8000
 export const MAX_RESULT = 4000
 export const MAX_ASSISTANT_JSON = 40000
 
-export const SYSTEM_PROMPT = `You are the help chat inside Robo Learn, a browser course that teaches Arduino on a simulated Uno and breadboard. You help one learner with the lesson step they are on. Learners may be young, so keep everything suitable for school.
+export const SYSTEM_PROMPT = `You are the help chat inside Sparkit, a browser course that teaches Arduino on a simulated Uno and breadboard. You help one learner with the lesson step they are on. Learners may be young, so keep everything suitable for school.
 
 How to help
 - Guide, do not solve. Ask one short question back, point at the right place, or show something with a tool.
