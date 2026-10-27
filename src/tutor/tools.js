@@ -8,7 +8,9 @@
 // now" texts come back as normal results. No tool changes the build, the code
 // or progress: hints only go up to Show me, and inputs come back after a demo.
 //
-// createTutorTools(deps) -> { run(name, input), has(name) }
+// createTutorTools(deps) -> { run(name, input, { turn }), has(name) }: turn
+// names the learner question the call answers (from the chat loop);
+// show_placement is refused in the turn whose next_hint raised the hint.
 // deps: { explain (createExplainTools result), getBuild(), getStep() -> { lesson,
 //   step, hintLevel, passed, scope, canSuggest } | null, lessons, stepsFor,
 //   raiseHint(level), showPlacement(), highlight({ kind: 'place' | 'pin' | 'part',
@@ -32,6 +34,7 @@ export const LABEL_MAX = 40
 export const NOTE_MAX = 80
 export const CODE_LINE_MAX = 120
 export const SHOW_ME_FIRST = 'Show me is not available yet. Give a hint in words first.'
+export const HINT_FIRST = 'Show me is not available yet. Let the learner try the hint first.'
 export const TOO_MANY = 'Too many tools in one reply.'
 export const WAIT_FOR_ANSWER = 'Shown. Wait for the learner to answer.'
 const REFERENCE_TABS = { overview: 'Overview', pinout: 'Pinout', example: 'Example', specs: 'Specs' }
@@ -75,6 +78,10 @@ const wrong = (content) => ({ content, isError: true })
 
 export function createTutorTools(deps) {
   const setTimer = deps.setTimer || ((fn, ms) => setTimeout(fn, ms))
+  // The learner turn of the call running now, and the one next_hint last raised
+  // the hint in: Show me never follows a hint the learner has not seen yet.
+  let turn
+  let hintTurn
 
   // Placed parts of the build, by id.
   function placedPart(id) {
@@ -155,6 +162,7 @@ export function createTutorTools(deps) {
       if (!now.canSuggest) return wrong('This step has no placement to show.')
       if (!now.scope.includes(part)) return wrong(`${part} is not a part of this step.`)
       if (now.hintLevel < 1) return wrong(SHOW_ME_FIRST)
+      if (turn !== undefined && hintTurn === turn) return wrong(HINT_FIRST)
       deps.raiseHint(2)
       deps.showPlacement()
       return ok('One working placement shows as see-through parts with labels. Show me is now on for this step.', { chip: 'Showed a placement' })
@@ -243,13 +251,15 @@ export function createTutorTools(deps) {
       if (now.hintLevel >= 2) return wrong('The hints are at Show me already.')
       const level = now.hintLevel + 1
       deps.raiseHint(level)
+      hintTurn = turn
       return ok(level === 1 ? 'The hint shows in the step card.' : 'Show me shows in the step card.', { chip: 'Next hint' })
     }
   }
 
-  async function run(name, input) {
+  async function run(name, input, context = {}) {
     const problem = checkInput(name, input)
     if (problem) return wrong(problem)
+    turn = context.turn
     try {
       return await handlers[name](input)
     } catch {

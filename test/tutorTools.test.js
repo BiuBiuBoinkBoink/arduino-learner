@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createTutorTools, checkInput, plainText, SHOW_ME_FIRST, WAIT_FOR_ANSWER } from '../src/tutor/tools.js'
+import { createTutorTools, checkInput, plainText, SHOW_ME_FIRST, HINT_FIRST, WAIT_FOR_ANSWER } from '../src/tutor/tools.js'
 import { lessons } from '../src/course/lessons.js'
 import { stepsFor } from '../src/course/steps.js'
 
@@ -160,6 +160,21 @@ describe('createTutorTools', () => {
       const result = await tools.run('show_placement', { part: 'r1' })
       expect(result.isError).toBe(false)
       expect(calls).toEqual([['raiseHint', 2], ['showPlacement']])
+    })
+
+    it('is refused in the same learner turn that next_hint raised the hint in', async () => {
+      const { tools, calls, setStep } = stubs()
+      expect((await tools.run('next_hint', {}, { turn: 1 })).isError).toBe(false)
+      setStep({ hintLevel: 1 })
+      expect(await tools.run('show_placement', { part: 'r1' }, { turn: 1 })).toEqual({ content: HINT_FIRST, isError: true })
+      expect((await tools.run('show_placement', { part: 'r1' }, { turn: 2 })).isError).toBe(false)
+      expect(calls).toEqual([['raiseHint', 1], ['raiseHint', 2], ['showPlacement']])
+    })
+
+    it('works in the same turn when the learner raised the hint', async () => {
+      const { tools, setStep } = stubs()
+      setStep({ hintLevel: 1 })
+      expect((await tools.run('show_placement', { part: 'r1' }, { turn: 1 })).isError).toBe(false)
     })
 
     it('only works on build and wire steps that have not passed', async () => {

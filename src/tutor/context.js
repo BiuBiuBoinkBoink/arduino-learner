@@ -12,7 +12,7 @@
 //   { phase, readout, progress }.
 // formatState(state) -> '<workbench_state>\n{json}\n</workbench_state>'
 import { partLabel } from '../circuits/netlist.js'
-import { legsOf } from '../circuits/footprints.js'
+import { legsOf, terminalHoles, TERMINAL_LABELS } from '../circuits/footprints.js'
 
 export const MAX_CODE_LINES = 150
 
@@ -25,11 +25,27 @@ export function numberedCode(source) {
   return shown.join('\n')
 }
 
+// Each leg named with its terminal, so the tutor never guesses which hole is
+// the long leg: [{ leg: 'long leg (anode)', hole: '9e' }, ...] in leg order.
+export function namedLegs(part) {
+  const terminals = terminalHoles(part)
+  const words = TERMINAL_LABELS[part.type] || {}
+  const legs = []
+  for (const [terminal, holes] of Object.entries(terminals)) {
+    const label = words[terminal] || terminal
+    const leg = terminal === 'anode' || terminal === 'cathode' ? `${label} (${terminal})` : label
+    for (const hole of holes) legs.push({ leg, hole })
+  }
+  if (legs.length === 0) return legsOf(part).map((hole, i) => ({ leg: `leg ${i + 1}`, hole }))
+  const order = legsOf(part)
+  return legs.sort((x, y) => order.indexOf(x.hole) - order.indexOf(y.hole))
+}
+
 function circuitOf(build, connections) {
   if (!build) return null
   const parts = build.parts || []
   return {
-    parts: parts.map((part) => ({ id: part.id, label: partLabel(part, parts), legs: legsOf(part) })),
+    parts: parts.map((part) => ({ id: part.id, label: partLabel(part, parts), legs: namedLegs(part) })),
     wires: (build.wires || []).map((wire) => ({ from: wire.from, to: wire.to })),
     connections: (connections || []).map((row) => row.things.slice())
   }

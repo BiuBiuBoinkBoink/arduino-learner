@@ -30,15 +30,17 @@ function fakeServer(replies) {
 function setup(replies, runTool = async (name) => ({ content: `${name} ran`, isError: false, chip: name })) {
   const server = fakeServer(replies)
   const ran = []
+  const turns = []
   const chat = createChat({
     fetchImpl: server.fetchImpl,
     getState: () => STATE,
-    runTool: async (name, input) => {
+    runTool: async (name, input, context) => {
       ran.push([name, input])
+      turns.push(context.turn)
       return runTool(name, input)
     }
   })
-  return { chat, ran, requests: server.requests }
+  return { chat, ran, turns, requests: server.requests }
 }
 
 describe('createChat', () => {
@@ -85,6 +87,21 @@ describe('createChat', () => {
     ])
     // Every request is one the server accepts.
     for (const request of requests) expect(validateRequest(request.body).ok).toBe(true)
+  })
+
+  it('gives every tool call of one question the same turn, and the next question a new one', async () => {
+    const { chat, turns } = setup([
+      { body: { stop_reason: 'tool_use', content: [use('t1', 'next_hint', {})] } },
+      { body: { stop_reason: 'tool_use', content: [use('t2', 'show_placement', { part: 'r1' })] } },
+      { body: { stop_reason: 'end_turn', content: [text('Try the hint.')] } },
+      { body: { stop_reason: 'tool_use', content: [use('t3', 'show_placement', { part: 'r1' })] } },
+      { body: { stop_reason: 'end_turn', content: [text('There it is.')] } }
+    ])
+    await chat.ask('Where does it go?')
+    await chat.ask('Still stuck')
+    expect(turns).toHaveLength(3)
+    expect(turns[0]).toBe(turns[1])
+    expect(turns[2]).not.toBe(turns[0])
   })
 
   it('runs four tools and answers a fifth with an error', async () => {

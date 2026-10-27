@@ -7,7 +7,8 @@
 //
 // createChat({ endpoint, fetchImpl, runTool, getState }) -> { ask(text),
 //   reset(), getTranscript(), isBusy(), subscribe(fn) }
-// runTool(name, input) -> { content, isError, chip?, card? }; getState() -> the
+// runTool(name, input, { turn }) -> { content, isError, chip?, card? }, turn
+// being the same number for every call of one question; getState() -> the
 // state block text. getTranscript() -> [{ role: 'learner' | 'helper', text,
 // chips, cards, muted, note }]: what the Ask tab shows.
 
@@ -35,6 +36,8 @@ export function createChat({ endpoint = '/api/tutor', fetchImpl = (...args) => f
   let busy = false
   // Bumped by reset(), so an answer to an old conversation is dropped.
   let generation = 0
+  // Counts the learner's questions; every tool call of one answer gets the same number.
+  let questions = 0
   const listeners = new Set()
 
   function notify() {
@@ -70,7 +73,7 @@ export function createChat({ endpoint = '/api/tutor', fetchImpl = (...args) => f
     return { body }
   }
 
-  async function runTools(uses, helper) {
+  async function runTools(uses, helper, question) {
     const results = []
     for (const [index, use] of uses.entries()) {
       if (index >= MAX_TOOLS) {
@@ -79,7 +82,7 @@ export function createChat({ endpoint = '/api/tutor', fetchImpl = (...args) => f
       }
       let result
       try {
-        result = await runTool(use.name, use.input)
+        result = await runTool(use.name, use.input, { turn: question })
       } catch {
         result = { content: `${use.name} did not work right now.`, isError: true }
       }
@@ -96,6 +99,7 @@ export function createChat({ endpoint = '/api/tutor', fetchImpl = (...args) => f
     const question = String(text || '').trim().slice(0, MAX_QUESTION)
     if (!question || busy) return
     const gen = generation
+    const asked = ++questions
     if (messages.length > HISTORY_LIMIT) {
       messages = []
       transcript.push(turn('helper', FRESH_TEXT, { muted: true }))
@@ -138,7 +142,7 @@ export function createChat({ endpoint = '/api/tutor', fetchImpl = (...args) => f
           const uses = content.filter((block) => block.type === 'tool_use')
           if (uses.length === 0) return
           notify()
-          const results = await runTools(uses, helper)
+          const results = await runTools(uses, helper, asked)
           if (gen !== generation) return
           messages.push({ role: 'user', content: results })
           notify()

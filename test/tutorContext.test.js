@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildState, formatState, numberedCode, MAX_CODE_LINES } from '../src/tutor/context.js'
+import { buildState, formatState, numberedCode, namedLegs, MAX_CODE_LINES } from '../src/tutor/context.js'
 import { describeNets } from '../src/explain/connections.js'
 import { lessons } from '../src/course/lessons.js'
 import { circuits } from '../src/circuits/circuits.js'
@@ -43,12 +43,28 @@ describe('buildState', () => {
     const connections = describeNets(build, circuits['1.2'])
     const state = buildState({ lesson, step, build, connections })
     expect(state.circuit.parts).toEqual([
-      { id: 'r1', label: 'resistor', legs: ['5c', '9c'] },
+      { id: 'r1', label: 'resistor', legs: [{ leg: 'end', hole: '5c' }, { leg: 'end', hole: '9c' }] },
       { id: 'led1', label: 'LED', legs: [] }
     ])
     expect(state.circuit.wires).toEqual([{ from: 'D13', to: '5a' }])
     expect(state.circuit.connections).toEqual(connections.map((row) => row.things))
     expect(state.circuit.connections.flat()).toContain('D13')
+  })
+
+  it('names every leg, so the long leg of an LED is never a guess', () => {
+    expect(namedLegs({ id: 'led1', type: 'led', legs: ['9e', '10e'] })).toEqual([
+      { leg: 'long leg (anode)', hole: '9e' },
+      { leg: 'short leg (cathode)', hole: '10e' }
+    ])
+    expect(namedLegs({ id: 'led1', type: 'led', anode: '12c', cathode: '11c' })).toEqual([
+      { leg: 'long leg (anode)', hole: '12c' },
+      { leg: 'short leg (cathode)', hole: '11c' }
+    ])
+    expect(namedLegs({ id: 'btn1', type: 'button', legs: ['12e', '14e', '12f', '14f'] }).map((item) => item.leg))
+      .toEqual(['left side', 'right side', 'left side', 'right side'])
+    expect(namedLegs({ id: 'pot1', type: 'potentiometer', legs: ['5e', '6e', '7e'] }).map((item) => item.leg))
+      .toEqual(['outer leg', 'middle leg', 'outer leg'])
+    expect(namedLegs({ id: 'led1', type: 'led', legs: [] })).toEqual([])
   })
 
   it('has no circuit and no code when the lesson has none', () => {
