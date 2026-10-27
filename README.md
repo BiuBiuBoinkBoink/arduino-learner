@@ -59,20 +59,27 @@ It listens on port 7300 (`TUTOR_PORT` to change it); the dev server and `npm run
 now." `TUTOR_FAKE=1 npm run tutor` gives fixed replies without calling the API, for checks
 without a key. Chats are kept in memory only and the server never logs message text.
 
-### Hosting on Vercel
+### Hosting
 
-`api/tutor.mjs` answers `/api/tutor` as a Vercel function, using the same code as the tutor
-server, so the hosted site needs no separate server.
+The hosted site answers `/api/tutor` from a function that uses the same code as the tutor
+server (`server/tutorService.mjs`), so it needs no separate server. Both hosts below need the
+same environment variables: `VITE_TUTOR=on` and the provider settings from your `.env.local`
+(`ANTHROPIC_API_KEY`, or `TUTOR_PROVIDER=gemini` with `GEMINI_API_KEY`, and `GEMINI_MODEL` if
+you set one). They are read at build time, so redeploy after changing them. The hosted rate limit
+is per function instance, so it is looser than the local server's.
 
-1. On vercel.com, import the GitHub repo. Vercel finds Vite on its own (build `npm run build`,
-   output `dist`).
-2. In Project, Settings, Environment Variables add `VITE_TUTOR=on` and the provider settings from
-   your `.env.local`: `ANTHROPIC_API_KEY`, or `TUTOR_PROVIDER=gemini` with `GEMINI_API_KEY`
-   (and `GEMINI_MODEL` if you set one). Redeploy after changing them.
-3. Every push redeploys. The production link follows the production branch, and every branch
-   also keeps its own fixed link (`<project>-git-<branch>-<team>.vercel.app`).
+Netlify (`netlify.toml`, `netlify/functions/tutor.mjs`):
 
-The hosted rate limit is per function instance, so it is looser than the local server's.
+1. On netlify.com, Add new project, Import an existing project, pick the GitHub repo. The build
+   settings come from `netlify.toml`.
+2. Add the variables in Project configuration, Environment variables, then deploy.
+3. To get a link for a branch other than the production one, turn on branch deploys in Project
+   configuration, Build and deploy, Branches and deploy contexts. Each branch keeps its own fixed
+   link (`<branch>--<site>.netlify.app`, with `/` in the branch name turned into `-`).
+
+Vercel (`api/tutor.mjs`): import the repo on vercel.com (it finds Vite on its own), add the
+variables in Project, Settings, Environment Variables, and deploy. Each branch keeps its own fixed
+link (`<project>-git-<branch>-<team>.vercel.app`).
 
 ## Read this before writing code
 

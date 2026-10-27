@@ -90,7 +90,7 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/partCard.js`, `src/ui/whatIfCard.js`, `src/app/tutor.js`, `src/tutor/toolDefs.js`,
 `src/tutor/context.js`, `src/tutor/tools.js`, `src/tutor/chat.js`, `src/ui/askPanel.js`,
 `server/tutorCore.mjs`, `server/tutorService.mjs`, `server/tutor.mjs`, `server/gemini.mjs`,
-`api/tutor.mjs`, `vite.config.js`. The other
+`api/tutor.mjs`, `netlify/functions/tutor.mjs`, `netlify.toml`, `vite.config.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -517,6 +517,8 @@ server/            the tutor server (node, not bundled)
 api/
   tutor.mjs        Vercel function for POST /api/tutor on the hosted site, on the tutor service; keys from
                    the project's environment variables
+netlify/
+  functions/tutor.mjs the same function for Netlify (config.path /api/tutor); netlify.toml sets the build
   gemini.mjs       pure buildGeminiRequest, toGeminiContents, fromGeminiResponse, GEMINI_TOOLS, GEMINI_MODEL
 vite.config.js     proxies /api to http://localhost:7300 for dev and preview
 test/              vitest unit tests
