@@ -89,7 +89,8 @@ Present now: `src/main.js`, `src/scene/stage.js`, `src/scene/renderLoop.js`,
 `src/ui/explainCards.js`, `src/ui/currentTrace.js`, `src/ui/scope.js`, `src/ui/connectionsCard.js`,
 `src/ui/partCard.js`, `src/ui/whatIfCard.js`, `src/app/tutor.js`, `src/tutor/toolDefs.js`,
 `src/tutor/context.js`, `src/tutor/tools.js`, `src/tutor/chat.js`, `src/ui/askPanel.js`,
-`server/tutorCore.mjs`, `server/tutor.mjs`, `server/gemini.mjs`, `vite.config.js`. The other
+`server/tutorCore.mjs`, `server/tutorService.mjs`, `server/tutor.mjs`, `server/gemini.mjs`,
+`api/tutor.mjs`, `vite.config.js`. The other
 folders are the target for later jobs.
 
 ```
@@ -509,7 +510,13 @@ src/
                    getMessages, subscribe }; ERROR_TEXTS, REFUSAL_TEXT, CUT_SHORT, FRESH_TEXT
 server/            the tutor server (node, not bundled)
   tutorCore.mjs    pure SYSTEM_PROMPT, validateRequest, buildApiRequest, createRateLimiter, fakeReply, MODEL
-  tutor.mjs        node:http server, POST /api/tutor only; TUTOR_PROVIDER picks Claude (default) or Gemini
+  tutorService.mjs createTutorService(env) -> { setUp, answer(body, key), describe }: checks, rate limit and
+                   the provider call, shared by tutor.mjs and api/tutor.mjs; TUTOR_PROVIDER picks Claude
+                   (default) or Gemini
+  tutor.mjs        node:http server, POST /api/tutor only, on the tutor service
+api/
+  tutor.mjs        Vercel function for POST /api/tutor on the hosted site, on the tutor service; keys from
+                   the project's environment variables
   gemini.mjs       pure buildGeminiRequest, toGeminiContents, fromGeminiResponse, GEMINI_TOOLS, GEMINI_MODEL
 vite.config.js     proxies /api to http://localhost:7300 for dev and preview
 test/              vitest unit tests

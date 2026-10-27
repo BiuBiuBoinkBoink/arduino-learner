@@ -57,8 +57,22 @@ server. Everything else stays the same. Starting the tutor server again (after a
 It listens on port 7300 (`TUTOR_PORT` to change it); the dev server and `npm run preview` send
 `/api` to it. Without credentials every question answers "The help chat is not available right
 now." `TUTOR_FAKE=1 npm run tutor` gives fixed replies without calling the API, for checks
-without a key. Chats are kept in memory only and the server never logs message text. Hosting the
-server in production is not part of this work.
+without a key. Chats are kept in memory only and the server never logs message text.
+
+### Hosting on Vercel
+
+`api/tutor.mjs` answers `/api/tutor` as a Vercel function, using the same code as the tutor
+server, so the hosted site needs no separate server.
+
+1. On vercel.com, import the GitHub repo. Vercel finds Vite on its own (build `npm run build`,
+   output `dist`).
+2. In Project, Settings, Environment Variables add `VITE_TUTOR=on` and the provider settings from
+   your `.env.local`: `ANTHROPIC_API_KEY`, or `TUTOR_PROVIDER=gemini` with `GEMINI_API_KEY`
+   (and `GEMINI_MODEL` if you set one). Redeploy after changing them.
+3. Every push redeploys. The production link follows the production branch, and every branch
+   also keeps its own fixed link (`<project>-git-<branch>-<team>.vercel.app`).
+
+The hosted rate limit is per function instance, so it is looser than the local server's.
 
 ## Read this before writing code
 
