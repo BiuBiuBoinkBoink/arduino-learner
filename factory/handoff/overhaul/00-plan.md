@@ -282,3 +282,14 @@ the final screenshot shows, anything not verified.
   browser's own network line). Not verified: check 7 with the real API (no ANTHROPIC_API_KEY was set,
   so only TUTOR_FAKE was used; the server log showed no message text), the not_configured answer of a
   real server without credentials, real touch, and screen reader output.
+- 2026-10-27: phase 9 check 7 with a real model: Gemini (`TUTOR_PROVIDER=gemini`, `gemini-3.6-flash`;
+  no Anthropic key yet, so Claude is still not checked). 1.2 Add the resistor at hint level 0, LED at
+  9e (long leg) and 10e. `where does the resistor go?`: no exact holes, a part card and a highlight,
+  but it lit 10e and said the long leg is in strip 10, which is the short leg. Cause: the state
+  block sends `legs` as a bare list (`["9e", "10e"]`) with no terminal names. `just show me the
+  placement for the resistor please`: three tool rounds; the chips show only `Next hint` and
+  `Showed a placement` (failed calls get no chip), so the first round was most likely a refused
+  show_placement, after which the model raised the hint itself and showed the placement in the same
+  reply (hint level went 0 to 2). The gate holds per call but not per reply. The fourth request got
+  Gemini 429, shown as `The helper is busy.` Server log: time, status, stop reason and tokens only,
+  no message text.
